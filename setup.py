@@ -31,7 +31,12 @@ setup(
         [console_scripts]
         freespeech=freespeech.cli:cli
     """,
-    install_requires=["click"],
+    install_requires=[
+        "click",
+        "ffmpeg-python",
+        "pytube",
+        "google-cloud-texttospeech"
+    ],
     extras_require={
         "test": ["pytest"]
     },
