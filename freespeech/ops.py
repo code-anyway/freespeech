@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import List
 
 import ffmpeg
-import freespeech.split_text as split_text
 from google.cloud import texttospeech
 from pytube import YouTube
 
@@ -79,7 +78,11 @@ def download(url: str, root: Path):
     root = Path(root)
     yt = YouTube(url)
     audio, = yt.streams.filter(mime_type="audio/webm", abr="160kbps")
-    video, = yt.streams.filter(mime_type="video/mp4", res="1080p")
+
+    video = yt.streams.filter(mime_type="video/mp4", res="1080p")
+    print(f"Video streams: {video}")
+    video = video[1]
+    print(f"Using video stream: {video}")
 
     return (
         audio.download(output_path=root, filename=f"audio.webm"),
