@@ -1,4 +1,5 @@
 import hashlib
+import os
 import tempfile
 import re
 from pathlib import Path
@@ -6,6 +7,9 @@ from typing import List
 
 import ffmpeg
 from google.cloud import texttospeech
+from google.oauth2 import service_account
+import googleapiclient.discovery
+
 from pytube import YouTube
 
 
@@ -32,9 +36,8 @@ def chunk(text: str, max_chars: int) -> List[str]:
     return list(chunk_sentences())
 
 
-def text_to_speech(file_name: str, language_code: str, voice_name: str, speaking_rate: float, pitch: float, output_path: str):
-    with open(file_name) as lines:
-        phrases = chunk("\n".join(list(lines)), 1000)
+def text_to_speech(text: str, language_code: str, voice_name: str, speaking_rate: float, pitch: float, output_path: str):
+    phrases = chunk(text, 1000)
 
     client = texttospeech.TextToSpeechClient()
 
@@ -57,9 +60,9 @@ def text_to_speech(file_name: str, language_code: str, voice_name: str, speaking
     with tempfile.TemporaryDirectory() as media_root:
         inputs = []
 
-        # astaff (20220311): refactor to use in-memory stream instead of disk file
+        # astaff (20220311): refactor to use in-memory stream instead of a disk file
         for i, response in enumerate(responses):
-            file_name = str(Path(media_root) / f"{hash(file_name)}-{i}.wav")
+            file_name = str(Path(media_root) / f"{hash(text)}-{i}.wav")
 
             with open(file_name, "wb") as out:
                 out.write(response.audio_content)
@@ -119,3 +122,56 @@ def add_audio(video_path: str, audio_paths: List[str], output_path: str, weights
 def probe(path: Path) -> float:
     return ffmpeg.probe(path)
 
+
+def read_paragraph_element(element):
+    """Returns the text in the given ParagraphElement.
+
+        Args:
+            element: a ParagraphElement from a Google Doc.
+    """
+    text_run = element.get('textRun')
+    if not text_run:
+        return ''
+    return text_run.get('content')
+
+
+def read_structural_elements(elements):
+    """Recurses through a list of Structural Elements to read a document's text where text may be
+        in nested elements.
+
+        Args:
+            elements: a list of Structural Elements.
+    """
+    text = ''
+    for value in elements:
+        if 'paragraph' in value:
+            elements = value.get('paragraph').get('elements')
+            for elem in elements:
+                text += read_paragraph_element(elem)
+        elif 'table' in value:
+            # The text in table cells are in nested Structural Elements and tables may be
+            # nested.
+            table = value.get('table')
+            for row in table.get('tableRows'):
+                cells = row.get('tableCells')
+                for cell in cells:
+                    text += read_structural_elements(cell.get('content'))
+        elif 'tableOfContents' in value:
+            # The text in the TOC is also in a Structural Element.
+            toc = value.get('tableOfContents')
+            text += read_structural_elements(toc.get('content'))
+    return text
+
+
+def extract_text_from_google_docs(url: str) -> str:
+    """Returns text contents of Google Docs document specified in `url`"""
+    SCOPES = ['https://www.googleapis.com/auth/documents.readonly']
+    SERVICE_ACCOUNT_FILE = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
+
+    document_id, *_ = re.findall(r"\/document\/d\/([a-zA-Z0-9-_]+)", url)
+
+    credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+    service = googleapiclient.discovery.build('docs', 'v1', credentials=credentials)
+
+    document = service.documents().get(documentId=document_id).execute()
+    return read_structural_elements(document.get('body').get('content'))

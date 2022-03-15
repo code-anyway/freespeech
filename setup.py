@@ -35,7 +35,8 @@ setup(
         "click",
         "ffmpeg-python",
         "pytube",
-        "google-cloud-texttospeech"
+        "google-cloud-texttospeech",
+        "google-api-python-client"
     ],
     extras_require={
         "test": ["pytest"]
