@@ -1,7 +1,8 @@
 FROM docker:20.10.12 as static-docker-source
-
 FROM python:3.9-buster
 
+# Install Google Cloud SDK
+# Source: https://github.com/GoogleCloudPlatform/cloud-sdk-docker/blob/master/debian_slim/Dockerfile
 ARG CLOUD_SDK_VERSION=377.0.0
 ENV CLOUD_SDK_VERSION=$CLOUD_SDK_VERSION
 ENV PATH "$PATH:/opt/google-cloud-sdk/bin/"
@@ -30,22 +31,27 @@ RUN apt-get update -qqy && apt-get install -qqy \
 
 RUN git config --system credential.'https://source.developers.google.com'.helper gcloud.sh
 
-# Service-specific files
-RUN apt-get install -qqy ffmpeg jq
+# Install service-specific packages
+RUN apt-get install -qqy \
+    ffmpeg \
+    jq
 
 # Python virtualenv: https://pythonspeed.com/articles/activate-virtualenv-dockerfile/
 ENV VIRTUAL_ENV=/opt/venv
 RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-RUN pip install --upgrade pip
+RUN pip install --upgrade \
+    pip \
+    wheel
 
-RUN mkdir /root/freespeech && mkdir /root/freespeech/freespeech && mkdir /root/freespeech/workflows
-
+# Create folder structure, copy, and install package files
+RUN mkdir /root/freespeech && \
+    mkdir /root/freespeech/freespeech && \
+    mkdir /root/freespeech/workflows
 COPY freespeech /root/freespeech/freespeech
 COPY workflows  /root/freespeech/workflows  
 COPY setup.py /root/freespeech/
 COPY README.md /root/freespeech/
-
 RUN cd /root/freespeech && pip install .
 
 ENV GOOGLE_APPLICATION_CREDENTIALS="/root/credentials.json"
