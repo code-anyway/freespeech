@@ -11,5 +11,5 @@ for line in $(cat "$1")
 do
     echo "$line"
     IFS=',' read -r url transcript language voice <<< "$line"
-    SCRIPT_DIR/ingest_synthesize_mix.sh "$url" "$transcript" "$language" "$voice" "$OUTPUT_DIR" "$PROJECT_ID" "$BUCKET"
+    $SCRIPT_DIR/ingest_synthesize_mix.sh "$url" "$transcript" "$language" "$voice" "$OUTPUT_DIR" "$PROJECT_ID" "$BUCKET"
 done
