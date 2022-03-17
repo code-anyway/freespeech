@@ -37,7 +37,7 @@ spec:
         - name: OUTPUT_BUCKET
           value: gs://freespeech-output
         command: ["/bin/sh"]
-        args: ["-c", "gsutil cat $INPUT_CSV | /root/freespeech/batch_from_csv.sh - $OUTPUT_DIR $PROJECT_ID $OUTPUT_BUCKET"]
+        args: ["-c", "gsutil cat '$(INPUT_CSV)' | /root/freespeech/batch_from_csv.sh - '$(OUTPUT_DIR)' '$(PROJECT_ID)' '$(OUTPUT_BUCKET)'"]
       volumes:
       - name: output-volume
         emptyDir: {}

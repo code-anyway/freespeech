@@ -54,6 +54,4 @@ COPY setup.py /root/freespeech/
 COPY README.md /root/freespeech/
 RUN cd /root/freespeech && pip install .
 
-ENV GOOGLE_APPLICATION_CREDENTIALS="/root/id/credentials.json"
-
 VOLUME ["/root/.config", "/root/id/", "/root/data/"]
