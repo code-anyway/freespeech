@@ -1,0 +1,50 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: job-add-voiceover-batch
+spec:
+  completions: 1
+  parallelism: 1
+  template:
+    metadata:
+      name: job-add-voiceover-batch
+    spec:
+      containers:
+      - name: freespeech
+        image: gcr.io/freespeech-343914/github.com/astaff/freespeech
+        volumeMounts:
+        - name: service-account-credentials-volume
+            mountPath: /root/id
+            readOnly: true
+        - mountPath: /root/output
+          name: output-volume
+        resources:
+          requests:
+            memory: "16384Mi"
+            cpu: 8.0
+          limits:
+            memory: "32768Mi"
+            cpu: 16.0
+        env:
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: /root/id/credentials.json
+        - name: INPUT_CSV
+          value: gs://freespeech-queue/20220317.csv
+        - name: OUTPUT_DIR
+          value: /root/data
+        - name: PROJECT_ID
+          value: freespeech-343914
+        - name: OUTPUT_BUCKET
+          value: gs://freespeech-output
+        command: ["/bin/sh"]
+        args: ["-c", "gsutil cat $INPUT_CSV | /root/freespeech/batch_from_csv.sh - $OUTPUT_DIR $PROJECT_ID $OUTPUT_BUCKET"]
+      volumes:
+      - name: output-volume
+        emptyDir: {}
+      - name: service-account-credentials-volume
+        secret:
+          secretName: service-account-credentials
+          items:
+          - key: credentials_json
+            path: credentials.json
+      restartPolicy: OnFailure

@@ -1,5 +1,6 @@
 data/
 output/
 id/
+conf/
 __pycache__/
 *.egg-info/
