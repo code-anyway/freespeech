@@ -39,6 +39,12 @@ def chunk(text: str, max_chars: int) -> List[str]:
 def text_to_speech(text: str, language_code: str, voice_name: str, speaking_rate: float, pitch: float, output_path: str):
     phrases = chunk(text, 1000)
 
+    assert language_code in ("en-US", "ru-RU")
+    assert voice_name in (
+        *[f"en-US-Wavenet-{suffix}" for suffix in 'ABCDEFGHIJ'],
+        *[f"ru-RU-Wavenet-{suffix}" for suffix in 'ABCDE']
+    )
+
     client = texttospeech.TextToSpeechClient()
 
     responses = [

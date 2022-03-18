@@ -11,19 +11,21 @@ spec:
     spec:
       containers:
       - name: freespeech
-        image: gcr.io/freespeech-343914/github.com/astaff/freespeech
+        image: gcr.io/freespeech-343914/github.com/astaff/freespeech:latest
         volumeMounts:
         - name: service-account-credentials-volume
-            mountPath: /root/id
-            readOnly: true
+          mountPath: /root/id
+          readOnly: true
         - mountPath: /root/output
           name: output-volume
         resources:
           requests:
             memory: "16384Mi"
+            ephemeral-storage: "32Gi"
             cpu: 8.0
           limits:
             memory: "32768Mi"
+            ephemeral-storage: "64Gi"
             cpu: 16.0
         env:
         - name: GOOGLE_APPLICATION_CREDENTIALS
@@ -35,9 +37,9 @@ spec:
         - name: PROJECT_ID
           value: freespeech-343914
         - name: OUTPUT_BUCKET
-          value: gs://freespeech-output
+          value: freespeech-output
         command: ["/bin/sh"]
-        args: ["-c", "gsutil cat '$(INPUT_CSV)' | /root/freespeech/batch_from_csv.sh - '$(OUTPUT_DIR)' '$(PROJECT_ID)' '$(OUTPUT_BUCKET)'"]
+        args: ["-c", "gcloud auth activate-service-account --key-file $(GOOGLE_APPLICATION_CREDENTIALS) && gsutil cat '$(INPUT_CSV)' | tr -d '\r' | /root/freespeech/workflows/batch_from_csv.sh - '$(OUTPUT_DIR)' '$(PROJECT_ID)' '$(OUTPUT_BUCKET)'"]
       volumes:
       - name: output-volume
         emptyDir: {}
