@@ -14,7 +14,8 @@ from pytube import YouTube
 
 
 def hash(s: str) -> str:
-    return hashlib.sha256(s.encode("utf-8")).hexdigest()
+    hashed = hashlib.sha256(s.encode("utf-8")).hexdigest()
+    return hashed
 
 
 def extract_video_info(url: str) -> Dict[str, str]:
@@ -22,7 +23,8 @@ def extract_video_info(url: str) -> Dict[str, str]:
 
     return {
         "title": yt.title,
-        "description": yt.description
+        "description": yt.description,
+        "url": yt.watch_url,
     }
 
 
@@ -88,25 +90,26 @@ def text_to_speech(text: str, language_code: str, voice_name: str, speaking_rate
         # https://stackoverflow.com/questions/71390302/ffmpeg-python-stream-specifier-in-filtergraph-description-0concat-n-1s0-m
         stream = ffmpeg.concat(*inputs, v=0, a=1)
         
-        ffmpeg.output(stream, output_path).run(overwrite_output=True)
+        ffmpeg.output(stream, output_path).run(overwrite_output=True, capture_stderr=True)
 
 
 
 def download(url: str, root: Path):
     root = Path(root)
     yt = YouTube(url)
-    audio, = yt.streams.filter(mime_type="audio/webm", abr="160kbps")
+    audio = yt.streams.get_audio_only()
+    video = yt.streams.get_highest_resolution()
 
-    video = yt.streams.filter(mime_type="video/mp4", res="1080p")
-    print(f"Video streams: {video}")
-    video = video[1]
-    print(f"Using video stream: {video}")
+    print(f"Video stream: {video}")
+    print(f"Audio stream: {audio}")
 
-    return (
-        audio.download(output_path=root, filename=f"audio.webm"),
-        video.download(output_path=root, filename=f"video.mp4")
-    )
-
+    try:
+        return (
+            audio.download(output_path=root, filename=f"audio.webm"),
+            video.download(output_path=root, filename=f"video.mp4", max_retries=10)
+        )
+    except Exception as e:
+        raise RuntimeError(f"Unable to download {url}") from e
 
 def add_audio(video_path: str, audio_paths: List[str], output_path: str, weights: List[int]):
     video_duration = float(ffmpeg.probe(video_path)['format']['duration'])
@@ -127,11 +130,13 @@ def add_audio(video_path: str, audio_paths: List[str], output_path: str, weights
         weights=' '.join([str(w) for w in weights])
     )
 
-    return ffmpeg.output(
+    ffmpeg.output(
         mixed_audio,
         video,
         output_path
-    ).run(overwrite_output=True)
+    ).run(overwrite_output=True, capture_stderr=True)
+
+    return output_path
 
 
 def probe(path: Path) -> float:

@@ -91,10 +91,9 @@ def probe(path):
     click.echo(json.dumps(ops.probe(path=path)))
 
 
-
 @cli.command(name="meta")
 @click.option("-u", "--url", required=True, help="URL containing original stream")
-@click.option("-o", "--output_dir", required=True, help="Path to dir where to store the resulting JSON", type=click.Path())
-def meta(url, output_dir):
-    with open(Path(output_dir) / f"{ops.hash(url)}-meta.json", "w") as fp:
+@click.option("-o", "--output", required=True, help="Filename for the resulting JSON", type=click.Path())
+def meta(url, output):
+    with open(Path(output), "w") as fp:
         json.dump(ops.extract_video_info(url), fp, ensure_ascii=False)
