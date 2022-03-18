@@ -3,7 +3,7 @@ import os
 import tempfile
 import re
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 
 import ffmpeg
 from google.cloud import texttospeech
@@ -15,6 +15,15 @@ from pytube import YouTube
 
 def hash(s: str) -> str:
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
+
+
+def extract_video_info(url: str) -> Dict[str, str]:
+    yt = YouTube(url)
+
+    return {
+        "title": yt.title,
+        "description": yt.description
+    }
 
 
 def chunk(text: str, max_chars: int) -> List[str]:

@@ -4,6 +4,9 @@ import logging
 import freespeech.ops as ops
 
 
+from pathlib import Path
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -86,3 +89,12 @@ def synthesize(text_file, output, pitch, rate, language, voice, duration):
 @click.argument('path', nargs=1, type=click.Path())
 def probe(path):
     click.echo(json.dumps(ops.probe(path=path)))
+
+
+
+@cli.command(name="meta")
+@click.option("-u", "--url", required=True, help="URL containing original stream")
+@click.option("-o", "--output_dir", required=True, help="Path to dir where to store the resulting JSON", type=click.Path())
+def meta(url, output_dir):
+    with open(Path(output_dir) / f"{ops.hash(url)}-meta.json", "w") as fp:
+        json.dump(ops.extract_video_info(url), fp, ensure_ascii=False)
