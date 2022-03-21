@@ -26,6 +26,7 @@ def extract_video_info(url: str) -> Dict[str, str]:
         "title": yt.title,
         "description": yt.description,
         "url": yt.watch_url,
+        "tags": yt.keywords
     }
 
 

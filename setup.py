@@ -37,7 +37,10 @@ setup(
         "pytube",
         "google-cloud-texttospeech",
         "google-cloud-translate",
-        "google-api-python-client"
+        "google-api-python-client",
+        "google-auth",
+        "google-auth-oauthlib",
+        "google-auth-httplib2",
     ],
     extras_require={
         "test": ["pytest"]

@@ -1,10 +1,13 @@
 import click
 import json
 import logging
-import freespeech.ops as ops
 
 
 from pathlib import Path
+
+
+from . import youtube
+from . import ops
 
 
 logger = logging.getLogger(__name__)
@@ -115,3 +118,18 @@ def translate(file, source_language, target_language, project_id, keys):
         }
     
     click.echo(json.dumps(res, ensure_ascii=False))
+
+
+@cli.command(name="authorize")
+@click.option("-s", "--secret_file", required=True, help="Client secret file, i.e. generated from Google Cloud Console: https://developers.google.com/youtube/v3/guides/auth/server-side-web-apps#python")
+@click.option("-o", "--output_file", required=True, help="Output file to store credentials JSON")
+def authorize(secret_file, output_file):
+    youtube.authorize(secret_file=secret_file, credentials_file=output_file)
+
+
+@cli.command(name="upload")
+@click.option("-v", "--video_file", required=True, help="Video file to upload")
+@click.option("-m", "--meta_file", required=True, help="JSON containing YouTube meta data")
+@click.option("-c", "--credentials_file", required=True, help="Credentials file obtained via `authorize` command.")
+def upload(video_file, meta_file, credentials_file):
+    youtube.upload(video_file=video_file, meta_file=meta_file, credentials_file=credentials_file)
