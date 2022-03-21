@@ -36,6 +36,7 @@ setup(
         "ffmpeg-python",
         "pytube",
         "google-cloud-texttospeech",
+        "google-cloud-translate",
         "google-api-python-client"
     ],
     extras_require={

@@ -7,6 +7,7 @@ from typing import Dict, List
 
 import ffmpeg
 from google.cloud import texttospeech
+from google.cloud import translate
 from google.oauth2 import service_account
 import googleapiclient.discovery
 
@@ -195,3 +196,27 @@ def extract_text_from_google_docs(url: str) -> str:
 
     document = service.documents().get(documentId=document_id).execute()
     return read_structural_elements(document.get('body').get('content'))
+
+
+def translate_text(text, source_language, target_language, project_id):
+    client = translate.TranslationServiceClient()
+
+    location = "global"
+
+    parent = f"projects/{project_id}/locations/{location}"
+
+    # Translate text from English to French
+    # Detail on supported types can be found here:
+    # https://cloud.google.com/translate/docs/supported-formats
+    response = client.translate_text(
+        request={
+            "parent": parent,
+            "contents": [text],
+            "mime_type": "text/plain",  # mime types: text/plain, text/html
+            "source_language_code": source_language,
+            "target_language_code": target_language,
+        }
+    )
+
+    # Display the translation for each input text provided
+    return ''.join(t.translated_text for t in response.translations)

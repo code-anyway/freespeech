@@ -31,7 +31,7 @@ spec:
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: /root/id/credentials.json
         - name: INPUT_CSV
-          value: gs://freespeech-queue/20220317.csv
+          value: gs://freespeech-queue/20220318.csv
         - name: OUTPUT_DIR
           value: /root/data
         - name: PROJECT_ID

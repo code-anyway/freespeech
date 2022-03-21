@@ -97,3 +97,21 @@ def probe(path):
 def meta(url, output):
     with open(Path(output), "w") as fp:
         json.dump(ops.extract_video_info(url), fp, ensure_ascii=False)
+
+
+@cli.command(name="translate")
+@click.argument('file', nargs=1, type=click.Path())
+@click.option("-s", "--source_language", required=True, help="ex: ru-RU, en-US")
+@click.option("-t", "--target_language", required=True, help="ex: ru-RU, en-US")
+@click.option("-p", "--project_id", required=True, help="Google Cloud Project ID: i.e. freespeech-343914")
+@click.option("-k", "--keys", required=True, help="Only values for keys listed here will be translated")
+def translate(file, source_language, target_language, project_id, keys):
+    keys = keys.split(",")
+
+    with open(file, "r") as fd:
+        res = {
+            k: ops.translate_text(v, source_language, target_language, project_id) if k in keys else v
+            for k, v in json.load(fd).items()
+        }
+    
+    click.echo(json.dumps(res, ensure_ascii=False))
