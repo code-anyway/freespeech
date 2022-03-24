@@ -1,5 +1,5 @@
 FROM docker:20.10.12 as static-docker-source
-FROM python:3.9-buster
+FROM python:3.10-buster
 
 # Install Google Cloud SDK
 # Source: https://github.com/GoogleCloudPlatform/cloud-sdk-docker/blob/master/debian_slim/Dockerfile
