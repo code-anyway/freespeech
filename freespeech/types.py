@@ -1,10 +1,10 @@
-from typing import List, Literal
+from pathlib import Path
 from dataclasses import dataclass
-
+from typing import List, Literal
 
 Locator = str
 Language = Literal["en-US", "uk-UK", "ru-RU"]
-Voice = Literal["us-W"]
+Voice = Literal["ru-RU-Wavenet-D", "en-US-Wavenet-I"]
 
 
 @dataclass(frozen=False)
@@ -20,46 +20,61 @@ class Transcript:
     events: List[Event]
 
 
-
 @dataclass(frozen=False)
 class Media:
-    i
+    id: str
     duration_ms: float | None
     title: str
     description: str
-    url: str
-    source: str
+    origin: str
+    file: str | None
     transcript: Transcript | None
+    voice: Voice
 
 
 Audio = Media
 Video = Media
 
 
-    
-    
-    
+@dataclass(frozen=False)
+class Job:
+    id: str
+    status: Literal["Successful", "Cancelled", "Pending", "Failed"]
 
 
+@dataclass(frozen=True)
+class FileStorage:
+    path: Path
 
-def synthesize(t: Transcript) -> Audio:
+
+@dataclass(frozen=True)
+class GoogleStorage:
+    bucket: str
+    path: str
+
+
+Storage = FileStorage | GoogleStorage
+
+
+def synthesize(tr: Transcript, vo: Voice, rate: int) -> Audio:
+    """
+    Synthesize speech from transcript using voice `vo` and speaking `rate`
+    """
     pass
 
 
-def voiceover(v: Video, a: Audio) -> Video:
+def add_audio(vi: Video, au: Audio) -> Video:
+    """Set audio for a video stream"""
     pass
 
 
-def mix(streams: List[Audio], weights: List[int]) -> Audio:
+def voiceover(vi: Video, tr: Transcript, vo: Voice) -> Video:
     pass
 
 
-def download(v: Locator) -> Video:
+def mix(au: List[Audio], w: List[int]) -> Audio:
     pass
 
 
-def translate(t: Transcript) -> Transcript:
+def download(url: Locator) -> Video:
     pass
-
-
-Asset = Audio | Video
