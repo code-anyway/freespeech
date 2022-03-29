@@ -2,22 +2,20 @@ import http.client
 import json
 import random
 import time
-from typing import BinaryIO, Callable, Any, Generator, Dict
 from pathlib import Path
-from pytube import YouTube
-from contextlib import contextmanager
 from tempfile import TemporaryDirectory
-
+from urllib.parse import ParseResult, urlparse
 
 import google_auth_oauthlib.flow
 import httplib2
+import pytube
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
-
-from freespeech.types import Storage, FileStorage, GoogleStorage, Audio, Video
+from freespeech.types import Media, Stream
+from freespeech import storage
 
 # Explicitly tell the underlying HTTP transport library not to retry, since
 # we are handling retry logic ourselves.
@@ -190,60 +188,49 @@ def upload(video_file, meta_file, credentials_file):
     )
 
 
-def extract_video_info(url: str) -> Dict[str, str]:
-    yt = YouTube(url)
-
-    return {
-        "title": yt.title,
-        "description": yt.description,
-        "url": yt.watch_url,
-        "tags": yt.keywords,
-    }
-
-
-@contextmanager
-def get_on_progress_callback(
-    storage: Storage,
-    file_name: str
-) -> Generator[Callable[[Any, bytes, int], None], None, None]:
-    match storage:
-        case FileStorage((path)):
-            with open(path / file_name, "wb") as fd:
-                try:
-                    def _local_storage_callback(
-                        chunk: bytes,
-                        file_handler: bytes,
-                        bytes_remaining: int
-                    ) -> None:
-                        fd.write(file_handler)
-                    yield _local_storage_callback
-                finally:
-                    pass
-        case GoogleStorage():
-            raise NotImplementedError(
-                "Google Cloud storage is not yet implemented.")
-
-
-def download(url: str, storage: Storage) -> Tuple[Audio, Video]:
-    yt = YouTube(url)
-
-    Audio(
-        
+def download_stream(
+    source: pytube.YouTube,
+    stream: pytube.Stream,
+    storage_url: str,
+    temp_path: Path
+):
+    res = Stream(
+        storage_url=storage_url,
+        suffix=stream.subtype,
+        duration_ms=source.length * 1000
     )
+
+    filename = Path(urlparse(res.url).path).name
+    stream.download(output_path=temp_path, filename=filename)
+
+    storage.put(temp_path / filename, res.url)
+
+    return res
+
+
+def download(video_url: str, storage_url: str) -> Media:
+    yt = pytube.YouTube(video_url)
 
     audio = yt.streams.get_audio_only()
     video = yt.streams.get_highest_resolution()
 
     with TemporaryDirectory() as output:
-        try:
-            with get_on_progress_callback(storage, "audio.webm") \
-                 as on_progress_callback:
-                yt.register_on_progress_callback(on_progress_callback)
-                audio.download(output_path=output, filename="audio.webm")
+        audio_stream = download_stream(
+            source=yt,
+            stream=audio,
+            storage_url=storage_url,
+            temp_path=Path(output))
+        video_stream = download_stream(
+            source=yt,
+            stream=video,
+            storage_url=storage_url,
+            temp_path=Path(output))
 
-            with get_on_progress_callback(storage, "video.mp4") \
-                 as on_progress_callback:
-                yt.register_on_progress_callback(on_progress_callback)
-                video.download(output_path=output, filename="video.mp4"),
-        except Exception as e:
-            raise RuntimeError(f"Unable to download {url}") from e
+        return Media(
+            audio=[audio_stream],
+            video=[video_stream],
+            title=yt.title,
+            description=yt.description,
+            tags=yt.keywords,
+            origin=video_url
+        )

@@ -1,5 +1,6 @@
-from setuptools import setup
 import os
+
+from setuptools import setup
 
 VERSION = "0.1"
 
@@ -37,6 +38,7 @@ setup(
         "pytube",
         "google-cloud-texttospeech",
         "google-cloud-translate",
+        "google-cloud-storage",
         "google-api-python-client",
         "google-auth",
         "google-auth-oauthlib",

@@ -1,4 +1,5 @@
 from typing import List
+
 from google.cloud import translate as translate_api
 
 from freespeech import const

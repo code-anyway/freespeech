@@ -1,6 +1,5 @@
 from freespeech import text
-from freespeech.types import Audio, Transcript, Language, Voice
-
+from freespeech.types import Audio, Language, Transcript, Voice
 
 MAX_CHUNK_LENGTH = 1000  # Google Speech API Limit
 

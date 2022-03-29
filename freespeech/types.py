@@ -1,5 +1,5 @@
-from pathlib import Path
-from dataclasses import dataclass
+import uuid
+from dataclasses import InitVar, dataclass, field
 from typing import List, Literal
 
 Locator = str
@@ -9,8 +9,8 @@ Voice = Literal["ru-RU-Wavenet-D", "en-US-Wavenet-I"]
 
 @dataclass(frozen=False)
 class Event:
-    time_ms: float
-    duration_ms: float
+    time_ms: int
+    duration_ms: int
     chunks: List[str]
 
 
@@ -18,63 +18,33 @@ class Event:
 class Transcript:
     lang: Language
     events: List[Event]
+    _id: uuid.UUID = field(default_factory=uuid.uuid4)
+
+
+@dataclass(frozen=False)
+class Stream:
+    duration_ms: int
+    url: str = field(init=False)
+    storage_url: InitVar[str]
+    suffix: InitVar[str]
+    _id: uuid.UUID = field(default_factory=uuid.uuid4)
+
+    def __post_init__(self, storage_url, suffix):
+        self.url = f"{storage_url}/{self._id}.{suffix}"
 
 
 @dataclass(frozen=False)
 class Media:
-    id: str
-    duration_ms: float | None
+    audio: List[Stream]
+    video: List[Stream]
     title: str
     description: str
+    tags: List[str]
     origin: str
-    file: str | None
-    transcript: Transcript | None
-    voice: Voice
-
-
-Audio = Media
-Video = Media
+    _id: uuid.UUID = field(default_factory=uuid.uuid4)
 
 
 @dataclass(frozen=False)
 class Job:
-    id: str
     status: Literal["Successful", "Cancelled", "Pending", "Failed"]
-
-
-@dataclass(frozen=True)
-class FileStorage:
-    path: Path
-
-
-@dataclass(frozen=True)
-class GoogleStorage:
-    bucket: str
-    path: str
-
-
-Storage = FileStorage | GoogleStorage
-
-
-def synthesize(tr: Transcript, vo: Voice, rate: int) -> Audio:
-    """
-    Synthesize speech from transcript using voice `vo` and speaking `rate`
-    """
-    pass
-
-
-def add_audio(vi: Video, au: Audio) -> Video:
-    """Set audio for a video stream"""
-    pass
-
-
-def voiceover(vi: Video, tr: Transcript, vo: Voice) -> Video:
-    pass
-
-
-def mix(au: List[Audio], w: List[int]) -> Audio:
-    pass
-
-
-def download(url: Locator) -> Video:
-    pass
+    _id: uuid.UUID = field(default_factory=uuid.uuid4)
