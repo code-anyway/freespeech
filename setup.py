@@ -39,6 +39,7 @@ setup(
         "google-cloud-texttospeech",
         "google-cloud-translate",
         "google-cloud-storage",
+        "google-cloud-speech",
         "google-api-python-client",
         "google-auth",
         "google-auth-oauthlib",

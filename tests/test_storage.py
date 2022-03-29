@@ -15,7 +15,7 @@ def test_put_get_local(tmp_path):
     url = f"file:///{tmp_path}/{dst_file}"
 
     storage.put(src_file, url)
-    storage.get(url, download_path)
+    assert storage.get(url, download_path) == str(download_path / dst_file)
 
     assert (download_path / dst_file).read_text() == "Hello Local World!"
 
@@ -31,6 +31,6 @@ def test_put_get_google_cloud_storage(tmp_path):
     url = f"gs://{GS_TEST_BUCKET}/test_storage/{dst_file}"
 
     storage.put(src_file, url)
-    storage.get(url, download_path)
+    assert storage.get(url, download_path) == str(download_path / dst_file)
 
     assert (download_path / dst_file).read_text() == "Hello Cloud World!"

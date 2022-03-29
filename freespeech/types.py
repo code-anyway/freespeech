@@ -1,6 +1,9 @@
 import uuid
 from dataclasses import InitVar, dataclass, field
 from typing import List, Literal
+from urllib.parse import urlparse, urlunparse
+from pathlib import Path
+
 
 Locator = str
 Language = Literal["en-US", "uk-UK", "ru-RU"]
@@ -30,7 +33,10 @@ class Stream:
     _id: uuid.UUID = field(default_factory=uuid.uuid4)
 
     def __post_init__(self, storage_url, suffix):
-        self.url = f"{storage_url}/{self._id}.{suffix}"
+        # doing this to handle optional trailing / in storage_url gracefully
+        scheme, netloc, path, params, query, fragment = urlparse(storage_url)
+        path = str(Path(path) / f"{self._id}.{suffix}")
+        self.url = urlunparse((scheme, netloc, path, params, query, fragment))
 
 
 @dataclass(frozen=False)

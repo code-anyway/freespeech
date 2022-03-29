@@ -4,7 +4,7 @@ import random
 import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from urllib.parse import ParseResult, urlparse
+from urllib.parse import urlparse
 
 import google_auth_oauthlib.flow
 import httplib2
