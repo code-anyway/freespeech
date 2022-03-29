@@ -211,7 +211,7 @@ def download_stream(
 def download(video_url: str, storage_url: str) -> Media:
     yt = pytube.YouTube(video_url)
 
-    audio = yt.streams.get_audio_only()
+    audio, = yt.streams.filter(only_audio=True, audio_codec="opus").order_by("abr")
     video = yt.streams.get_highest_resolution()
 
     with TemporaryDirectory() as output:

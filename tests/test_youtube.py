@@ -17,6 +17,7 @@ VIDEO_DESCRIPTION = (
     "with a marked propensity towards procrastination and sloth"""
 )
 GS_TEST_BUCKET = "freespeech-tests"
+VIDEO_URL = "https://youtu.be/bhRaND9jiOA"
 
 
 def get_hash(filename):
@@ -34,18 +35,17 @@ def test_download_local(tmp_path, monkeypatch):
         "FREESPEECH_STORAGE_URL",
         f"file://{tmp_path}")
 
-    url = "https://youtu.be/bhRaND9jiOA"
-    media = youtube.download(url, env.get_storage_url())
+    media = youtube.download(VIDEO_URL, env.get_storage_url())
 
     assert media.title == "Announcer's test"
     assert media.description == VIDEO_DESCRIPTION
     assert media.tags == ["announcer's", 'test']
-    assert media.origin == url
+    assert media.origin == VIDEO_URL
 
     audio, = media.audio
     video, = media.video
 
-    assert audio.url == f"file://{tmp_path}/{audio._id}.mp4"
+    assert audio.url == f"file://{tmp_path}/{audio._id}.webm"
     assert audio.duration_ms == 29_000
 
     assert video.url == f"file://{tmp_path}/{video._id}.mp4"
@@ -53,7 +53,7 @@ def test_download_local(tmp_path, monkeypatch):
 
     filename = storage.get(audio.url, tmp_path)
     assert get_hash(filename) == \
-        "0163fb2ee8772de9371c2cab6bc1f00c4063a2758ebef48a9a2bed510fc533d6"
+        "7b0dfb36784281f06c09011d631289f34aed8ba1cf0411b49d60c1d2594f7fe9"
     filename = storage.get(video.url, tmp_path)
     assert get_hash(filename) == \
         "ebc0b0ecf95a540a47696626e60e4ce4bd47582fd6b866ce72e762e531b03297"
@@ -64,18 +64,17 @@ def test_download_google_storage(tmp_path, monkeypatch):
         "FREESPEECH_STORAGE_URL",
         f"gs://{GS_TEST_BUCKET}/streams/")
 
-    url = "https://youtu.be/bhRaND9jiOA"
-    media = youtube.download(url, env.get_storage_url())
+    media = youtube.download(VIDEO_URL, env.get_storage_url())
 
     assert media.title == "Announcer's test"
     assert media.description == VIDEO_DESCRIPTION
     assert media.tags == ["announcer's", 'test']
-    assert media.origin == url
+    assert media.origin == VIDEO_URL
 
     audio, = media.audio
     video, = media.video
 
-    assert audio.url == f"gs://{GS_TEST_BUCKET}/streams/{audio._id}.mp4"
+    assert audio.url == f"gs://{GS_TEST_BUCKET}/streams/{audio._id}.webm"
     assert audio.duration_ms == 29_000
 
     assert video.url == f"gs://{GS_TEST_BUCKET}/streams/{video._id}.mp4"
@@ -83,7 +82,7 @@ def test_download_google_storage(tmp_path, monkeypatch):
 
     filename = storage.get(audio.url, tmp_path)
     assert get_hash(filename) == \
-        "0163fb2ee8772de9371c2cab6bc1f00c4063a2758ebef48a9a2bed510fc533d6"
+        "7b0dfb36784281f06c09011d631289f34aed8ba1cf0411b49d60c1d2594f7fe9"
     filename = storage.get(video.url, tmp_path)
     assert get_hash(filename) == \
         "ebc0b0ecf95a540a47696626e60e4ce4bd47582fd6b866ce72e762e531b03297"
