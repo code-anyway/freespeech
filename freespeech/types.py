@@ -8,6 +8,7 @@ from pathlib import Path
 Locator = str
 Language = Literal["en-US", "uk-UK", "ru-RU"]
 Voice = Literal["ru-RU-Wavenet-D", "en-US-Wavenet-I"]
+AudioEncoding = Literal["WEBM_OPUS", "LINEAR16"]
 
 
 @dataclass(frozen=False)
@@ -27,16 +28,28 @@ class Transcript:
 @dataclass(frozen=False)
 class Stream:
     duration_ms: int
-    url: str = field(init=False)
     storage_url: InitVar[str]
-    suffix: InitVar[str]
+    suffix: str
     _id: uuid.UUID = field(default_factory=uuid.uuid4)
+    url: str = ""
 
-    def __post_init__(self, storage_url, suffix):
-        # doing this to handle optional trailing / in storage_url gracefully
-        scheme, netloc, path, params, query, fragment = urlparse(storage_url)
-        path = str(Path(path) / f"{self._id}.{suffix}")
-        self.url = urlunparse((scheme, netloc, path, params, query, fragment))
+    def __post_init__(self, storage_url):
+        if not self.url:
+            # handle optional trailing / in storage_url gracefully
+            scheme, netloc, path, params, query, fragment = \
+                urlparse(storage_url)
+            path = str(Path(path) / f"{self._id}.{self.suffix}")
+            self.url = urlunparse(
+                (scheme, netloc, path, params, query, fragment))
+
+
+@dataclass(frozen=False)
+class Audio(Stream):
+    encoding: AudioEncoding | None = None
+    sample_rate_hz: int | None = None
+    voice: Voice | None = None
+    lang: Language | None = None
+    num_channels: int = 1
 
 
 @dataclass(frozen=False)

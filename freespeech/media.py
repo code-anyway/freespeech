@@ -1,0 +1,88 @@
+from typing import Dict, List
+from tempfile import TemporaryDirectory
+import ffmpeg
+from freespeech.types import Audio, Stream, AudioEncoding, Tuple
+from freespeech import storage
+
+
+def encoding_from_ffprobe(encoding: str) -> AudioEncoding:
+    match encoding:
+        case "opus":
+            return "WEBM_OPUS"
+        case invalid_encoding:
+            raise ValueError(f"Invalid encoding: {invalid_encoding}")
+
+
+def downmix_stereo_to_mono(audio: Audio, storage_url: str) -> Audio:
+    new_audio = Audio(
+        duration_ms=audio.duration_ms,
+        storage_url=storage_url,
+        suffix=audio.suffix,
+        encoding=audio.encoding,
+        sample_rate_hz=audio.sample_rate_hz,
+        voice=audio.voice,
+        lang=audio.lang,
+        num_channels=1
+    )
+
+    with TemporaryDirectory() as tmp_dir:
+        file = storage.get(audio.url, tmp_dir)
+        stream = ffmpeg.input(filename=file).audio
+        local_filename = f"{tmp_dir}/{new_audio._id}.{new_audio.suffix}"
+        ffmpeg.output(
+            stream,
+            filename=local_filename,
+            ac=1,  # audio channels = 1
+        ).run(
+            overwrite_output=True, capture_stderr=True
+        )
+        storage.put(src_file=local_filename, dst_url=new_audio.url)
+
+    return new_audio
+
+
+def _parse_ffprobe_info(
+    info: Dict, url: str
+) -> List[Audio | Stream]:
+    def parse_stream(stream: Dict) -> Audio | Stream:
+        match stream["codec_type"]:
+            case "audio":
+                return Audio(
+                    duration_ms=int(float(info["format"]["duration"]) * 10000),
+                    url=url,
+                    storage_url="",
+                    encoding=encoding_from_ffprobe(stream["codec_name"]),
+                    sample_rate_hz=int(stream["sample_rate"]),
+                    num_channels=stream["channels"],
+                    suffix=url.split(".")[-1]
+                )
+            case codec_type:
+                raise ValueError(f"Unsupported codec type: {codec_type}")
+
+    return [parse_stream(s) for s in info["streams"]]
+
+
+def probe(url: str) -> List[Audio | Stream]:
+    with TemporaryDirectory() as tmp_dir:
+        local_file = storage.get(url, tmp_dir)
+        info = ffmpeg.probe(local_file)
+        return _parse_ffprobe_info(info, url)
+
+
+def concat(clips: List[Tuple[int, Audio]], storage_url: str) -> Audio:
+    with TemporaryDirectory() as tmp_dir:
+        inputs = [
+            ffmpeg.input(
+                filename=storage.get(audio.url, tmp_dir),
+                itsdelay=time_ms
+            ).audio
+            for time_ms, audio in clips
+        ]
+
+        # astaff (20220311): not specifying v and a gives a weird error
+        # https://stackoverflow.com/questions/71390302/ffmpeg-python-stream-specifier-in-filtergraph-description-0concat-n-1s0-m
+        stream = ffmpeg.concat(*inputs, v=0, a=1)
+
+        ffmpeg.output(stream, output_path).run(
+            overwrite_output=True, capture_stderr=True
+        )

@@ -7,10 +7,13 @@ from urllib.parse import ParseResult, urlparse
 from google.cloud import storage
 
 
-def put(src_path: Path, dst_url: str):
+def put(src_file: Path | str, dst_url: str):
+    if isinstance(src_file, str):
+        src_file = Path(src_file)
+
     match urlparse(dst_url):
         case ParseResult(scheme="file") as url:
-            shutil.copy(src_path, url.path or "/")
+            shutil.copy(src_file, url.path or "/")
         case ParseResult(scheme="gs") as url:
             storage_client = storage.Client()
             try:
@@ -18,7 +21,7 @@ def put(src_path: Path, dst_url: str):
                 blob_file_name = (url.path or "/")
                 blob_file_name = blob_file_name[1:]  # omit leading /
                 blob = bucket.blob(blob_file_name)
-                blob.upload_from_filename(str(src_path))
+                blob.upload_from_filename(str(src_file))
             finally:
                 # https://github.com/googleapis/google-api-python-client/issues/618#issuecomment-669787286
                 storage_client._http.close()
@@ -27,7 +30,10 @@ def put(src_path: Path, dst_url: str):
                 f"Unsupported url scheme ({url.scheme}) for {dst_url}.")
 
 
-def get(src_url: str, dst_dir: Path):
+def get(src_url: str, dst_dir: Path | str):
+    if isinstance(dst_dir, str):
+        dst_dir = Path(dst_dir)
+
     url = urlparse(src_url)
     src_path = Path(url.path or "/")
     dst_file = dst_dir / src_path.name
