@@ -30,17 +30,17 @@ class Stream:
     duration_ms: int
     storage_url: InitVar[str]
     suffix: str
+    url: str | None = None
     _id: uuid.UUID = field(default_factory=uuid.uuid4)
-    url: str = ""
 
     def __post_init__(self, storage_url):
-        if not self.url:
+        if self.url is None:
             # handle optional trailing / in storage_url gracefully
             scheme, netloc, path, params, query, fragment = \
                 urlparse(storage_url)
             path = str(Path(path) / f"{self._id}.{self.suffix}")
-            self.url = urlunparse(
-                (scheme, netloc, path, params, query, fragment))
+            self.url = \
+                urlunparse((scheme, netloc, path, params, query, fragment))
 
 
 @dataclass(frozen=False)

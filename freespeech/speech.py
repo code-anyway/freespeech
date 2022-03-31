@@ -1,4 +1,6 @@
-from freespeech import text
+from typing import overload, List, Tuple
+from tempfile import TemporaryDirectory
+from freespeech import text, media
 from freespeech.types import Audio, Event, Transcript, Voice, Language
 from google.cloud import texttospeech
 
@@ -20,6 +22,11 @@ SUPPORTED_VOICES = (
 
 SUPPORTED_LANGUAGES = ("en-US", "ru-RU")
 
+SYNTHESIS_ERROR_MS = 10
+SYNTHESIS_RETRIES = 10
+
+TRANSCRIBE_TIMEOUT_SEC = 120
+
 
 def transcribe(audio: Audio, model: str = "default") -> Transcript:
     if audio.lang is None:
@@ -37,7 +44,7 @@ def transcribe(audio: Audio, model: str = "default") -> Transcript:
         ))
 
     client = speech_api.SpeechClient()
-    response = client.recognize(
+    operation = client.long_running_recognize(
         config=speech_api.RecognitionConfig(
             audio_channel_count=audio.num_channels,
             encoding=GOOGLE_CLOUD_ENCODINGS[audio.encoding],
@@ -51,15 +58,20 @@ def transcribe(audio: Audio, model: str = "default") -> Transcript:
         ),
         audio=speech_api.RecognitionAudio(uri=audio.url)
     )
+    response = operation.result(timeout=TRANSCRIBE_TIMEOUT_SEC)
 
-    events = [
-        Event(
-            time_ms=0,
-            duration_ms=30_000,
+    current_time_ms = 0
+    events = []
+
+    for result in response.results:
+        result_end_time_ms = int(result.result_end_time.total_seconds() * 1000)
+        event = Event(
+            time_ms=current_time_ms,
+            duration_ms=result_end_time_ms - current_time_ms,
             chunks=[result.alternatives[0].transcript]
         )
-        for result in response.results
-    ]
+        current_time_ms = result_end_time_ms
+        events += [event]
 
     return Transcript(
         lang=audio.lang,
@@ -67,11 +79,13 @@ def transcribe(audio: Audio, model: str = "default") -> Transcript:
     )
 
 
-def synthesize(
+def _synthesize(
     transcript: str,
     duration_ms: int,
     voice: Voice,
     lang: Language,
+    storage_url: str,
+    pitch: float = 0.0,
 ) -> Audio:
     chunks = text.chunk(transcript, MAX_CHUNK_LENGTH)
 
@@ -96,54 +110,64 @@ def synthesize(
                 ),
                 audio_config=texttospeech.AudioConfig(
                     audio_encoding=texttospeech.AudioEncoding.LINEAR16,
-                    pitch=0.0,
+                    pitch=pitch,
                     speaking_rate=speaking_rate,
                 ),
-            ).audio_content
+            )
             for phrase in chunks
         ]
+
+        with TemporaryDirectory() as tmp_dir:
+            clips = []
+            for i, response in enumerate(responses):
+                tmp_filename = f"{tmp_dir}/response-{i}.wav"
+                with open(tmp_filename, "wb") as fd:
+                    fd.write(response.audio_content)
+                clip, = media.probe(f"file://{tmp_filename}")
+                assert isinstance(clip, Audio)
+                clips += [clip]
+            return media.concat(
+                [(0, clip) for clip in clips],
+                storage_url=storage_url)
+
+    # Iteratively adjust speaking rate
+    speaking_rate = 1.0
+    for _ in range(SYNTHESIS_RETRIES):
+        audio = _synthesize(speaking_rate)
+        if abs(audio.duration_ms - duration_ms) < SYNTHESIS_ERROR_MS:
+            audio.voice = voice
+            audio.lang = lang
+            return audio
+        speaking_rate *= (audio.duration_ms / duration_ms)
+
+    raise RuntimeError((
+        "Unable to converge while adjusting speaking_rate "
+        f"after {SYNTHESIS_RETRIES} attempts.")
+    )
 
 
 def synthesize(
     transcript: Transcript,
     voice: Voice,
+    storage_url: str,
+    pitch: float = 0.0
 ) -> Audio:
+    clips: List[Tuple[int, Audio]] = []
+    current_time_ms = 0
 
-    clips = [
-        (
-            event.time_ms,
-            synthesize(
+    with TemporaryDirectory() as tmp_dir:
+        for event in transcript.events:
+            padding_ms = event.time_ms - current_time_ms
+            clip = _synthesize(
                 transcript="".join(event.chunks),
                 duration_ms=event.duration_ms,
                 voice=voice,
                 lang=transcript.lang,
+                storage_url=f"file://{tmp_dir}",
+                pitch=pitch,
             )
-        )
-        for event in transcript.events
-    ]
 
-    # speaking_rate: float,
-    # pitch: float,
-    # output_path: str,
+            clips += [(padding_ms, clip)]
+            current_time_ms = event.time_ms + clip.duration_ms
 
-
-
-    with tempfile.TemporaryDirectory() as media_root:
-        inputs = []
-
-        # astaff (20220311): refactor to use in-memory stream instead of a disk file
-        for i, response in enumerate(responses):
-            file_name = str(Path(media_root) / f"{hash(text)}-{i}.wav")
-
-            with open(file_name, "wb") as out:
-                out.write(response.audio_content)
-
-            inputs += [ffmpeg.input(file_name).audio]
-
-        # astaff (20220311): not specifying v and a gives a weird error
-        # https://stackoverflow.com/questions/71390302/ffmpeg-python-stream-specifier-in-filtergraph-description-0concat-n-1s0-m
-        stream = ffmpeg.concat(*inputs, v=0, a=1)
-
-        ffmpeg.output(stream, output_path).run(
-            overwrite_output=True, capture_stderr=True
-        )
+        return media.concat(clips, storage_url)

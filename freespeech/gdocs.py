@@ -3,7 +3,7 @@ import re
 import googleapiclient.discovery
 from google.oauth2 import service_account
 
-from freespeech import const
+from freespeech import env
 
 
 def _read_paragraph_element(element):
@@ -61,7 +61,7 @@ def extract(url: str) -> str:
     except ValueError as e:
         raise ValueError(f"Invalid URL: {url}") from e
     credentials = service_account.Credentials.from_service_account_file(
-        const.SERVICE_ACCOUNT_FILE,
+        env.get_service_account_file(),
         scopes=["https://www.googleapis.com/auth/documents.readonly"],
     )
     service = googleapiclient.discovery.build("docs", "v1", credentials=credentials)

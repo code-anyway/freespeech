@@ -2,7 +2,7 @@ from typing import List
 
 from google.cloud import translate as translate_api
 
-from freespeech import const
+from freespeech import env
 from freespeech.types import Event, Language, Transcript
 
 
@@ -34,7 +34,7 @@ def translate(
         target: Language
 ) -> Transcript | str:
     client = translate_api.TranslationServiceClient()
-    parent = f"projects/{const.PROJECT_ID}/locations/global"
+    parent = f"projects/{env.get_project_id()}/locations/global"
 
     match text:
         case str():
