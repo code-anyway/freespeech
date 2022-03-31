@@ -1,4 +1,4 @@
-from typing import overload, List, Tuple
+from typing import List, Tuple
 from tempfile import TemporaryDirectory
 from freespeech import text, media
 from freespeech.types import Audio, Event, Transcript, Voice, Language
@@ -18,11 +18,12 @@ GOOGLE_CLOUD_ENCODINGS = {
 SUPPORTED_VOICES = (
         *[f"en-US-Wavenet-{suffix}" for suffix in "ABCDEFGHIJ"],
         *[f"ru-RU-Wavenet-{suffix}" for suffix in "ABCDE"],
-    )
+        *[f"pt-PT-Wavenet-{suffix}" for suffix in "ABCD"],
+)
 
-SUPPORTED_LANGUAGES = ("en-US", "ru-RU")
+SUPPORTED_LANGUAGES = ("en-US", "ru-RU", "pt-PT")
 
-SYNTHESIS_ERROR_MS = 10
+SYNTHESIS_ERROR_MS = 100
 SYNTHESIS_RETRIES = 10
 
 TRANSCRIBE_TIMEOUT_SEC = 120

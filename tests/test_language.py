@@ -18,7 +18,8 @@ def test_translate():
         ]
     )
 
-    translation = language.translate(text=original, source=None, target="ru-RU")
+    translation = language.translate(
+        text=original, source=None, target="ru-RU")
     assert translation == Transcript(
         _id=translation._id,
         lang="ru-RU",
