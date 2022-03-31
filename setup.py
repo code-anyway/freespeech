@@ -44,6 +44,7 @@ setup(
         "google-auth",
         "google-auth-oauthlib",
         "google-auth-httplib2",
+        "requests",
     ],
     extras_require={"test": ["pytest", "black", "isort"]},
     python_requires=">=3.10",

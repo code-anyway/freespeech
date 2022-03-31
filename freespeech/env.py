@@ -13,3 +13,7 @@ def get_project_id() -> str:
 
 def get_storage_url() -> str:
     return os.environ["FREESPEECH_STORAGE_URL"]
+
+
+def get_notion_token() -> str:
+    return os.environ["NOTION_TOKEN"]
