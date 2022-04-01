@@ -1,93 +1,115 @@
+import json
 import pytest
-import uuid
 
 
 from freespeech.notion import client
 from freespeech.types import Transcript, Event
-from freespeech.notion.types import Document, Content
 
 
-TEST_DOCUMENT = "https://www.notion.so/Announcer-s-test-fe999aa7a53a448a8b6f3dcfe07ab434"  # noqa: E501
-TEST_DATABASE = "https://www.notion.so/4d8d51229d854929b193a13604bf47dc?v=9e721e82784044808b86004478928d3f"  # noqa: E501
-TEST_DOCUMENT_FOR_UPDATES = "https://www.notion.so/Dummy-553e3db2376341a7ae8abd4faa93131d"
+TEST_PAGE_ID = "fe999aa7a53a448a8b6f3dcfe07ab434"
+TEST_DATABASE_ID = "4d8d51229d854929b193a13604bf47dc"
+TEST_PAGE_ID_ID_FOR_UPDATES = "553e3db2376341a7ae8abd4faa93131d"
+
+EVENTS_EN = [
+    Event(
+        time_ms=1001,
+        duration_ms=2001,
+        chunks=["One hen. Two ducks."]
+    ),
+    Event(
+        time_ms=4001,
+        duration_ms=2001,
+        chunks=["Three squawking geese."]
+    )
+]
+
+EVENTS_RU = [
+    Event(
+        time_ms=1001,
+        duration_ms=2001,
+        chunks=["Одна курица. Две утки."]
+    ),
+    Event(
+        time_ms=4001,
+        duration_ms=2001,
+        chunks=["Два кричащих гуся."]
+    )
+]
 
 
-def test_get_all_documents():
-    assert client.get_documents(TEST_DATABASE) == ["uuid1", "uuid2"]
+def test_get_all_pages():
+    expected = [
+        "553e3db2-3763-41a7-ae8a-bd4faa93131d",
+        "8b4fcdb2-e90a-4a2b-951d-af46992d893a",
+        "fe999aa7-a53a-448a-8b6f-3dcfe07ab434"
+    ]
+
+    pages = client.get_pages(TEST_DATABASE_ID, page_size=2)
+    assert set(pages) == set(expected)
 
 
-def test_get_documents_by_property():
-    assert client.get_documents(TEST_DATABASE, stage="Transcribe") == ["uuid2"]
+def test_get_pages_by_property():
+    assert client.get_pages(TEST_DATABASE_ID, stage="Transcribe") == ["uuid2"]
     with pytest.raises(AttributeError, match=r"Invalid property: foo"):
-        client.get_documents(TEST_DATABASE, foo="bar")
+        client.get_pages(TEST_DATABASE_ID, foo="bar")
 
 
-def test_get_document():
-    doc = client.get_document(TEST_DOCUMENT)
+def test_get_page():
+    doc = client.get_page(TEST_PAGE_ID)
     assert doc.title == "Announcer's test"
 
 
-def test_parse_transcript():
-    doc = client.get_document(TEST_DOCUMENT)
-    transcript = client.parse_transcript(doc["Transcript"])
+def test_parse_event():
+    parse = client._parse_event
+
+    assert parse("00:00:00.000/00:00:00.000") == (0, 0)
+    assert parse(" 00:00:00.000 / 00:00:00.000 ") == (0, 0)
+    assert parse("00:00:00.001/00:00:00.120") == (1, 120)
+    assert parse("00:00:01.001/00:00:02.120") == (1001, 2120)
+    assert parse("00:01:02.001/00:01:20.123") == (62001, 80123)
+    assert parse("01:01:01.123/01:01:01.123") == (3661123, 3661123)
+
+
+def test_parse_transcript_from_test_data():
+    with open("tests/data/transcript_block.json") as fd:
+        block = json.load(fd)
+        transcript = client.parse_transcript(block, lang="en-US")
+
     assert transcript == Transcript(
+        _id=transcript._id,
         lang="en-US",
+        events=EVENTS_EN
+    )
+
+
+def test_get_transcripts_from_notion():
+    en_EN, ru_RU = client.get_transcripts(TEST_PAGE_ID)
+    assert en_EN == Transcript(
+        _id=en_EN._id,
+        lang="en-EN",
+        events=EVENTS_EN
+    )
+    assert ru_RU == Transcript(
+        _id=ru_RU._id,
+        lang="ru-RU",
+        events=EVENTS_RU
+    )
+
+
+def test_create_child_document():
+    pass
+
+
+def test_put_transcript():
+    new_transcript = Transcript(
+        lang="uk-UK",
         events=[
             Event(
-                time_ms=1000,
-                duration_ms=2000,
-            ),
-            Event(
-                time_ms=4000,
-                duration_ms=2000
+                time_ms=60000,
+                duration_ms=5000,
+                chunks=["Путiн хуiло."]
             )
         ]
     )
 
-
-def test_create_update_delete():
-    title = str(uuid.uuid4())
-    _id = client.create_document(TEST_DATABASE, title=title)
-    empty_document = client.get_document(_id)
-
-    assert empty_document.title == title
-
-    new_document = Document(
-        title=title,
-        properties={
-            "Source Language": "uk-UK"
-        },
-        content=[
-            Content(
-                title="1",
-                content=[
-                    Content(title="1.1", text="TextA"),
-                    Content(title="1.2", text="TextB")
-                ]
-            ),
-            Content(
-                title="2",
-                text="TextC"
-            ),
-        ]
-    )
-
-    client.update_document(_id, new_document)
-    assert client.get_document(_id) == new_document
-
-
-def test_update_transcript():
-    transcription = client.update_transcript(TEST_DOCUMENT, "Tanslation")
-    assert transcription == Transcript(
-        lang="en-US",
-        events=[
-            Event(
-                time_ms=1000,
-                duration_ms=2000,
-            ),
-            Event(
-                time_ms=4000,
-                duration_ms=2000
-            )
-        ]
-    )
+    client.add_transcript(TEST_PAGE_ID, new_transcript)
