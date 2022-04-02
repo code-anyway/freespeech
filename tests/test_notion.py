@@ -1,6 +1,4 @@
 import json
-import pytest
-
 
 from freespeech.notion import client
 from freespeech.types import Transcript, Event
@@ -13,12 +11,12 @@ TEST_PAGE_ID_ID_FOR_UPDATES = "553e3db2376341a7ae8abd4faa93131d"
 EVENTS_EN = [
     Event(
         time_ms=1001,
-        duration_ms=2001,
+        duration_ms=1000,
         chunks=["One hen. Two ducks."]
     ),
     Event(
         time_ms=4001,
-        duration_ms=2001,
+        duration_ms=2000,
         chunks=["Three squawking geese."]
     )
 ]
@@ -26,12 +24,12 @@ EVENTS_EN = [
 EVENTS_RU = [
     Event(
         time_ms=1001,
-        duration_ms=2001,
+        duration_ms=1000,
         chunks=["Одна курица. Две утки."]
     ),
     Event(
         time_ms=4001,
-        duration_ms=2001,
+        duration_ms=2000,
         chunks=["Два кричащих гуся."]
     )
 ]
@@ -45,18 +43,12 @@ def test_get_all_pages():
     ]
 
     pages = client.get_pages(TEST_DATABASE_ID, page_size=2)
-    assert set(pages) == set(expected)
+    assert set(expected) < set(pages)
 
 
-def test_get_pages_by_property():
-    assert client.get_pages(TEST_DATABASE_ID, stage="Transcribe") == ["uuid2"]
-    with pytest.raises(AttributeError, match=r"Invalid property: foo"):
-        client.get_pages(TEST_DATABASE_ID, foo="bar")
-
-
-def test_get_page():
-    doc = client.get_page(TEST_PAGE_ID)
-    assert doc.title == "Announcer's test"
+def test_get_page_info():
+    page = client.get_page_info(TEST_PAGE_ID)
+    assert page["url"] == "https://www.notion.so/Announcer-s-test-fe999aa7a53a448a8b6f3dcfe07ab434"  # noqa: E501
 
 
 def test_parse_event():
@@ -64,10 +56,10 @@ def test_parse_event():
 
     assert parse("00:00:00.000/00:00:00.000") == (0, 0)
     assert parse(" 00:00:00.000 / 00:00:00.000 ") == (0, 0)
-    assert parse("00:00:00.001/00:00:00.120") == (1, 120)
-    assert parse("00:00:01.001/00:00:02.120") == (1001, 2120)
-    assert parse("00:01:02.001/00:01:20.123") == (62001, 80123)
-    assert parse("01:01:01.123/01:01:01.123") == (3661123, 3661123)
+    assert parse("00:00:00.001/00:00:00.120") == (1, 119)
+    assert parse("00:00:01.001/00:00:02.120") == (1001, 1119)
+    assert parse("00:01:02.001/00:01:20.123") == (62001, 18122)
+    assert parse("01:01:01.123/01:01:01.123") == (3661123, 0)
 
 
 def test_parse_transcript_from_test_data():
@@ -86,7 +78,7 @@ def test_get_transcripts_from_notion():
     en_EN, ru_RU = client.get_transcripts(TEST_PAGE_ID)
     assert en_EN == Transcript(
         _id=en_EN._id,
-        lang="en-EN",
+        lang="en-US",
         events=EVENTS_EN
     )
     assert ru_RU == Transcript(
@@ -96,11 +88,9 @@ def test_get_transcripts_from_notion():
     )
 
 
-def test_create_child_document():
-    pass
+def test_add_transcript():
+    transcripts = notion.get_transcripts(TEST_PAGE_ID)
 
-
-def test_put_transcript():
     new_transcript = Transcript(
         lang="uk-UK",
         events=[
@@ -108,8 +98,28 @@ def test_put_transcript():
                 time_ms=60000,
                 duration_ms=5000,
                 chunks=["Путiн хуiло."]
-            )
+            ),
+            Event(
+                time_ms=120000,
+                duration_ms=5000,
+                chunks=["Ole-ole!"]
+            ),
         ]
     )
 
-    client.add_transcript(TEST_PAGE_ID, new_transcript)
+    res = client.add_transcript(TEST_PAGE_ID, new_transcript)
+    assert res == {}
+
+
+def test_get_page_properties():
+    with open("tests/data/page.json") as fd:
+        page = json.load(fd)
+    expected = {
+        'Name': "Announcer's test",
+        'Source Language': 'en-US',
+        'Stage': 'Download',
+        'Status': ['Transcribed'],
+        'Target': ['ru-RU'],
+        'Video': 'https://youtu.be/bhRaND9jiOA',
+    }
+    assert client.get_page_properties(page) == expected

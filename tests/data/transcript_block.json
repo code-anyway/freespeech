@@ -100,7 +100,7 @@
                     {
                         "type": "text",
                         "text": {
-                            "content": "00:00:04.001/00:00:02.001",
+                            "content": "00:00:04.001/00:00:06.001",
                             "link": null
                         },
                         "annotations": {
@@ -111,7 +111,7 @@
                             "code": false,
                             "color": "default"
                         },
-                        "plain_text": "00:00:04.001/00:00:02.001",
+                        "plain_text": "00:00:04.001/00:00:06.001",
                         "href": null
                     }
                 ],

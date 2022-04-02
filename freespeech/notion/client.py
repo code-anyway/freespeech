@@ -2,8 +2,8 @@ import logging
 import requests
 
 
-from datetime import time
-from typing import Dict, List, Tuple
+from datetime import time, datetime
+from typing import Any, Dict, List, Tuple
 
 
 from freespeech import env
@@ -45,14 +45,32 @@ def get_pages(database_id: str, page_size: int = 100) -> List[str]:
     return page_ids
 
 
-def get_page(_id: str) -> Dict:
+def get_page_info(_id: str) -> Dict:
+    """Get page information.
+
+    Args:
+        _id: id of a page.
+
+    Returns:
+        Dict with page info.
+        Note: it doesn't return page content. Use `get_child_blocks`
+        for that.
+    """
     url = f"https://api.notion.com/v1/pages/{_id}"
     response = requests.request("GET", url, headers=HEADERS)
     return response.json()
 
 
-def get_blocks(_id: str) -> Dict:
-    url = f"https://api.notion.com/v1/blocks/{_id}"
+def get_child_blocks(_id: str) -> Dict:
+    """Get child blocks for a page.
+
+    Args:
+        _id: id of a page.
+
+    Returns:
+        Dict with child block content.
+    """
+    url = f"https://api.notion.com/v1/blocks/{_id}/children"
     response = requests.request("GET", url, headers=HEADERS)
     return response.json()
 
@@ -81,16 +99,16 @@ def _parse_event(start_duration: str) -> Tuple[int, int]:
     start, duration = [s.strip() for s in start_duration.split("/")]
 
     start_ms = _to_milliseconds(time.fromisoformat(start))
-    duration_ms = _to_milliseconds(time.fromisoformat(duration))
+    finish_ms = _to_milliseconds(time.fromisoformat(duration))
 
-    return start_ms, duration_ms
+    return start_ms, finish_ms - start_ms
 
 
-def parse_transcript(block: Dict, lang: Language) -> Transcript:
-    """Generates Transcript by parsing Notion's block.
+def parse_transcript(page: Dict, lang: Language) -> Transcript:
+    """Generate Transcript by parsing Notion's page.
 
     Args:
-        block: valid JSON from Notion's GET block API call.
+        page: valid JSON from Notion's GET block API call.
         lang: transcript language. i.e. en-US.
 
     Returns:
@@ -102,7 +120,7 @@ def parse_transcript(block: Dict, lang: Language) -> Transcript:
         "heading_3",
     ]
 
-    results = (r for r in block["results"] if not r["archived"])
+    results = (r for r in page["results"] if not r["archived"])
     events = dict()
 
     for result in results:
@@ -135,7 +153,7 @@ def parse_transcript(block: Dict, lang: Language) -> Transcript:
 
 def get_transcripts(_id: str) -> List[Transcript]:
     """Get Transcripts from the main page.
-    
+
     Args:
         _id: id of the task's main page from Notion API.
 
@@ -143,3 +161,133 @@ def get_transcripts(_id: str) -> List[Transcript]:
         List of transcripts parsed from child pages
         of the task's main page.
     """
+
+    blocks = get_child_blocks(_id)
+    children = (
+        (res["id"], res["child_page"]["title"])
+        for res in blocks["results"]
+        if res["type"] == "child_page" and
+        not res["archived"]
+    )
+
+    transcripts = [
+        parse_transcript(
+            page=get_child_blocks(child_id),
+            lang=title
+        )
+        for child_id, title in children
+    ]
+
+    return transcripts
+
+
+def parse_property_value(value: Dict) -> str | List[str]:
+    _type = value["type"]
+
+    match _type:
+        case "multi_select":
+            return [v["name"] for v in value[_type]]
+        case "select":
+            return value[_type]["name"]
+        case "title":
+            return "\n".join(
+                v["plain_text"]
+                for v in value[_type]
+            )
+        case _:
+            return value[_type]
+
+
+def get_page_properties(page: Dict) -> Dict[str, Any]:
+    properties = {
+        property: parse_property_value(value)
+        for property, value in page["properties"].items()
+    }
+
+    return properties
+
+
+def _event_to_text(event: Event) -> str:
+    start_ms = event.time_ms
+    finish_ms = event.time_ms + event.duration_ms
+
+    def _ms_to_iso_time(ms: int) -> str:
+        t = datetime.fromtimestamp(start_ms / 1000.0).time()
+        return t.isoformat()
+
+    return f"{_ms_to_iso_time(start_ms)}/{_ms_to_iso_time(finish_ms)}"
+
+
+def _get_blocks_from_event(event: Event) -> List[Dict]:
+    header = {
+        "object": "block",
+        "type": "heading_3",
+        "heading_3": {
+            "rich_text": [
+                {
+                    "type": "text",
+                    "text": {
+                        "content": _event_to_text(event)
+                    }
+                }
+            ]
+        }
+    }
+    paragraphs = [
+        {
+            "object": "block",
+            "type": "paragraph",
+            "paragraph": {
+                "rich_text": [
+                    {
+                        "type": "text",
+                        "text": {
+                            "content": chunk
+                        }
+                    }
+                ]
+            }
+        }
+        for chunk in event.chunks
+    ]
+
+    return [header, *paragraphs]
+
+
+def add_transcript(parent_id: str, transcript: Transcript):
+    url = "https://api.notion.com/v1/pages"
+
+    blocks = [
+        _get_blocks_from_event(event)
+        for event in transcript.events
+    ]
+
+    # flatten blocks
+    blocks = sum(blocks, [])
+
+    payload = {
+        "parent": {
+            "type": "page_id",
+            "page_id": parent_id
+        },
+        "properties": {
+            "title": [
+                {
+                    "type": "text",
+                    "text": {
+                        "content": transcript.lang
+                    }
+                }
+            ]
+        },
+        "children": blocks
+    }
+
+    response = requests.request(
+        "POST",
+        url,
+        json=payload,
+        headers=HEADERS
+    )
+
+    return response.json()
