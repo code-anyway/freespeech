@@ -1,4 +1,6 @@
 import json
+import uuid
+
 
 from freespeech.notion import client
 from freespeech.types import Transcript, Event
@@ -34,6 +36,19 @@ EVENTS_RU = [
     )
 ]
 
+EVENTS_UA = [
+    Event(
+        time_ms=60000,
+        duration_ms=5000,
+        chunks=[f"Путiн хуiло. {uuid.uuid4()}"]
+    ),
+    Event(
+        time_ms=120000,
+        duration_ms=5000,
+        chunks=[f"Ole-ole! {uuid.uuid4()}"]
+    ),
+]
+
 
 def test_get_all_pages():
     expected = [
@@ -62,53 +77,31 @@ def test_parse_event():
     assert parse("01:01:01.123/01:01:01.123") == (3661123, 0)
 
 
-def test_parse_transcript_from_test_data():
+def test_get_events_from_test_data():
     with open("tests/data/transcript_block.json") as fd:
         block = json.load(fd)
-        transcript = client.parse_transcript(block, lang="en-US")
+        events = client.get_events(block)
 
-    assert transcript == Transcript(
-        _id=transcript._id,
-        lang="en-US",
-        events=EVENTS_EN
-    )
+    assert events == EVENTS_EN
 
 
 def test_get_transcripts_from_notion():
-    en_EN, ru_RU = client.get_transcripts(TEST_PAGE_ID)
-    assert en_EN == Transcript(
-        _id=en_EN._id,
-        lang="en-US",
-        events=EVENTS_EN
-    )
-    assert ru_RU == Transcript(
-        _id=ru_RU._id,
-        lang="ru-RU",
-        events=EVENTS_RU
-    )
+    en_EN, ru_RU, *_ = client.get_all_transcripts(TEST_PAGE_ID)
+    assert en_EN.lang == "en-US"
+    assert en_EN.events == EVENTS_EN
+
+    assert ru_RU.lang == "ru-RU"
+    assert ru_RU.events == EVENTS_RU
 
 
 def test_add_transcript():
-    transcripts = notion.get_transcripts(TEST_PAGE_ID)
+    transcripts_before = client.get_all_transcripts(TEST_PAGE_ID)
+    transcript = client.add_transcript(TEST_PAGE_ID, "uk-UK", EVENTS_UA)
+    assert transcript.lang == "uk-UK"
+    assert transcript.events == EVENTS_UA
 
-    new_transcript = Transcript(
-        lang="uk-UK",
-        events=[
-            Event(
-                time_ms=60000,
-                duration_ms=5000,
-                chunks=["Путiн хуiло."]
-            ),
-            Event(
-                time_ms=120000,
-                duration_ms=5000,
-                chunks=["Ole-ole!"]
-            ),
-        ]
-    )
-
-    res = client.add_transcript(TEST_PAGE_ID, new_transcript)
-    assert res == {}
+    transcripts_after = client.get_all_transcripts(TEST_PAGE_ID)
+    assert transcripts_after == transcripts_before + [transcript]
 
 
 def test_get_page_properties():
