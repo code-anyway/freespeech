@@ -2,6 +2,7 @@ import http.client
 import json
 import random
 import time
+import dataclasses
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.parse import urlparse
@@ -14,8 +15,8 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
-from freespeech.types import Media, Stream
-from freespeech import storage
+from freespeech.types import Media, Audio, Video, Stream
+from freespeech import storage, media
 
 # Explicitly tell the underlying HTTP transport library not to retry, since
 # we are handling retry logic ourselves.
@@ -193,19 +194,31 @@ def download_stream(
     stream: pytube.Stream,
     storage_url: str,
     temp_path: Path
-):
-    res = Stream(
+) -> Audio | Video:
+    # TODO (astaff): refactor generation of the URL
+    phony_stream = Stream(
         storage_url=storage_url,
         suffix=stream.subtype,
         duration_ms=source.length * 1000
     )
 
-    filename = Path(urlparse(res.url).path).name
+    filename = Path(urlparse(phony_stream.url).path).name
     stream.download(output_path=temp_path, filename=filename)
+    file_path = temp_path / filename
 
-    storage.put(temp_path / filename, res.url)
+    stream, = [
+        s for s in media.probe(f"file://{file_path}")
+        if not (isinstance(s, Audio) and s.encoding != "WEBM_OPUS")
+    ]
+    stream = dataclasses.replace(
+        stream,
+        url=phony_stream.url,
+        storage_url=storage_url,
+        _id=phony_stream._id)
 
-    return res
+    storage.put(file_path, stream.url)
+
+    return stream
 
 
 def download(video_url: str, storage_url: str) -> Media:

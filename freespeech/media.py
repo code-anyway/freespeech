@@ -1,8 +1,9 @@
 from typing import Dict, List, Tuple
 from tempfile import TemporaryDirectory
 import ffmpeg
-from freespeech.types import Audio, Stream, AudioEncoding
+from freespeech.types import Audio, AudioEncoding, Video
 from freespeech import storage
+import uuid
 
 
 def encoding_from_ffprobe(encoding: str) -> AudioEncoding:
@@ -11,6 +12,8 @@ def encoding_from_ffprobe(encoding: str) -> AudioEncoding:
             return "WEBM_OPUS"
         case "pcm_s16le":
             return "LINEAR16"
+        case "aac":
+            return "AAC"
         case invalid_encoding:
             raise ValueError(f"Invalid encoding: {invalid_encoding}")
 
@@ -45,8 +48,8 @@ def downmix_stereo_to_mono(audio: Audio, storage_url: str) -> Audio:
     return new_audio
 
 
-def _parse_ffprobe_info(info: Dict, url: str) -> List[Audio | Stream]:
-    def parse_stream(stream: Dict) -> Audio | Stream:
+def _parse_ffprobe_info(info: Dict, url: str) -> List[Audio | Video]:
+    def parse_stream(stream: Dict) -> Audio | Video:
         match stream["codec_type"]:
             case "audio":
                 return Audio(
@@ -58,13 +61,22 @@ def _parse_ffprobe_info(info: Dict, url: str) -> List[Audio | Stream]:
                     num_channels=stream["channels"],
                     suffix=url.split(".")[-1]
                 )
+            case "video":
+                return Video(
+                    duration_ms=int(float(info["format"]["duration"]) * 1000),
+                    url=url,
+                    storage_url="",
+                    suffix=url.split(".")[-1],
+                    # TODO (astaff): parse encoding properly
+                    encoding="H264",
+                )
             case codec_type:
                 raise ValueError(f"Unsupported codec type: {codec_type}")
 
     return [parse_stream(s) for s in info["streams"]]
 
 
-def probe(url: str) -> List[Audio | Stream]:
+def probe(url: str) -> List[Audio | Video]:
     with TemporaryDirectory() as tmp_dir:
         local_file = storage.get(url, tmp_dir)
         info = ffmpeg.probe(local_file)
@@ -117,3 +129,69 @@ def concat(clips: List[Tuple[int, Audio]], storage_url: str) -> Audio:
         storage.put(output_file, new_audio.url)
 
         return new_audio
+
+
+def mix(audio: List[Audio], weights: List[int], storage_url: str) -> Audio:
+    *_, last_audio = audio
+
+    with TemporaryDirectory() as tmp_dir:
+        mixed_audio = ffmpeg.filter(
+            [
+                ffmpeg.input(storage.get(a.url, tmp_dir)).audio
+                for a in audio
+            ],
+            "amix",
+            weights=' '.join([str(w) for w in weights])
+        )
+        output_file = f"{tmp_dir}/output.{last_audio.suffix}"
+
+        ffmpeg.output(mixed_audio, output_file).run(overwrite_output=True)
+
+        local_audio, = probe(f"file://{output_file}")
+
+        assert isinstance(local_audio, Audio)
+
+        new_audio = Audio(
+            duration_ms=local_audio.duration_ms,
+            storage_url=storage_url,
+            suffix=local_audio.suffix,
+            encoding=local_audio.encoding,
+            sample_rate_hz=local_audio.sample_rate_hz,
+            voice=last_audio.voice,
+            lang=last_audio.lang,
+            num_channels=last_audio.num_channels
+        )
+        assert new_audio.url is not None
+        storage.put(output_file, new_audio.url)
+
+    return new_audio
+
+
+def add_audio(
+    video: Video, audio: Audio, storage_url: str
+) -> Tuple[Video, Audio]:
+    with TemporaryDirectory() as tmp_dir:
+        audio_path = storage.get(audio.url, tmp_dir)
+        video_path = storage.get(video.url, tmp_dir)
+
+        file_name = f"{uuid.uuid4()}.{video.suffix}"
+        output_path = f"{tmp_dir}/{file_name}"
+
+        ffmpeg.output(
+            ffmpeg.input(audio_path).audio,
+            ffmpeg.input(video_path).video,
+            output_path
+        ).run(overwrite_output=True)
+
+        output_url = f"{storage_url}{file_name}"
+        storage.put(output_path, output_url)
+
+        streams = probe(output_url)
+
+        output_audio, = [s for s in streams if isinstance(s, Audio)]
+        output_video, = [s for s in streams if isinstance(s, Video)]
+
+        return (
+            output_video,
+            output_audio
+        )

@@ -1,4 +1,4 @@
-from freespeech import language, speech
+from freespeech import language, speech, services, datastore
 from freespeech.types import Transcript, Event
 
 
@@ -16,7 +16,7 @@ TEXT = [
 ]
 
 
-def test_e2e():
+def test_translate_synthesize():
     transcript = language.translate(
         text=Transcript(
             lang="en-US",
@@ -37,3 +37,17 @@ def test_e2e():
     )
 
     assert abs(audio.duration_ms - 30_000) < 500
+
+
+def test_download_transcribe_translate_synthesize_voiceover(
+    monkeypatch, datastore_emulator
+):
+    monkeypatch.setenv("FREESPEECH_STORAGE_URL", "gs://freespeech-tests/e2e/")
+
+    url = "https://youtu.be/bhRaND9jiOA"
+    transcript_id = services.download_and_transcribe(url, "en-US")
+    translated_id = services.translate(transcript_id, lang="ru-RU")
+    audio_id = services.synthesize(translated_id)
+    voiceover_id = services.voiceover(url, audio_id)
+    res = datastore.get(voiceover_id, "media")
+    assert res is None

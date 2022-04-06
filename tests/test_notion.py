@@ -3,7 +3,7 @@ import uuid
 
 
 from freespeech.notion import client
-from freespeech.types import Transcript, Event
+from freespeech.types import Event
 
 
 TEST_PAGE_ID = "fe999aa7a53a448a8b6f3dcfe07ab434"

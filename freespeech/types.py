@@ -8,7 +8,8 @@ from pathlib import Path
 Locator = str
 Language = Literal["en-US", "uk-UK", "ru-RU"]
 Voice = Literal["ru-RU-Wavenet-D", "en-US-Wavenet-I"]
-AudioEncoding = Literal["WEBM_OPUS", "LINEAR16"]
+AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC"]
+VideoEncoding = Literal["H264"]
 
 
 @dataclass(frozen=False)
@@ -22,7 +23,7 @@ class Event:
 class Transcript:
     lang: Language
     events: List[Event]
-    _id: uuid.UUID = field(default_factory=uuid.uuid4)
+    _id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
 
 @dataclass(frozen=False)
@@ -31,7 +32,7 @@ class Stream:
     storage_url: InitVar[str]
     suffix: str
     url: str | None = None
-    _id: uuid.UUID = field(default_factory=uuid.uuid4)
+    _id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
     def __post_init__(self, storage_url):
         if self.url is None:
@@ -53,14 +54,20 @@ class Audio(Stream):
 
 
 @dataclass(frozen=False)
+class Video(Stream):
+    encoding: VideoEncoding | None = None
+    fps: int | None = None
+
+
+@dataclass(frozen=False)
 class Media:
-    audio: List[Stream]
-    video: List[Stream]
+    audio: List[Audio]
+    video: List[Video]
     title: str
     description: str
     tags: List[str]
     origin: str
-    _id: uuid.UUID = field(default_factory=uuid.uuid4)
+    _id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
 
 @dataclass(frozen=False)

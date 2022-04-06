@@ -29,9 +29,16 @@ SYNTHESIS_RETRIES = 10
 TRANSCRIBE_TIMEOUT_SEC = 120
 
 
-def transcribe(audio: Audio, model: str = "default") -> Transcript:
-    if audio.lang is None:
-        raise ValueError("audio.lang is not set.")
+def transcribe(
+    audio: Audio,
+    lang: str = None,
+    model: str = "default"
+) -> Transcript:
+    lang = lang or audio.lang
+    print(f"LANG: {lang}")
+    if lang is None:
+        raise ValueError(
+            "Unable to determine language: audio.lang and lang are not set.")
 
     if audio.encoding not in GOOGLE_CLOUD_ENCODINGS:
         raise ValueError(
@@ -50,7 +57,7 @@ def transcribe(audio: Audio, model: str = "default") -> Transcript:
             audio_channel_count=audio.num_channels,
             encoding=GOOGLE_CLOUD_ENCODINGS[audio.encoding],
             sample_rate_hertz=audio.sample_rate_hz,
-            language_code=audio.lang,
+            language_code=lang,
             model=model,
             # metadata=speech_api.RecognitionMetadata(
             #     recording_device_type=speech_api.RecognitionMetadata.RecordingDeviceType.SMARTPHONE,  # noqa: E501

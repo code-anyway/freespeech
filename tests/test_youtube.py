@@ -46,10 +46,10 @@ def test_download_local(tmp_path, monkeypatch):
     video, = media.video
 
     assert audio.url == f"file://{tmp_path}/{audio._id}.webm"
-    assert audio.duration_ms == 29_000
+    assert audio.duration_ms == 29321
 
     assert video.url == f"file://{tmp_path}/{video._id}.mp4"
-    assert video.duration_ms == 29_000
+    assert video.duration_ms == 29303
 
     filename = storage.get(audio.url, tmp_path)
     assert get_hash(filename) == \
@@ -75,10 +75,10 @@ def test_download_google_storage(tmp_path, monkeypatch):
     video, = media.video
 
     assert audio.url == f"gs://{GS_TEST_BUCKET}/streams/{audio._id}.webm"
-    assert audio.duration_ms == 29_000
+    assert audio.duration_ms == 29321
 
     assert video.url == f"gs://{GS_TEST_BUCKET}/streams/{video._id}.mp4"
-    assert video.duration_ms == 29_000
+    assert video.duration_ms == 29303
 
     filename = storage.get(audio.url, tmp_path)
     assert get_hash(filename) == \

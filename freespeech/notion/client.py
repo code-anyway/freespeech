@@ -130,7 +130,7 @@ def get_events(page_blocks: Dict) -> List[Event]:
     ]
 
     results = (r for r in page_blocks["results"] if not r["archived"])
-    events = dict()
+    events: Dict[Tuple[int, int], List[str]] = dict()
 
     for result in results:
         _type = result["type"]
@@ -143,7 +143,7 @@ def get_events(page_blocks: Dict) -> List[Event]:
                 logger.warning(f"Paragraph without timestamp: {value}")
             events[key].append(_get_pain_text(value["rich_text"]))
 
-    events = [
+    return [
         Event(
             time_ms=time_ms,
             duration_ms=duration_ms,
@@ -152,10 +152,8 @@ def get_events(page_blocks: Dict) -> List[Event]:
         for (time_ms, duration_ms), chunks in events.items()
     ]
 
-    return events
 
-
-def get_transcript(page_id: str) -> List[Transcript]:
+def get_transcript(page_id: str) -> Transcript:
     properties = get_page_properties(get_page_info(page_id))
     transcript = Transcript(
         _id=page_id,
@@ -258,10 +256,8 @@ def _get_blocks_from_event(event: Event) -> List[Dict]:
 
 def add_transcript(parent: str, lang: str, events: List[Event]) -> Transcript:
     url = "https://api.notion.com/v1/pages"
-    blocks = [_get_blocks_from_event(event) for event in events]
-
-    # flatten blocks
-    blocks = sum(blocks, [])
+    blocks: List[Dict] = \
+        sum([_get_blocks_from_event(event) for event in events], [])
 
     payload = {
         "parent": {

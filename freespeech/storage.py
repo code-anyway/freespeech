@@ -5,9 +5,15 @@ from pathlib import Path
 from urllib.parse import ParseResult, urlparse
 
 from google.cloud import storage
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def put(src_file: Path | str, dst_url: str):
+    logger.debug(f"put: src_file={src_file} dst_url={dst_url}")
+
     if isinstance(src_file, str):
         src_file = Path(src_file)
 
