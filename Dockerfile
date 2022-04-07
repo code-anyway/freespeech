@@ -54,3 +54,6 @@ RUN cd /root/freespeech && pip install .
 
 VOLUME ["/root/.config", "/root/id/"]
 WORKDIR "/root/freespeech"
+
+ENTRYPOINT ["freespeech"]
+
