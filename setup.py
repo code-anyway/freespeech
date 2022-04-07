@@ -42,7 +42,7 @@ setup(
         "google-cloud-storage",
         "google-cloud-speech",
         "google-cloud-logging",
-        "google-cloud-datastore",
+        "google-cloud-firestore",
         "google-api-python-client",
         "google-auth",
         "google-auth-oauthlib",

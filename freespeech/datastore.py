@@ -1,11 +1,11 @@
-from google.cloud import datastore
+from google.cloud import firestore
 from freespeech.types import Media, Audio, Video, Stream, Transcript, Event
 from freespeech import env
 from dataclasses import asdict
 from typing import Literal, List
 
 
-KINDS = {
+COLLECTIONS = {
     Media: "media",
     Audio: "audio",
     Video: "video",
@@ -17,7 +17,7 @@ EntityKind = Literal["media", "audio", "video", "transcript"]
 
 def _client():
     project_id = env.get_project_id()
-    client = datastore.Client(project=project_id, namespace="main")
+    client = firestore.Client(project=project_id)
     return client
 
 
@@ -25,27 +25,34 @@ def put(value: Media | Audio | Video | Stream | Transcript):
     client = _client()
 
     if isinstance(value, Media):
-        for stream in value.audio + value.video:
-            put(stream)
+        for audio in value.audio:
+            put(audio)
 
-    key = client.key(KINDS[type(value)], value._id)
-    doc = datastore.Entity(key=key)
+        for video in value.video:
+            put(video)
 
-    for k, v in asdict(value).items():
-        doc[k] = v
+    doc = client.collection(COLLECTIONS[type(value)]).document(value._id)
 
-    client.put(doc)
+    if isinstance(value, Media):
+        doc.set({
+            **asdict(value),
+            "audio": [audio._id for audio in value.audio],
+            "video": [video._id for video in value.video]
+        })
+    else:
+        doc.set(asdict(value))
 
 
 def get(_id: str, kind: EntityKind):
     client = _client()
-    key = client.key(kind, _id)
-    value = client.get(key)
+
+    doc = client.collection(kind).document(_id)
+    value = doc.get().to_dict()
 
     match kind:
         case "media":
-            audio = [get(entity["_id"], "audio") for entity in value["audio"]]
-            video = [get(entity["_id"], "video") for entity in value["video"]]
+            audio = [get(entity, "audio") for entity in value["audio"]]
+            video = [get(entity, "video") for entity in value["video"]]
             return Media(
                 _id=_id,
                 video=video,
@@ -97,10 +104,11 @@ def get(_id: str, kind: EntityKind):
 
 def get_by_key_value(key: str, value: str, kind: EntityKind) -> List[Media]:
     client = _client()
-    query = client.query(kind=kind)
-    res = query.add_filter(key, "=", value).fetch()
+
+    query = client.collection(kind).where(key, "==", value)
+    res = query.stream()
 
     return [
-        get(_id=item["_id"], kind=kind)
+        get(_id=item.to_dict()["_id"], kind=kind)
         for item in res
     ]

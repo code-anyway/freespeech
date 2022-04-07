@@ -1,4 +1,5 @@
 import pytest
+import uuid
 
 
 from freespeech import env, datastore
@@ -6,7 +7,7 @@ from freespeech.types import Audio, Video, Media, Transcript, Event
 
 
 @pytest.mark.asyncio
-async def test_all(datastore_emulator, monkeypatch):
+async def test_all(monkeypatch):
     monkeypatch.setenv("FREESPEECH_STORAGE_URL", "https://freespeech-tests/")
 
     audio = [
@@ -33,13 +34,14 @@ async def test_all(datastore_emulator, monkeypatch):
         for i in range(3)
     ]
 
+    origin_value = f"https://youtube.com/{uuid.uuid4()}"
     media = Media(
         audio=audio,
         video=video,
         title="ABC",
         description="123",
         tags=["foo", "bar"],
-        origin="https://youtube.com"
+        origin=origin_value
     )
 
     datastore.put(media)
@@ -50,13 +52,13 @@ async def test_all(datastore_emulator, monkeypatch):
 
     res = datastore.get_by_key_value(
         "origin",
-        "https://youtube.com",
+        origin_value,
         "media")
 
     assert res == [media]
 
 
-def test_transcript(datastore_env, datastore_emulator):
+def test_transcript():
     transcript = Transcript(
         lang="en-US",
         events=[
