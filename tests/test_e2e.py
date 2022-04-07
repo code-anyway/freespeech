@@ -1,6 +1,7 @@
+from typing import Dict, List
 from freespeech import language, speech, services, datastore
-from freespeech.notion import client
 from freespeech.types import Transcript, Event
+import requests
 
 
 TEXT = [
@@ -15,6 +16,53 @@ TEXT = [
     "Nine apathetic, sympathetic, diabetic old men on roller skates, "
     "with a marked propensity towards procrastination and sloth."""
 ]
+
+
+VOICEOVERS = [
+    {
+        'url': 'https://storage.googleapis.com/freespeech-tests/e2e/d7b18abc-e467-4f1c-ad5f-3b732bc2e3c3.mp4',
+        'duration_ms': 1051846,
+        'title': 'Volodymyr Zelensky addressed high-ranking officials and members of the UN Security Council.',
+        'description': '"The Russian military and those who gave them orders must be brought to justice immediately for war crimes in Ukraine. Anyone who gave criminal orders and carried out them by killing our people will find himself under a tribunal that should be similar to the Nuremberg Trials. " Volodymyr Zelensky addressed high-ranking officials and members of the UN Security Council.',
+        'tags': []
+    },
+    {
+        'url': 'https://storage.googleapis.com/freespeech-tests/e2e/9b23a5f8-bc45-4dbf-824b-c02fa5b81a9f.mp4',
+        'duration_ms': 1051846,
+        'title': 'Владимир Зеленский обратился к чиновникам и членам Совбеза ООН.', 'description': '«Нужно немедленно привлекать российских военных и отдающих им приказы к ответственности за военные преступления на территории Украины. Каждый, кто отдавал преступные приказы и кто их выполнял, убивая наших людей, окажется под трибуналом, который должен быть аналогичен Нюрнбергскому процессу». Владимир Зеленский обратился к чиновникам и членам Совбеза ООН.',
+        'tags': []
+    },
+    {
+        'url': 'https://storage.googleapis.com/freespeech-tests/e2e/6af6227b-ce37-4e4a-8c8d-5f2315c76bb1.mp4',
+        'duration_ms': 29332,
+        'title': "Announcer's test",
+        'description': "One hen\n\nTwo ducks\n\nThree squawking geese\n\nFour limerick oysters\n\nFive corpulent porpoises\n\nSix pairs of Don Alverzo's tweezers\n\nSeven thousand Macedonians in full battle array\n\nEight brass monkeys from the ancient sacred crypts of Egypt\n\nNine apathetic, sympathetic, diabetic old men on roller skates, with a marked propensity towards procrastination and sloth",
+        'tags': ["announcer's", 'test']
+    },
+    {
+        'url': 'https://storage.googleapis.com/freespeech-tests/e2e/fd84b896-342a-48a7-863e-df810a0f9a08.mp4',
+        'duration_ms': 29332,
+        'title': 'Тест диктора',
+        'description': 'Одна курица\n\nДве утки\n\nТри кричащих гуся\n\nЧетыре лимерик устрицы\n\nПять тучных морских свиней\n\nШесть пар пинцетов Дона Альверзо\n\nСемь тысяч македонцев в полном боевом строю\n\nВосемь латунных обезьян из древних священных склепов Египта.\n\nДевять апатичных, сочувствующих стариков-диабетиков на роликовых коньках с заметной склонностью к прокрастинации и лени.',
+        'tags': ["announcer's", 'test']
+    }
+]
+
+
+def _remove_keys(target: Dict, keys: List[str]) -> Dict:
+    return {
+        key: value
+        for key, value in target.items()
+        if key not in keys
+    }
+
+
+def test_remove_keys():
+    voiceover, *_ = VOICEOVERS
+    assert _remove_keys(voiceover, []) == voiceover
+    assert "url" in voiceover
+    assert "url" not in _remove_keys(voiceover, ["url"])
+    assert _remove_keys(voiceover, ["url"]) == _remove_keys(voiceover, ["url"])
 
 
 def test_translate_synthesize():
@@ -71,6 +119,12 @@ def test_voiceover_from_notion(
         for page_id in PAGE_IDs
     ]
 
-    print(media)
+    assert all(
+        requests.head(m["url"]).status_code == 200
+        for m in media
+    )
 
-    assert False
+    def remove_urls(items):
+        return [_remove_keys(item, "url") for item in items]
+
+    assert remove_urls(media) == remove_urls(VOICEOVERS)

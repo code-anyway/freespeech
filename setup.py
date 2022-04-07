@@ -33,6 +33,7 @@ setup(
         freespeech=freespeech.cli:cli
     """,
     install_requires=[
+        "aiohttp",
         "click",
         "ffmpeg-python",
         "pytube",
@@ -40,7 +41,7 @@ setup(
         "google-cloud-translate",
         "google-cloud-storage",
         "google-cloud-speech",
-        "google-cloud-pubsub",
+        "google-cloud-logging",
         "google-cloud-datastore",
         "google-api-python-client",
         "google-auth",
