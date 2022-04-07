@@ -1,4 +1,5 @@
 from freespeech import language, speech, services, datastore
+from freespeech.notion import client
 from freespeech.types import Transcript, Event
 
 
@@ -51,3 +52,25 @@ def test_download_transcribe_translate_synthesize_voiceover(
     voiceover_id = services.voiceover(url, audio_id)
     res = datastore.get(voiceover_id, "media")
     assert res is None
+
+
+def test_voiceover_from_notion(
+    monkeypatch, datastore_emulator
+):
+    PAGE_IDs = [
+        "828608b4f74840f5bbf22994a05693a9",  # Z. UN Eng
+        "de941561352b4b9d90e4d3c03936e6c9",  # Z. UN Rus
+        "03182244413246de9d632b9e59548718",  # Announcer Test Eng
+        "cb40a2e3cf3b4277b8d08e779c5ed306",  # Announcer Test Rus
+    ]
+
+    monkeypatch.setenv("FREESPEECH_STORAGE_URL", "gs://freespeech-tests/e2e/")
+
+    media = [
+        services.create_voiceover_from_notion_page(page_id)
+        for page_id in PAGE_IDs
+    ]
+
+    print(media)
+
+    assert False

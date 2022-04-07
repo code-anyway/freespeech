@@ -1,7 +1,7 @@
 from typing import List, Tuple
 from tempfile import TemporaryDirectory
 from freespeech import text, media
-from freespeech.types import Audio, Event, Transcript, Voice, Language
+from freespeech.types import Audio, Event, Transcript, LANGUAGES
 from google.cloud import texttospeech
 
 from google.cloud import speech as speech_api
@@ -21,7 +21,7 @@ SUPPORTED_VOICES = (
         *[f"pt-PT-Wavenet-{suffix}" for suffix in "ABCD"],
 )
 
-SUPPORTED_LANGUAGES = ("en-US", "ru-RU", "pt-PT")
+SUPPORTED_LANGUAGES = LANGUAGES
 
 SYNTHESIS_ERROR_MS = 100
 SYNTHESIS_RETRIES = 10
@@ -35,7 +35,7 @@ def transcribe(
     model: str = "default"
 ) -> Transcript:
     lang = lang or audio.lang
-    print(f"LANG: {lang}")
+
     if lang is None:
         raise ValueError(
             "Unable to determine language: audio.lang and lang are not set.")
@@ -81,17 +81,14 @@ def transcribe(
         current_time_ms = result_end_time_ms
         events += [event]
 
-    return Transcript(
-        lang=audio.lang,
-        events=events
-    )
+    return Transcript(lang=lang, events=events)
 
 
 def _synthesize(
     transcript: str,
     duration_ms: int,
-    voice: Voice,
-    lang: Language,
+    voice: str,
+    lang: str,
     storage_url: str,
     pitch: float = 0.0,
 ) -> Audio:
@@ -102,7 +99,7 @@ def _synthesize(
             f"Unsupported language: {lang}. "
             f"Supported languages: {SUPPORTED_LANGUAGES}"))
 
-    if lang not in SUPPORTED_LANGUAGES:
+    if voice not in SUPPORTED_VOICES:
         raise ValueError((
             f"Unsupported voice: {lang}. "
             f"Supported voices: {SUPPORTED_VOICES}"))
@@ -156,7 +153,7 @@ def _synthesize(
 
 def synthesize(
     transcript: Transcript,
-    voice: Voice,
+    voice: str,
     storage_url: str,
     pitch: float = 0.0
 ) -> Audio:

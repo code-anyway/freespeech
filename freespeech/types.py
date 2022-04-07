@@ -5,11 +5,10 @@ from urllib.parse import urlparse, urlunparse
 from pathlib import Path
 
 
-Locator = str
-Language = Literal["en-US", "uk-UK", "ru-RU"]
-Voice = Literal["ru-RU-Wavenet-D", "en-US-Wavenet-I"]
 AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC"]
 VideoEncoding = Literal["H264"]
+
+LANGUAGES = {"en-US", "uk-UK", "ru-RU", "pt-PT"}
 
 
 @dataclass(frozen=False)
@@ -21,7 +20,7 @@ class Event:
 
 @dataclass(frozen=True)
 class Transcript:
-    lang: Language
+    lang: str
     events: List[Event]
     _id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
@@ -48,8 +47,8 @@ class Stream:
 class Audio(Stream):
     encoding: AudioEncoding | None = None
     sample_rate_hz: int | None = None
-    voice: Voice | None = None
-    lang: Language | None = None
+    voice: str | None = None
+    lang: str | None = None
     num_channels: int = 1
 
 

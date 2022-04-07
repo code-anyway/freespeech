@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 import google_auth_oauthlib.flow
 import httplib2
 import pytube
+import logging
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -17,6 +18,9 @@ from googleapiclient.http import MediaFileUpload
 
 from freespeech.types import Media, Audio, Video, Stream
 from freespeech import storage, media
+
+
+logger = logging.getLogger(__name__)
 
 # Explicitly tell the underlying HTTP transport library not to retry, since
 # we are handling retry logic ourselves.
@@ -224,8 +228,12 @@ def download_stream(
 def download(video_url: str, storage_url: str) -> Media:
     yt = pytube.YouTube(video_url)
 
-    audio, = yt.streams.filter(only_audio=True, audio_codec="opus").order_by("abr")
+    audio, *_ = yt.streams.filter(
+        only_audio=True, audio_codec="opus"
+        ).order_by("abr")
     video = yt.streams.get_highest_resolution()
+
+    logger.info(f"Downloading {audio} and {video}")
 
     with TemporaryDirectory() as output:
         audio_stream = download_stream(

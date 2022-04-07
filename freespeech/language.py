@@ -3,16 +3,25 @@ from typing import List
 from google.cloud import translate as translate_api
 
 from freespeech import env
-from freespeech.types import Event, Language, Transcript
+from freespeech.types import Event, LANGUAGES, Transcript
 
 
 def _translate_chunks(
     client: translate_api.TranslationServiceClient,
     parent: str,
     chunks: List[str],
-    source: Language,
-    target: Language
+    source: str,
+    target: str
 ) -> List[str]:
+    if source == target:
+        return chunks
+
+    if source not in LANGUAGES:
+        raise ValueError(f"Unsupported source language: {source}")
+
+    if target not in LANGUAGES:
+        raise ValueError(f"Unsupported target language: {target}")
+
     # Detail on supported types can be found here:
     # https://cloud.google.com/translate/docs/supported-formats
     response = client.translate_text(
@@ -30,8 +39,8 @@ def _translate_chunks(
 
 def translate(
         text: Transcript | str,
-        source: Language | None,
-        target: Language
+        source: str | None,
+        target: str
 ) -> Transcript | str:
     client = translate_api.TranslationServiceClient()
     parent = f"projects/{env.get_project_id()}/locations/global"

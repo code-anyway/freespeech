@@ -157,7 +157,7 @@ def get_transcript(page_id: str) -> Transcript:
     properties = get_page_properties(get_page_info(page_id))
     transcript = Transcript(
         _id=page_id,
-        lang=properties["title"],
+        lang=properties["Language"],
         events=get_events(page_blocks=get_page_blocks(page_id))
     )
 
