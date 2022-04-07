@@ -46,12 +46,11 @@ RUN pip install --upgrade \
 
 # Create folder structure, copy, and install package files
 RUN mkdir /root/freespeech && \
-    mkdir /root/freespeech/freespeech && \
-    mkdir /root/freespeech/workflows
-COPY freespeech /root/freespeech/freespeech
-COPY workflows  /root/freespeech/workflows  
+    mkdir /root/freespeech/freespeech
+COPY freespeech /root/freespeech/freespeech/
 COPY setup.py /root/freespeech/
 COPY README.md /root/freespeech/
 RUN cd /root/freespeech && pip install .
 
-VOLUME ["/root/.config", "/root/id/", "/root/data/"]
+VOLUME ["/root/.config", "/root/id/"]
+WORKDIR "/root/freespeech"

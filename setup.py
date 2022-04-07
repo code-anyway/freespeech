@@ -27,7 +27,7 @@ setup(
     },
     license="Apache License, Version 2.0",
     version=VERSION,
-    packages=["freespeech"],
+    packages=["freespeech", "freespeech.notion"],
     entry_points="""
         [console_scripts]
         freespeech=freespeech.cli:cli
