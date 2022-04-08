@@ -1,31 +1,22 @@
-import logging
+from freespeech import datastore
+from freespeech.notion import client as nc
+from freespeech.types import Transcript
+
+
 from typing import Dict
 
-from freespeech import datastore, env, language
-from freespeech import media as media_ops
-from freespeech import speech, youtube
-from freespeech.notion import client as nc
-from freespeech.types import Audio, Media, Transcript
 
-logger = logging.getLogger(__name__)
+from aiohttp import web
 
 
-VOICES = {
-    "Grace Hopper": {
-        "en-US": "en-US-Wavenet-C",
-        "ru-RU": "ru-RU-Wavenet-C",
-    },
-    "Alan Turing": {
-        "en-US": "en-US-Wavenet-I",
-        "ru-RU": "ru-RU-Wavenet-D",
-    },
-}
+routes = web.RouteTableDef()
 
 
-def import_transcript_from_notion_page(page_id: str) -> Transcript:
-    transcript = nc.get_transcript(page_id)
-    datastore.put(transcript)
-    return transcript
+@routes.get("/dubs/from_notion/{page_id}")
+async def dubs_from_notion(request):
+    page_id = request.match_info.get("page_id", None)
+    dub = create_voiceover_from_notion_page(page_id)
+    return web.json_response(dub)
 
 
 def create_voiceover_from_notion_page(page_id: str) -> Dict[str, object]:
@@ -74,41 +65,9 @@ def create_voiceover_from_notion_page(page_id: str) -> Dict[str, object]:
     return result
 
 
-def get_media(url: str) -> Media:
-    res = datastore.get_by_key_value("origin", url, "media")
-    if res:
-        media, *tail = res
-        logger.info(f"Cache hit for {url}. _id={media._id}")
-
-        if tail:
-            logger.warning(f"Extra records for {url}: {tail}")
-    else:
-        media = youtube.download(url, env.get_storage_url())
-        logger.info(f"Downloaded {url} as {media._id}")
-
-    datastore.put(media)
-
-    return media
-
-
-def transcribe(url: str, lang: str) -> Transcript:
-    media = get_media(url)
-
-    if not media.audio:
-        raise RuntimeError(f"No audio: {url} (id={media._id})")
-
-    audio, *tail = media.audio
-
-    if tail:
-        logger.warning(f"Extra audio tracks found for {url}: {tail}")
-
-    mono_audio = media_ops.downmix_stereo_to_mono(
-        audio, storage_url=env.get_storage_url()
-    )
-    transcript = speech.transcribe(mono_audio, lang=lang)
-
+def import_transcript_from_notion_page(page_id: str) -> Transcript:
+    transcript = nc.get_transcript(page_id)
     datastore.put(transcript)
-
     return transcript
 
 
@@ -177,7 +136,3 @@ def voiceover(
     datastore.put(new_media)
 
     return new_media
-
-
-def upload(media_id, url):
-    pass

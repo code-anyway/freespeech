@@ -1,0 +1,15 @@
+version: "0.2"
+ignorePaths: []
+dictionaryDefinitions: []
+dictionaries: []
+words:
+  - aiohttp
+  - astaff
+  - ffprobe
+  - pytube
+  - rollup
+  - texttospeech
+ignoreWords:
+  - ffmpeg
+  - astaff
+import: []

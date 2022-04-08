@@ -1,14 +1,21 @@
 import uuid
-from tempfile import TemporaryDirectory
 from typing import Dict, List, Tuple
-
+from pathlib import Path
 import ffmpeg
-
-from freespeech import storage
-from freespeech.types import Audio, AudioEncoding, Video
+import logging
 
 
-def encoding_from_ffprobe(encoding: str) -> AudioEncoding:
+from freespeech.types import Audio, AudioEncoding, Video, VideoEncoding
+
+path = Path | str
+AudioFile = Tuple[path, Audio]
+
+
+logger = logging.getLogger(__name__)
+
+
+def ffprobe_to_audio_encoding(encoding: str) -> AudioEncoding:
+    """Convert ffprobe audio encoding to `AudioEncoding`."""
     match encoding:
         case "opus":
             return "WEBM_OPUS"
@@ -20,55 +27,41 @@ def encoding_from_ffprobe(encoding: str) -> AudioEncoding:
             raise ValueError(f"Invalid encoding: {invalid_encoding}")
 
 
-def downmix_stereo_to_mono(audio: Audio, storage_url: str) -> Audio:
-    new_audio = Audio(
-        duration_ms=audio.duration_ms,
-        storage_url=storage_url,
-        suffix=audio.suffix,
-        encoding=audio.encoding,
-        sample_rate_hz=audio.sample_rate_hz,
-        voice=audio.voice,
-        lang=audio.lang,
-        num_channels=1,
-    )
-
-    with TemporaryDirectory() as tmp_dir:
-        assert audio.url is not None
-        file = storage.get(audio.url, tmp_dir)
-        stream = ffmpeg.input(filename=file).audio
-        local_filename = f"{tmp_dir}/{new_audio._id}.{new_audio.suffix}"
-        ffmpeg.output(
-            stream,
-            filename=local_filename,
-            ac=1,  # audio channels = 1
-        ).run(overwrite_output=True, capture_stderr=True)
-        assert new_audio.url is not None
-        storage.put(src_file=local_filename, dst_url=new_audio.url)
-
-    return new_audio
+def ffprobe_to_video_encoding(encoding: str) -> VideoEncoding:
+    """Convert ffprobe video encoding to `VideoEncoding`."""
+    match encoding:
+        case "h264":
+            return "H264"
+        case invalid_encoding:
+            raise ValueError(f"Invalid encoding: {invalid_encoding}")
 
 
-def _parse_ffprobe_info(info: Dict, url: str) -> List[Audio | Video]:
+def probe(file: path) -> List[Audio | Video]:
+    """Get a list of Audio and Video streams for a file.
+
+    Args:
+        file: path to a local file.
+
+    Returns:
+        List of `Audio` and `Video` with stream information.
+    """
+    info = ffmpeg.probe(file)
+
     def parse_stream(stream: Dict) -> Audio | Video:
         match stream["codec_type"]:
             case "audio":
                 return Audio(
                     duration_ms=int(float(info["format"]["duration"]) * 1000),
-                    url=url,
-                    storage_url="",
-                    encoding=encoding_from_ffprobe(stream["codec_name"]),
+                    encoding=ffprobe_to_audio_encoding(stream["codec_name"]),
                     sample_rate_hz=int(stream["sample_rate"]),
                     num_channels=stream["channels"],
-                    suffix=url.split(".")[-1],
+                    ext=stream["extension"],
                 )
             case "video":
                 return Video(
                     duration_ms=int(float(info["format"]["duration"]) * 1000),
-                    url=url,
-                    storage_url="",
-                    suffix=url.split(".")[-1],
-                    # TODO (astaff): parse encoding properly
-                    encoding="H264",
+                    encoding=ffprobe_to_video_encoding(stream["codec_name"]),
+                    ext=stream["extension"],
                 )
             case codec_type:
                 raise ValueError(f"Unsupported codec type: {codec_type}")
@@ -76,122 +69,107 @@ def _parse_ffprobe_info(info: Dict, url: str) -> List[Audio | Video]:
     return [parse_stream(s) for s in info["streams"]]
 
 
-def probe(url: str) -> List[Audio | Video]:
-    with TemporaryDirectory() as tmp_dir:
-        local_file = storage.get(url, tmp_dir)
-        info = ffmpeg.probe(local_file)
-        return _parse_ffprobe_info(info, url)
+def new_file(dir: path) -> Path:
+    return Path(dir) / str(uuid.uuid4())
 
 
-def concat(clips: List[Tuple[int, Audio]], storage_url: str) -> Audio:
-    with TemporaryDirectory() as tmp_dir:
-        inputs = [
-            (
-                time_ms,
-                ffmpeg.input(
-                    filename=storage.get(audio.url, tmp_dir),
-                ).audio,
-            )
-            for time_ms, audio in clips
-            if audio.url is not None
-        ]
+def multi_channel_audio_to_mono(file: path, output_dir: path) -> path:
+    """Convert multi-channel audio to mono by downmixing.
 
-        inputs = [
-            audio.filter("adelay", delays=time_ms) if time_ms != 0 else audio
-            for time_ms, audio in inputs
-        ]
+    Args:
+        file: path to a local file containing audio stream.
+        output_dir: directory to store the conversion result.
 
-        # astaff (20220311): not specifying v and a gives a weird error
-        # https://stackoverflow.com/questions/71390302/ffmpeg-python-stream-specifier-in-filtergraph-description-0concat-n-1s0-m
-        stream = ffmpeg.concat(*inputs, v=0, a=1)
-        (_, clip), *_ = clips
-        output_file = f"{tmp_dir}/output.{clip.suffix}"
+    Return:
+        A path to a newly generated audio file.
+    """
+    file = Path(file)
+    output_dir = Path(output_dir)
 
-        ffmpeg.output(stream, output_file).run(
-            overwrite_output=True, capture_stderr=True
-        )
+    streams = probe(file)
+    audio, *_ = [stream for stream in streams if isinstance(stream, Audio)]
 
-        (audio,) = probe(f"file://{output_file}")
+    if _:
+        logger.warn(f"Additional audio streams in {file}: {_}")
 
-        assert isinstance(audio, Audio)
+    if audio.num_channels == 1:
+        return file
 
-        new_audio = Audio(
-            duration_ms=audio.duration_ms,
-            storage_url=storage_url,
-            suffix=audio.suffix,
-            encoding=audio.encoding,
-            sample_rate_hz=audio.sample_rate_hz,
-            voice=clip.voice,
-            lang=clip.lang,
-            num_channels=audio.num_channels,
-        )
-        assert new_audio.url is not None
-        storage.put(output_file, new_audio.url)
+    pipeline = ffmpeg.output(
+        ffmpeg.input(file).audio,
+        output_file := new_file(output_dir),
+        ac=1,  # audio channels = 1
+    )
+    pipeline.run(overwrite_output=True, capture_stderr=True)
 
-        return new_audio
+    return output_file
 
 
-def mix(audio: List[Audio], weights: List[int], storage_url: str) -> Audio:
-    *_, last_audio = audio
+def concat_and_pad(clips: List[Tuple[int, path]], output_dir: path) -> path:
+    """Concatenate audio clips and add padding.
 
-    with TemporaryDirectory() as tmp_dir:
-        mixed_audio = ffmpeg.filter(
-            [
-                ffmpeg.input(storage.get(a.url, tmp_dir)).audio
-                for a in audio
-                if a.url
-            ],
-            "amix",
-            weights=" ".join([str(w) for w in weights]),
-        )
-        output_file = f"{tmp_dir}/output.{last_audio.suffix}"
+    Args:
+        clips: list of tuples (pad_ms, file).
+            pad_ms is how much padding to add before the clip stored in file.
+        output_dir: directory to store the conversion result.
 
-        ffmpeg.output(mixed_audio, output_file).run(overwrite_output=True)
+    Returns:
+        Path to audio file with concatenated clips and padding added.
+    """
+    output_dir = Path(output_dir)
 
-        (local_audio,) = probe(f"file://{output_file}")
+    # "adelay" errors out if duration is 0
+    inputs = [
+        audio.filter("adelay", delays=time_ms) if time_ms != 0 else audio
+        for time_ms, file in clips if (audio := ffmpeg.input(file).audio)
+    ]
 
-        assert isinstance(local_audio, Audio)
+    # TODO astaff (20220311): not specifying v and a gives a weird error
+    # https://stackoverflow.com/questions/71390302/ffmpeg-python-stream-specifier-in-filtergraph-description-0concat-n-1s0-m
+    stream = ffmpeg.concat(*inputs, v=0, a=1)
 
-        new_audio = Audio(
-            duration_ms=local_audio.duration_ms,
-            storage_url=storage_url,
-            suffix=local_audio.suffix,
-            encoding=local_audio.encoding,
-            sample_rate_hz=local_audio.sample_rate_hz,
-            voice=last_audio.voice,
-            lang=last_audio.lang,
-            num_channels=last_audio.num_channels,
-        )
-        assert new_audio.url is not None
-        storage.put(output_file, new_audio.url)
+    pipeline = ffmpeg.output(stream, output_file := new_file(output_dir))
+    pipeline.run(overwrite_output=True, capture_stderr=True)
 
-    return new_audio
+    return output_file
 
 
-def add_audio(
-    video: Video, audio: Audio, storage_url: str
-) -> Tuple[Video, Audio]:
-    with TemporaryDirectory() as tmp_dir:
-        assert audio.url
-        assert video.url
-        audio_path = storage.get(audio.url, tmp_dir)
-        video_path = storage.get(video.url, tmp_dir)
+def concat(clips: List[str], output_dir: path) -> path:
+    """Concatenate audio clips.
 
-        file_name = f"{uuid.uuid4()}.{video.suffix}"
-        output_path = f"{tmp_dir}/{file_name}"
+    Args:
+        clips: list of paths to audio files.
+        output_dir: directory to store the conversion result.
 
-        ffmpeg.output(
-            ffmpeg.input(audio_path).audio,
-            ffmpeg.input(video_path).video,
-            output_path
-        ).run(overwrite_output=True)
+    Returns:
+        Path to audio file with concatenated clips.
+    """
+    return concat_and_pad([(0, clip) for clip in clips], output_dir)
 
-        output_url = f"{storage_url}{file_name}"
-        storage.put(output_path, output_url)
 
-        streams = probe(output_url)
+def mix(clips: List[Tuple[path, int]], output_dir: path) -> path:
+    """Mix multiple audio files into a single file.
 
-        (output_audio,) = [s for s in streams if isinstance(s, Audio)]
-        (output_video,) = [s for s in streams if isinstance(s, Video)]
+    Args:
+        clips: list of weighted audio clips to mix.
+        output_dir: directory to store the conversion result.
 
-        return (output_video, output_audio)
+    Returns:
+        Audio file with all clips normalized and mixed according to weights.
+    """
+    audio_streams = (ffmpeg.input(file).audio for file, _ in clips)
+    weights = " ".join(str(weight) for _, weight in clips)
+    mixed_audio = ffmpeg.filter(audio_streams, "amix", weights=weights)
+
+    pipeline = ffmpeg.output(mixed_audio, output_file := new_file(output_dir))
+    pipeline.run(overwrite_output=True, capture_stderr=True)
+
+    return output_file
+
+
+def dub(video: path, audio: path, output_dir: path) -> path:
+    streams = (ffmpeg.input(audio).audio, ffmpeg.input(video).video)
+    pipeline = ffmpeg.output(*streams, output_file := new_file(output_dir))
+    pipeline.run(overwrite_output=True, capture_stderr=True)
+
+    return output_file

@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.parse import urlparse
+from black import out
 
 import google_auth_oauthlib.flow
 import httplib2
@@ -16,8 +17,8 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
-from freespeech import media, storage
-from freespeech.types import Audio, Media, Stream, Video
+from freespeech import media
+from freespeech.types import Info
 
 logger = logging.getLogger(__name__)
 
@@ -193,37 +194,14 @@ def upload(video_file, meta_file, credentials_file):
 
 
 def download_stream(
-    source: pytube.YouTube, stream: pytube.Stream, storage_url: str, temp_path: Path
-) -> Audio | Video:
-    # TODO (astaff): refactor generation of the URL
-    phony_stream = Stream(
-        storage_url=storage_url,
-        suffix=stream.subtype,
-        duration_ms=source.length * 1000
-    )
-
-    filename = Path(urlparse(phony_stream.url).path).name
-    stream.download(output_path=temp_path, filename=filename)
-    file_path = temp_path / filename
-
-    (stream,) = [
-        s
-        for s in media.probe(f"file://{file_path}")
-        if not (isinstance(s, Audio) and s.encoding != "WEBM_OPUS")
-    ]
-    stream = dataclasses.replace(
-        stream,
-        url=phony_stream.url,
-        storage_url=storage_url,
-        _id=phony_stream._id
-    )
-
-    storage.put(file_path, stream.url)
-
-    return stream
+    stream: pytube.Stream, output_dir: media.path
+) -> media.path:
+    file = media.new_file(output_dir)
+    stream.download(output_path=output_dir, filename=file.name)
+    return file
 
 
-def download(video_url: str, storage_url: str) -> Media:
+def download(video_url: str, output_dir: media.path) -> Media:
     yt = pytube.YouTube(video_url)
 
     filtered = yt.streams.filter(only_audio=True, audio_codec="opus")
@@ -232,28 +210,16 @@ def download(video_url: str, storage_url: str) -> Media:
 
     logger.info(f"Downloading {audio} and {video}")
 
-    with TemporaryDirectory() as output:
-        audio_stream = download_stream(
-            source=yt,
-            stream=audio,
-            storage_url=storage_url,
-            temp_path=Path(output)
-        )
-        video_stream = download_stream(
-            source=yt,
-            stream=video,
-            storage_url=storage_url,
-            temp_path=Path(output)
-        )
+    audio_stream = download_stream(stream=audio, output_dir=output_dir)
+    video_stream = download_stream(stream=video, output_dir=output_dir)
 
-        assert type(audio_stream) is Audio
-        assert type(video_stream) is Video
+    Info(title=yt.title, description=)
 
-        return Media(
-            audio=[audio_stream],
-            video=[video_stream],
-            title=yt.title,
-            description=yt.description,
-            tags=yt.keywords,
-            origin=video_url,
-        )
+    return (audio_stream, video_stream, )
+        audio=[audio_stream],
+        video=[video_stream],
+        title=yt.title,
+        description=yt.description,
+        tags=yt.keywords,
+        origin=video_url,
+    )

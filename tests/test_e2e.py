@@ -1,5 +1,5 @@
 from typing import Dict, List
-from freespeech import language, speech, services, datastore
+from freespeech import language, speech, services
 from freespeech.types import Transcript, Event
 import requests
 
