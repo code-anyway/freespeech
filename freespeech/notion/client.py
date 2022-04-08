@@ -190,7 +190,7 @@ def get_all_transcripts(main_page_id: str) -> List[Transcript]:
     return transcripts
 
 
-def parse_property_value(value: Dict) -> str | List[str]:
+def parse_property_value(value: Dict) -> str | List[str] | List[Dict]:
     _type = value["type"]
 
     match _type:

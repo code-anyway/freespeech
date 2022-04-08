@@ -2,6 +2,7 @@ import json
 import os
 import requests
 import logging
+import functools
 
 
 logger = logging.getLogger(__name__)
@@ -10,6 +11,7 @@ PROJECT_ID_URL = \
     "http://metadata.google.internal/computeMetadata/v1/project/project-id"
 
 
+@functools.cache
 def get_service_account_file() -> str | None:
     path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", None)
 
@@ -19,6 +21,7 @@ def get_service_account_file() -> str | None:
     return path
 
 
+@functools.cache
 def get_project_id() -> str:
     file = get_service_account_file()
 
@@ -35,9 +38,11 @@ def get_project_id() -> str:
             return json.load(fd)["project_id"]
 
 
+@functools.cache
 def get_storage_url() -> str:
     return os.environ["FREESPEECH_STORAGE_URL"]
 
 
+@functools.cache
 def get_notion_token() -> str:
     return os.environ["NOTION_TOKEN"]

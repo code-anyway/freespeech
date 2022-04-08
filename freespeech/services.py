@@ -33,16 +33,18 @@ def create_voiceover_from_notion_page(page_id: str) -> Dict[str, object]:
     page_info = nc.get_page_info(page_id)
     properties = nc.get_page_properties(page=page_info)
 
-    value = properties["Origin"]
-    # Unpack Notion's rollup property
-    origin, = nc.parse_property_value(value)
-    origin = nc.parse_property_value(origin)
+    def _unpack_rollup_property(property: Dict) -> str:
+        value = nc.parse_property_value(property)
+        assert type(value) is list
+        assert type(value[0]) is dict
 
-    value = properties["Source Language"]
-    # Unpack Notion's rollup property
-    source_lang, = nc.parse_property_value(value)
-    source_lang = nc.parse_property_value(source_lang)
+        res = nc.parse_property_value(value[0])
+        assert type(res) is str
 
+        return res
+
+    origin = _unpack_rollup_property(properties["Origin"])
+    source_lang = _unpack_rollup_property(properties["Source Language"])
     voice = properties["Voice"]
     ratio = 0.8 if not (value := properties["Weight"]) else float(value)
 
@@ -149,7 +151,7 @@ def voiceover(
         logger.warning(f"Additional audio for {url}: {_}")
 
     MAX_WEIGHT = 10
-    weights = [int(MAX_WEIGHT * (1 - ratio)), MAX_WEIGHT]
+    weights = [round(MAX_WEIGHT * (1 - ratio)), MAX_WEIGHT]
 
     logger.info(f"ffmpeg amix weights={weights} (ratio={ratio})")
     mixed_audio = media_ops.mix(
