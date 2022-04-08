@@ -3,7 +3,7 @@ from typing import List
 from google.cloud import translate as translate_api
 
 from freespeech import env
-from freespeech.types import Event, LANGUAGES, Transcript
+from freespeech.types import LANGUAGES, Event, Transcript
 
 
 def _translate_chunks(
@@ -11,7 +11,7 @@ def _translate_chunks(
     parent: str,
     chunks: List[str],
     source: str,
-    target: str
+    target: str,
 ) -> List[str]:
     if source == target:
         return chunks
@@ -38,9 +38,7 @@ def _translate_chunks(
 
 
 def translate(
-        text: Transcript | str,
-        source: str | None,
-        target: str
+    text: Transcript | str, source: str | None, target: str
 ) -> Transcript | str:
     client = translate_api.TranslationServiceClient()
     parent = f"projects/{env.get_project_id()}/locations/global"
@@ -48,10 +46,9 @@ def translate(
     match text:
         case str():
             if source is None:
-                raise ValueError(
-                    "`source` can't be None when type of `text` is `str`")
+                raise ValueError("`source` can't be None when type of `text` is `str`")
 
-            res, = _translate_chunks(client, parent, [text], source, target)
+            (res,) = _translate_chunks(client, parent, [text], source, target)
             return res
         case Transcript((lang)):
             return Transcript(
@@ -65,9 +62,9 @@ def translate(
                             parent,
                             chunks=e.chunks,
                             source=source or lang,
-                            target=target
-                        )
+                            target=target,
+                        ),
                     )
                     for e in text.events
-                ]
+                ],
             )

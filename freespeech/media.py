@@ -1,9 +1,11 @@
-from typing import Dict, List, Tuple
-from tempfile import TemporaryDirectory
-import ffmpeg
-from freespeech.types import Audio, AudioEncoding, Video
-from freespeech import storage
 import uuid
+from tempfile import TemporaryDirectory
+from typing import Dict, List, Tuple
+
+import ffmpeg
+
+from freespeech import storage
+from freespeech.types import Audio, AudioEncoding, Video
 
 
 def encoding_from_ffprobe(encoding: str) -> AudioEncoding:
@@ -27,7 +29,7 @@ def downmix_stereo_to_mono(audio: Audio, storage_url: str) -> Audio:
         sample_rate_hz=audio.sample_rate_hz,
         voice=audio.voice,
         lang=audio.lang,
-        num_channels=1
+        num_channels=1,
     )
 
     with TemporaryDirectory() as tmp_dir:
@@ -39,9 +41,7 @@ def downmix_stereo_to_mono(audio: Audio, storage_url: str) -> Audio:
             stream,
             filename=local_filename,
             ac=1,  # audio channels = 1
-        ).run(
-            overwrite_output=True, capture_stderr=True
-        )
+        ).run(overwrite_output=True, capture_stderr=True)
         assert new_audio.url is not None
         storage.put(src_file=local_filename, dst_url=new_audio.url)
 
@@ -59,7 +59,7 @@ def _parse_ffprobe_info(info: Dict, url: str) -> List[Audio | Video]:
                     encoding=encoding_from_ffprobe(stream["codec_name"]),
                     sample_rate_hz=int(stream["sample_rate"]),
                     num_channels=stream["channels"],
-                    suffix=url.split(".")[-1]
+                    suffix=url.split(".")[-1],
                 )
             case "video":
                 return Video(
@@ -90,7 +90,7 @@ def concat(clips: List[Tuple[int, Audio]], storage_url: str) -> Audio:
                 time_ms,
                 ffmpeg.input(
                     filename=storage.get(audio.url, tmp_dir),
-                ).audio
+                ).audio,
             )
             for time_ms, audio in clips
             if audio.url is not None
@@ -111,7 +111,7 @@ def concat(clips: List[Tuple[int, Audio]], storage_url: str) -> Audio:
             overwrite_output=True, capture_stderr=True
         )
 
-        audio, = probe(f"file://{output_file}")
+        (audio,) = probe(f"file://{output_file}")
 
         assert isinstance(audio, Audio)
 
@@ -123,7 +123,7 @@ def concat(clips: List[Tuple[int, Audio]], storage_url: str) -> Audio:
             sample_rate_hz=audio.sample_rate_hz,
             voice=clip.voice,
             lang=clip.lang,
-            num_channels=audio.num_channels
+            num_channels=audio.num_channels,
         )
         assert new_audio.url is not None
         storage.put(output_file, new_audio.url)
@@ -136,18 +136,15 @@ def mix(audio: List[Audio], weights: List[int], storage_url: str) -> Audio:
 
     with TemporaryDirectory() as tmp_dir:
         mixed_audio = ffmpeg.filter(
-            [
-                ffmpeg.input(storage.get(a.url, tmp_dir)).audio
-                for a in audio
-            ],
+            [ffmpeg.input(storage.get(a.url, tmp_dir)).audio for a in audio],
             "amix",
-            weights=' '.join([str(w) for w in weights])
+            weights=" ".join([str(w) for w in weights]),
         )
         output_file = f"{tmp_dir}/output.{last_audio.suffix}"
 
         ffmpeg.output(mixed_audio, output_file).run(overwrite_output=True)
 
-        local_audio, = probe(f"file://{output_file}")
+        (local_audio,) = probe(f"file://{output_file}")
 
         assert isinstance(local_audio, Audio)
 
@@ -159,7 +156,7 @@ def mix(audio: List[Audio], weights: List[int], storage_url: str) -> Audio:
             sample_rate_hz=local_audio.sample_rate_hz,
             voice=last_audio.voice,
             lang=last_audio.lang,
-            num_channels=last_audio.num_channels
+            num_channels=last_audio.num_channels,
         )
         assert new_audio.url is not None
         storage.put(output_file, new_audio.url)
@@ -167,9 +164,7 @@ def mix(audio: List[Audio], weights: List[int], storage_url: str) -> Audio:
     return new_audio
 
 
-def add_audio(
-    video: Video, audio: Audio, storage_url: str
-) -> Tuple[Video, Audio]:
+def add_audio(video: Video, audio: Audio, storage_url: str) -> Tuple[Video, Audio]:
     with TemporaryDirectory() as tmp_dir:
         audio_path = storage.get(audio.url, tmp_dir)
         video_path = storage.get(video.url, tmp_dir)
@@ -178,9 +173,7 @@ def add_audio(
         output_path = f"{tmp_dir}/{file_name}"
 
         ffmpeg.output(
-            ffmpeg.input(audio_path).audio,
-            ffmpeg.input(video_path).video,
-            output_path
+            ffmpeg.input(audio_path).audio, ffmpeg.input(video_path).video, output_path
         ).run(overwrite_output=True)
 
         output_url = f"{storage_url}{file_name}"
@@ -188,10 +181,7 @@ def add_audio(
 
         streams = probe(output_url)
 
-        output_audio, = [s for s in streams if isinstance(s, Audio)]
-        output_video, = [s for s in streams if isinstance(s, Video)]
+        (output_audio,) = [s for s in streams if isinstance(s, Audio)]
+        (output_video,) = [s for s in streams if isinstance(s, Video)]
 
-        return (
-            output_video,
-            output_audio
-        )
+        return (output_video, output_audio)

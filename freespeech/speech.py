@@ -1,24 +1,24 @@
-from typing import List, Tuple
 from tempfile import TemporaryDirectory
-from freespeech import text, media
-from freespeech.types import Audio, Event, Transcript, LANGUAGES
-from google.cloud import texttospeech
+from typing import List, Tuple
 
 from google.cloud import speech as speech_api
+from google.cloud import texttospeech
 
+from freespeech import media, text
+from freespeech.types import LANGUAGES, Audio, Event, Transcript
 
 MAX_CHUNK_LENGTH = 1000  # Google Speech API Limit
 
 
 GOOGLE_CLOUD_ENCODINGS = {
     "LINEAR16": speech_api.RecognitionConfig.AudioEncoding.LINEAR16,
-    "WEBM_OPUS": speech_api.RecognitionConfig.AudioEncoding.WEBM_OPUS
+    "WEBM_OPUS": speech_api.RecognitionConfig.AudioEncoding.WEBM_OPUS,
 }
 
 SUPPORTED_VOICES = (
-        *[f"en-US-Wavenet-{suffix}" for suffix in "ABCDEFGHIJ"],
-        *[f"ru-RU-Wavenet-{suffix}" for suffix in "ABCDE"],
-        *[f"pt-PT-Wavenet-{suffix}" for suffix in "ABCD"],
+    *[f"en-US-Wavenet-{suffix}" for suffix in "ABCDEFGHIJ"],
+    *[f"ru-RU-Wavenet-{suffix}" for suffix in "ABCDE"],
+    *[f"pt-PT-Wavenet-{suffix}" for suffix in "ABCD"],
 )
 
 SUPPORTED_LANGUAGES = LANGUAGES
@@ -29,27 +29,26 @@ SYNTHESIS_RETRIES = 10
 TRANSCRIBE_TIMEOUT_SEC = 120
 
 
-def transcribe(
-    audio: Audio,
-    lang: str = None,
-    model: str = "default"
-) -> Transcript:
+def transcribe(audio: Audio, lang: str = None, model: str = "default") -> Transcript:
     lang = lang or audio.lang
 
     if lang is None:
         raise ValueError(
-            "Unable to determine language: audio.lang and lang are not set.")
+            "Unable to determine language: audio.lang and lang are not set."
+        )
 
     if audio.encoding not in GOOGLE_CLOUD_ENCODINGS:
         raise ValueError(
-            ("Invalid audio.encoding. "
-             f"Expcected values {','.join(GOOGLE_CLOUD_ENCODINGS)}."))
+            (
+                "Invalid audio.encoding. "
+                f"Expcected values {','.join(GOOGLE_CLOUD_ENCODINGS)}."
+            )
+        )
 
     if audio.num_channels != 1:
-        raise ValueError((
-            "Audio should be mono for best results. "
-            "Set audio.num_channels to 1."
-        ))
+        raise ValueError(
+            ("Audio should be mono for best results. " "Set audio.num_channels to 1.")
+        )
 
     client = speech_api.SpeechClient()
     operation = client.long_running_recognize(
@@ -64,7 +63,7 @@ def transcribe(
             #     original_media_type=speech_api.RecognitionMetadata.OriginalMediaType.VIDEO,  # noqa: E501
             # )
         ),
-        audio=speech_api.RecognitionAudio(uri=audio.url)
+        audio=speech_api.RecognitionAudio(uri=audio.url),
     )
     response = operation.result(timeout=TRANSCRIBE_TIMEOUT_SEC)
 
@@ -76,7 +75,7 @@ def transcribe(
         event = Event(
             time_ms=current_time_ms,
             duration_ms=result_end_time_ms - current_time_ms,
-            chunks=[result.alternatives[0].transcript]
+            chunks=[result.alternatives[0].transcript],
         )
         current_time_ms = result_end_time_ms
         events += [event]
@@ -95,14 +94,17 @@ def _synthesize(
     chunks = text.chunk(transcript, MAX_CHUNK_LENGTH)
 
     if lang not in SUPPORTED_LANGUAGES:
-        raise ValueError((
-            f"Unsupported language: {lang}. "
-            f"Supported languages: {SUPPORTED_LANGUAGES}"))
+        raise ValueError(
+            (
+                f"Unsupported language: {lang}. "
+                f"Supported languages: {SUPPORTED_LANGUAGES}"
+            )
+        )
 
     if voice not in SUPPORTED_VOICES:
-        raise ValueError((
-            f"Unsupported voice: {lang}. "
-            f"Supported voices: {SUPPORTED_VOICES}"))
+        raise ValueError(
+            (f"Unsupported voice: {lang}. " f"Supported voices: {SUPPORTED_VOICES}")
+        )
 
     client = texttospeech.TextToSpeechClient()
 
@@ -110,9 +112,7 @@ def _synthesize(
         responses = [
             client.synthesize_speech(
                 input=texttospeech.SynthesisInput(text=phrase),
-                voice=texttospeech.VoiceSelectionParams(
-                    language_code=lang, name=voice
-                ),
+                voice=texttospeech.VoiceSelectionParams(language_code=lang, name=voice),
                 audio_config=texttospeech.AudioConfig(
                     audio_encoding=texttospeech.AudioEncoding.LINEAR16,
                     pitch=pitch,
@@ -128,12 +128,10 @@ def _synthesize(
                 tmp_filename = f"{tmp_dir}/response-{i}.wav"
                 with open(tmp_filename, "wb") as fd:
                     fd.write(response.audio_content)
-                clip, = media.probe(f"file://{tmp_filename}")
+                (clip,) = media.probe(f"file://{tmp_filename}")
                 assert isinstance(clip, Audio)
                 clips += [clip]
-            return media.concat(
-                [(0, clip) for clip in clips],
-                storage_url=storage_url)
+            return media.concat([(0, clip) for clip in clips], storage_url=storage_url)
 
     # Iteratively adjust speaking rate
     speaking_rate = 1.0
@@ -143,19 +141,18 @@ def _synthesize(
             audio.voice = voice
             audio.lang = lang
             return audio
-        speaking_rate *= (audio.duration_ms / duration_ms)
+        speaking_rate *= audio.duration_ms / duration_ms
 
-    raise RuntimeError((
-        "Unable to converge while adjusting speaking_rate "
-        f"after {SYNTHESIS_RETRIES} attempts.")
+    raise RuntimeError(
+        (
+            "Unable to converge while adjusting speaking_rate "
+            f"after {SYNTHESIS_RETRIES} attempts."
+        )
     )
 
 
 def synthesize(
-    transcript: Transcript,
-    voice: str,
-    storage_url: str,
-    pitch: float = 0.0
+    transcript: Transcript, voice: str, storage_url: str, pitch: float = 0.0
 ) -> Audio:
     clips: List[Tuple[int, Audio]] = []
     current_time_ms = 0

@@ -1,9 +1,8 @@
 import uuid
 from dataclasses import InitVar, dataclass, field
+from pathlib import Path
 from typing import List, Literal
 from urllib.parse import urlparse, urlunparse
-from pathlib import Path
-
 
 AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC"]
 VideoEncoding = Literal["H264"]
@@ -36,11 +35,9 @@ class Stream:
     def __post_init__(self, storage_url):
         if self.url is None:
             # handle optional trailing / in storage_url gracefully
-            scheme, netloc, path, params, query, fragment = \
-                urlparse(storage_url)
+            scheme, netloc, path, params, query, fragment = urlparse(storage_url)
             path = str(Path(path) / f"{self._id}.{self.suffix}")
-            self.url = \
-                urlunparse((scheme, netloc, path, params, query, fragment))
+            self.url = urlunparse((scheme, netloc, path, params, query, fragment))
 
 
 @dataclass(frozen=False)

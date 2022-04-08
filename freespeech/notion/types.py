@@ -1,12 +1,12 @@
-from typing import List, Dict, Any
 from dataclasses import dataclass
+from typing import Any, Dict, List
 
 
 @dataclass(frozen=True)
 class Content:
     title: str | None
     text: str | None
-    children: List['Content']
+    children: List["Content"]
 
 
 @dataclass(frozen=True)

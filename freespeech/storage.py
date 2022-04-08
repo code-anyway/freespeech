@@ -1,12 +1,9 @@
+import logging
 import shutil
-
 from pathlib import Path
-
 from urllib.parse import ParseResult, urlparse
 
 from google.cloud import storage
-import logging
-
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +21,7 @@ def put(src_file: Path | str, dst_url: str):
             storage_client = storage.Client()
             try:
                 bucket = storage_client.bucket(url.netloc)
-                blob_file_name = (url.path or "/")
+                blob_file_name = url.path or "/"
                 blob_file_name = blob_file_name[1:]  # omit leading /
                 blob = bucket.blob(blob_file_name)
                 blob.upload_from_filename(str(src_file))
@@ -32,8 +29,7 @@ def put(src_file: Path | str, dst_url: str):
                 # https://github.com/googleapis/google-api-python-client/issues/618#issuecomment-669787286
                 storage_client._http.close()
         case ParseResult() as url:
-            raise ValueError(
-                f"Unsupported url scheme ({url.scheme}) for {dst_url}.")
+            raise ValueError(f"Unsupported url scheme ({url.scheme}) for {dst_url}.")
 
 
 def get(src_url: str, dst_dir: Path | str):
@@ -60,5 +56,4 @@ def get(src_url: str, dst_dir: Path | str):
                 storage_client._http.close()
             return str(dst_file)
         case scheme:
-            raise ValueError(
-                f"Unsupported url scheme ({scheme}) for {src_url}.")
+            raise ValueError(f"Unsupported url scheme ({scheme}) for {src_url}.")

@@ -1,16 +1,12 @@
-from google.cloud import firestore
-from freespeech.types import Media, Audio, Video, Stream, Transcript, Event
-from freespeech import env
 from dataclasses import asdict
-from typing import Literal, List
+from typing import List, Literal
 
+from google.cloud import firestore
 
-COLLECTIONS = {
-    Media: "media",
-    Audio: "audio",
-    Video: "video",
-    Transcript: "transcript"
-}
+from freespeech import env
+from freespeech.types import Audio, Event, Media, Stream, Transcript, Video
+
+COLLECTIONS = {Media: "media", Audio: "audio", Video: "video", Transcript: "transcript"}
 
 EntityKind = Literal["media", "audio", "video", "transcript"]
 
@@ -34,11 +30,13 @@ def put(value: Media | Audio | Video | Stream | Transcript):
     doc = client.collection(COLLECTIONS[type(value)]).document(value._id)
 
     if isinstance(value, Media):
-        doc.set({
-            **asdict(value),
-            "audio": [audio._id for audio in value.audio],
-            "video": [video._id for video in value.video]
-        })
+        doc.set(
+            {
+                **asdict(value),
+                "audio": [audio._id for audio in value.audio],
+                "video": [video._id for video in value.video],
+            }
+        )
     else:
         doc.set(asdict(value))
 
@@ -60,7 +58,7 @@ def get(_id: str, kind: EntityKind):
                 title=value["title"],
                 description=value["description"],
                 tags=value["tags"],
-                origin=value["origin"]
+                origin=value["origin"],
             )
         case "audio":
             return Audio(
@@ -73,7 +71,7 @@ def get(_id: str, kind: EntityKind):
                 sample_rate_hz=value["sample_rate_hz"],
                 voice=value["voice"],
                 lang=value["lang"],
-                num_channels=value["num_channels"]
+                num_channels=value["num_channels"],
             )
         case "video":
             return Video(
@@ -83,7 +81,7 @@ def get(_id: str, kind: EntityKind):
                 url=value["url"],
                 _id=_id,
                 encoding=value["encoding"],
-                fps=value["fps"]
+                fps=value["fps"],
             )
         case "transcript":
             return Transcript(
@@ -93,10 +91,10 @@ def get(_id: str, kind: EntityKind):
                     Event(
                         time_ms=event["time_ms"],
                         duration_ms=event["duration_ms"],
-                        chunks=event["chunks"]
+                        chunks=event["chunks"],
                     )
                     for event in value["events"]
-                ]
+                ],
             )
         case unknown_type:
             raise ValueError(f"Unknown entity type: {unknown_type}")
@@ -108,7 +106,4 @@ def get_by_key_value(key: str, value: str, kind: EntityKind) -> List[Media]:
     query = client.collection(kind).where(key, "==", value)
     res = query.stream()
 
-    return [
-        get(_id=item.to_dict()["_id"], kind=kind)
-        for item in res
-    ]
+    return [get(_id=item.to_dict()["_id"], kind=kind) for item in res]

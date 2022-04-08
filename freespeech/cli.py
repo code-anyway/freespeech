@@ -1,44 +1,32 @@
-from aiohttp import web
 import logging
 import logging.config
+
 import click
+from aiohttp import web
 
-
-from freespeech import youtube
-from freespeech import api
-
+from freespeech import api, youtube
 
 LOGGING_CONFIG = {
     "version": 1,
     "formatters": {
-        "brief": {
-            "format": "%(message)s"
-        },
+        "brief": {"format": "%(message)s"},
         "default": {
             "format": "%(asctime)s %(levelname)-8s %(name)-15s %(message)s",
-            "datefmt": "%Y-%m-%d %H:%M:%S"
-        }
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
     },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
             "formatter": "default",
-            "stream": "ext://sys.stdout"
+            "stream": "ext://sys.stdout",
         },
-        "google": {
-            "class": "freespeech.logging.GoogleCloudLoggingHandler"
-        }
+        "google": {"class": "freespeech.logging.GoogleCloudLoggingHandler"},
     },
     "loggers": {
-        "freespeech": {
-            "level": logging.INFO,
-            "handlers": ["console", "google"]
-        },
-        "aiohttp": {
-            "level": logging.INFO,
-            "handlers": ["console", "google"]
-        },
-    }
+        "freespeech": {"level": logging.INFO, "handlers": ["console", "google"]},
+        "aiohttp": {"level": logging.INFO, "handlers": ["console", "google"]},
+    },
 }
 logging.config.dictConfig(LOGGING_CONFIG)
 
@@ -59,7 +47,7 @@ def cli():
     required=False,
     default=8080,
     type=int,
-    help="HTTP port to listen on"
+    help="HTTP port to listen on",
 )
 def start(port: int):
     """Start HTTP API Server"""

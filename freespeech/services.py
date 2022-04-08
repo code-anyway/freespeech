@@ -1,12 +1,11 @@
-from freespeech.types import Transcript, Media, Audio
-from freespeech import youtube, datastore, env, speech, language
-
-from freespeech import media as media_ops
-
-from freespeech.notion import client as nc
 import logging
 from typing import Dict
 
+from freespeech import datastore, env, language
+from freespeech import media as media_ops
+from freespeech import speech, youtube
+from freespeech.notion import client as nc
+from freespeech.types import Audio, Media, Transcript
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +18,7 @@ VOICES = {
     "Alan Turing": {
         "en-US": "en-US-Wavenet-I",
         "ru-RU": "ru-RU-Wavenet-D",
-    }
+    },
 }
 
 
@@ -55,7 +54,7 @@ def create_voiceover_from_notion_page(page_id: str) -> Dict[str, object]:
         transcript_id=transcript._id,
         source_lang=source_lang,
         voice=voice,
-        ratio=ratio
+        ratio=ratio,
     )
 
     assert media.video, "Translated media has no video"
@@ -82,9 +81,7 @@ def get_media(url: str) -> Media:
         logger.info(f"Cache hit for {url}. _id={media._id}")
 
         if tail:
-            logger.warning(
-                f"Extra records for {url}: {tail}"
-            )
+            logger.warning(f"Extra records for {url}: {tail}")
     else:
         media = youtube.download(url, env.get_storage_url())
         logger.info(f"Downloaded {url} as {media._id}")
@@ -106,7 +103,8 @@ def transcribe(url: str, lang: str) -> Transcript:
         logger.warning(f"Extra audio tracks found for {url}: {tail}")
 
     mono_audio = media_ops.downmix_stereo_to_mono(
-        audio, storage_url=env.get_storage_url())
+        audio, storage_url=env.get_storage_url()
+    )
     transcript = speech.transcribe(mono_audio, lang=lang)
 
     datastore.put(transcript)
@@ -116,19 +114,14 @@ def transcribe(url: str, lang: str) -> Transcript:
 
 def synthesize(transcript_id: str, voice: str) -> Audio:
     if voice not in VOICES:
-        raise ValueError(
-            f"Invalid voice {voice}. Expected values: {VOICES.keys()}")
+        raise ValueError(f"Invalid voice {voice}. Expected values: {VOICES.keys()}")
     transcript = datastore.get(transcript_id, "transcript")
 
     if transcript.lang not in VOICES[voice]:
-        raise ValueError(
-            f"{transcript.lang} is not supported for {voice}"
-        )
+        raise ValueError(f"{transcript.lang} is not supported for {voice}")
 
     audio = speech.synthesize(
-        transcript,
-        VOICES[voice][transcript.lang],
-        storage_url=env.get_storage_url()
+        transcript, VOICES[voice][transcript.lang], storage_url=env.get_storage_url()
     )
 
     datastore.put(audio)
@@ -137,11 +130,7 @@ def synthesize(transcript_id: str, voice: str) -> Audio:
 
 
 def voiceover(
-    url: str,
-    transcript_id: str,
-    source_lang: str,
-    voice: str,
-    ratio: float = 0.8
+    url: str, transcript_id: str, source_lang: str, voice: str, ratio: float = 0.8
 ) -> Media:
     media = get_media(url)
     new_audio = synthesize(transcript_id, voice)
@@ -155,26 +144,21 @@ def voiceover(
 
     logger.info(f"ffmpeg amix weights={weights} (ratio={ratio})")
     mixed_audio = media_ops.mix(
-        [original_audio, new_audio],
-        weights=weights,
-        storage_url=env.get_storage_url())
+        [original_audio, new_audio], weights=weights, storage_url=env.get_storage_url()
+    )
 
     video, *_ = media.video
     if _:
         logger.warning(f"Additional video for {url}: {_}")
 
     final_video, final_audio = media_ops.add_audio(
-        video,
-        mixed_audio,
-        storage_url=env.get_storage_url())
+        video, mixed_audio, storage_url=env.get_storage_url()
+    )
 
     def _translate(text: str) -> str:
         assert new_audio.lang
 
-        return str(language.translate(
-            text,
-            source_lang,
-            new_audio.lang))
+        return str(language.translate(text, source_lang, new_audio.lang))
 
     new_media = Media(
         audio=[final_audio],
@@ -182,7 +166,7 @@ def voiceover(
         title=_translate(media.title),
         description=_translate(media.description),
         tags=media.tags,
-        origin=f"voiceover:{transcript_id}:{media.origin}"
+        origin=f"voiceover:{transcript_id}:{media.origin}",
     )
 
     datastore.put(new_media)
