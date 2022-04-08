@@ -24,7 +24,8 @@ LOGGING_CONFIG = {
         "google": {"class": "freespeech.logging.GoogleCloudLoggingHandler"},
     },
     "loggers": {
-        "freespeech": {"level": logging.INFO, "handlers": ["console", "google"]},
+        "freespeech": {
+            "level": logging.INFO, "handlers": ["console", "google"]},
         "aiohttp": {"level": logging.INFO, "handlers": ["console", "google"]},
     },
 }

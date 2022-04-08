@@ -29,7 +29,9 @@ SYNTHESIS_RETRIES = 10
 TRANSCRIBE_TIMEOUT_SEC = 120
 
 
-def transcribe(audio: Audio, lang: str = None, model: str = "default") -> Transcript:
+def transcribe(
+    audio: Audio, lang: str = None, model: str = "default"
+) -> Transcript:
     lang = lang or audio.lang
 
     if lang is None:
@@ -47,7 +49,9 @@ def transcribe(audio: Audio, lang: str = None, model: str = "default") -> Transc
 
     if audio.num_channels != 1:
         raise ValueError(
-            ("Audio should be mono for best results. " "Set audio.num_channels to 1.")
+            (
+                "Audio should be mono for best results. "
+                "Set audio.num_channels to 1.")
         )
 
     client = speech_api.SpeechClient()
@@ -103,7 +107,9 @@ def _synthesize(
 
     if voice not in SUPPORTED_VOICES:
         raise ValueError(
-            (f"Unsupported voice: {lang}. " f"Supported voices: {SUPPORTED_VOICES}")
+            (
+                f"Unsupported voice: {voice}. "
+                f"Supported voices: {SUPPORTED_VOICES}")
         )
 
     client = texttospeech.TextToSpeechClient()
@@ -112,7 +118,9 @@ def _synthesize(
         responses = [
             client.synthesize_speech(
                 input=texttospeech.SynthesisInput(text=phrase),
-                voice=texttospeech.VoiceSelectionParams(language_code=lang, name=voice),
+                voice=texttospeech.VoiceSelectionParams(
+                    language_code=lang,
+                    name=voice),
                 audio_config=texttospeech.AudioConfig(
                     audio_encoding=texttospeech.AudioEncoding.LINEAR16,
                     pitch=pitch,
@@ -131,7 +139,8 @@ def _synthesize(
                 (clip,) = media.probe(f"file://{tmp_filename}")
                 assert isinstance(clip, Audio)
                 clips += [clip]
-            return media.concat([(0, clip) for clip in clips], storage_url=storage_url)
+            return media.concat(
+                [(0, clip) for clip in clips], storage_url=storage_url)
 
     # Iteratively adjust speaking rate
     speaking_rate = 1.0

@@ -136,7 +136,11 @@ def mix(audio: List[Audio], weights: List[int], storage_url: str) -> Audio:
 
     with TemporaryDirectory() as tmp_dir:
         mixed_audio = ffmpeg.filter(
-            [ffmpeg.input(storage.get(a.url, tmp_dir)).audio for a in audio],
+            [
+                ffmpeg.input(storage.get(a.url, tmp_dir)).audio
+                for a in audio
+                if a.url
+            ],
             "amix",
             weights=" ".join([str(w) for w in weights]),
         )
@@ -164,8 +168,12 @@ def mix(audio: List[Audio], weights: List[int], storage_url: str) -> Audio:
     return new_audio
 
 
-def add_audio(video: Video, audio: Audio, storage_url: str) -> Tuple[Video, Audio]:
+def add_audio(
+    video: Video, audio: Audio, storage_url: str
+) -> Tuple[Video, Audio]:
     with TemporaryDirectory() as tmp_dir:
+        assert audio.url
+        assert video.url
         audio_path = storage.get(audio.url, tmp_dir)
         video_path = storage.get(video.url, tmp_dir)
 
@@ -173,7 +181,9 @@ def add_audio(video: Video, audio: Audio, storage_url: str) -> Tuple[Video, Audi
         output_path = f"{tmp_dir}/{file_name}"
 
         ffmpeg.output(
-            ffmpeg.input(audio_path).audio, ffmpeg.input(video_path).video, output_path
+            ffmpeg.input(audio_path).audio,
+            ffmpeg.input(video_path).video,
+            output_path
         ).run(overwrite_output=True)
 
         output_url = f"{storage_url}{file_name}"

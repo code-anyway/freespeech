@@ -7,7 +7,9 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-PROJECT_ID_URL = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+PROJECT_ID_URL = (
+    "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+)
 
 
 @functools.cache
@@ -25,7 +27,8 @@ def get_project_id() -> str:
     file = get_service_account_file()
 
     if not file:
-        logger.info(f"Service account file is not set. Will use {PROJECT_ID_URL}")
+        logger.info(
+            f"Service account file is not set. Will use {PROJECT_ID_URL}")
         response = requests.get(
             url=PROJECT_ID_URL, headers={"Metadata-Flavor": "Google"}
         )

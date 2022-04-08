@@ -114,14 +114,17 @@ def transcribe(url: str, lang: str) -> Transcript:
 
 def synthesize(transcript_id: str, voice: str) -> Audio:
     if voice not in VOICES:
-        raise ValueError(f"Invalid voice {voice}. Expected values: {VOICES.keys()}")
+        raise ValueError(
+            f"Invalid voice {voice}. Expected values: {VOICES.keys()}")
     transcript = datastore.get(transcript_id, "transcript")
 
     if transcript.lang not in VOICES[voice]:
         raise ValueError(f"{transcript.lang} is not supported for {voice}")
 
     audio = speech.synthesize(
-        transcript, VOICES[voice][transcript.lang], storage_url=env.get_storage_url()
+        transcript,
+        VOICES[voice][transcript.lang],
+        storage_url=env.get_storage_url()
     )
 
     datastore.put(audio)
@@ -130,7 +133,7 @@ def synthesize(transcript_id: str, voice: str) -> Audio:
 
 
 def voiceover(
-    url: str, transcript_id: str, source_lang: str, voice: str, ratio: float = 0.8
+    url: str, transcript_id: str, source_lang: str, voice: str, ratio: float
 ) -> Media:
     media = get_media(url)
     new_audio = synthesize(transcript_id, voice)
@@ -144,7 +147,9 @@ def voiceover(
 
     logger.info(f"ffmpeg amix weights={weights} (ratio={ratio})")
     mixed_audio = media_ops.mix(
-        [original_audio, new_audio], weights=weights, storage_url=env.get_storage_url()
+        [original_audio, new_audio],
+        weights=weights,
+        storage_url=env.get_storage_url()
     )
 
     video, *_ = media.video

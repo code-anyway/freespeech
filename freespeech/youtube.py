@@ -197,7 +197,9 @@ def download_stream(
 ) -> Audio | Video:
     # TODO (astaff): refactor generation of the URL
     phony_stream = Stream(
-        storage_url=storage_url, suffix=stream.subtype, duration_ms=source.length * 1000
+        storage_url=storage_url,
+        suffix=stream.subtype,
+        duration_ms=source.length * 1000
     )
 
     filename = Path(urlparse(phony_stream.url).path).name
@@ -210,7 +212,10 @@ def download_stream(
         if not (isinstance(s, Audio) and s.encoding != "WEBM_OPUS")
     ]
     stream = dataclasses.replace(
-        stream, url=phony_stream.url, storage_url=storage_url, _id=phony_stream._id
+        stream,
+        url=phony_stream.url,
+        storage_url=storage_url,
+        _id=phony_stream._id
     )
 
     storage.put(file_path, stream.url)
@@ -221,18 +226,28 @@ def download_stream(
 def download(video_url: str, storage_url: str) -> Media:
     yt = pytube.YouTube(video_url)
 
-    audio, *_ = yt.streams.filter(only_audio=True, audio_codec="opus").order_by("abr")
+    filtered = yt.streams.filter(only_audio=True, audio_codec="opus")
+    audio, *_ = filtered.order_by("abr")
     video = yt.streams.get_highest_resolution()
 
     logger.info(f"Downloading {audio} and {video}")
 
     with TemporaryDirectory() as output:
         audio_stream = download_stream(
-            source=yt, stream=audio, storage_url=storage_url, temp_path=Path(output)
+            source=yt,
+            stream=audio,
+            storage_url=storage_url,
+            temp_path=Path(output)
         )
         video_stream = download_stream(
-            source=yt, stream=video, storage_url=storage_url, temp_path=Path(output)
+            source=yt,
+            stream=video,
+            storage_url=storage_url,
+            temp_path=Path(output)
         )
+
+        assert type(audio_stream) is Audio
+        assert type(video_stream) is Video
 
         return Media(
             audio=[audio_stream],

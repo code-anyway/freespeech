@@ -64,7 +64,8 @@ def extract(url: str) -> str:
         env.get_service_account_file(),
         scopes=["https://www.googleapis.com/auth/documents.readonly"],
     )
-    service = googleapiclient.discovery.build("docs", "v1", credentials=credentials)
+    service = googleapiclient.discovery.build(
+        "docs", "v1", credentials=credentials)
 
     document = service.documents().get(documentId=document_id).execute()
     return _read_structural_elements(document.get("body").get("content"))

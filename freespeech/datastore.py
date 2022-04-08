@@ -6,7 +6,12 @@ from google.cloud import firestore
 from freespeech import env
 from freespeech.types import Audio, Event, Media, Stream, Transcript, Video
 
-COLLECTIONS = {Media: "media", Audio: "audio", Video: "video", Transcript: "transcript"}
+COLLECTIONS = {
+    Media: "media",
+    Audio: "audio",
+    Video: "video",
+    Transcript: "transcript"
+}
 
 EntityKind = Literal["media", "audio", "video", "transcript"]
 

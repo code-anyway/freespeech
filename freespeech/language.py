@@ -46,7 +46,8 @@ def translate(
     match text:
         case str():
             if source is None:
-                raise ValueError("`source` can't be None when type of `text` is `str`")
+                raise ValueError(
+                    "`source` can't be None when type of `text` is `str`")
 
             (res,) = _translate_chunks(client, parent, [text], source, target)
             return res

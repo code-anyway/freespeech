@@ -35,9 +35,12 @@ class Stream:
     def __post_init__(self, storage_url):
         if self.url is None:
             # handle optional trailing / in storage_url gracefully
-            scheme, netloc, path, params, query, fragment = urlparse(storage_url)
+            scheme, netloc, path, params, query, fragment = \
+                urlparse(storage_url)
             path = str(Path(path) / f"{self._id}.{self.suffix}")
-            self.url = urlunparse((scheme, netloc, path, params, query, fragment))
+            self.url = urlunparse(
+                (scheme, netloc, path, params, query, fragment)
+            )
 
 
 @dataclass(frozen=False)
