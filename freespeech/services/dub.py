@@ -1,6 +1,5 @@
-from freespeech import datastore
-from freespeech.notion import client as nc
-from freespeech.types import Transcript
+from freespeech.lib.storage import document
+from freespeech.lib import notion as nc
 
 
 from typing import Dict
@@ -10,6 +9,11 @@ from aiohttp import web
 
 
 routes = web.RouteTableDef()
+
+
+# Service: dub
+# POST /media/{id}/{lang}/dub {lang, voice}
+# Async. Launches a dubbing process that will create or update media for target lang
 
 
 @routes.get("/dubs/from_notion/{page_id}")
@@ -65,9 +69,9 @@ def create_voiceover_from_notion_page(page_id: str) -> Dict[str, object]:
     return result
 
 
-def import_transcript_from_notion_page(page_id: str) -> Transcript:
+def import_transcript_from_notion_page(page_id: str) -> List[Events]:
     transcript = nc.get_transcript(page_id)
-    datastore.put(transcript)
+    document.put(transcript)
     return transcript
 
 
@@ -75,7 +79,7 @@ def synthesize(transcript_id: str, voice: str) -> Audio:
     if voice not in VOICES:
         raise ValueError(
             f"Invalid voice {voice}. Expected values: {VOICES.keys()}")
-    transcript = datastore.get(transcript_id, "transcript")
+    transcript = document.get(transcript_id, "transcript")
 
     if transcript.lang not in VOICES[voice]:
         raise ValueError(f"{transcript.lang} is not supported for {voice}")
@@ -86,7 +90,7 @@ def synthesize(transcript_id: str, voice: str) -> Audio:
         storage_url=env.get_storage_url()
     )
 
-    datastore.put(audio)
+    document.put(audio)
 
     return audio
 
@@ -133,6 +137,6 @@ def voiceover(
         origin=f"voiceover:{transcript_id}:{media.origin}",
     )
 
-    datastore.put(new_media)
+    document.put(new_media)
 
     return new_media

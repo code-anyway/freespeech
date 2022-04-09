@@ -1,7 +1,6 @@
-import hashlib
-
-
-from freespeech import youtube, env, storage
+from freespeech import env
+from freespeech.lib import youtube
+from freespeech.lib.storage import obj
 
 
 VIDEO_DESCRIPTION = (
@@ -18,16 +17,6 @@ VIDEO_DESCRIPTION = (
 )
 GS_TEST_BUCKET = "freespeech-tests"
 VIDEO_URL = "https://youtu.be/bhRaND9jiOA"
-
-
-def get_hash(filename):
-    sha256_hash = hashlib.sha256()
-
-    with open(filename, "rb") as f:
-        for byte_block in iter(lambda: f.read(4096), b""):
-            sha256_hash.update(byte_block)
-
-    return sha256_hash.hexdigest()
 
 
 def test_download_local(tmp_path, monkeypatch):
@@ -51,10 +40,10 @@ def test_download_local(tmp_path, monkeypatch):
     assert video.url == f"file://{tmp_path}/{video._id}.mp4"
     assert video.duration_ms == 29303
 
-    filename = storage.get(audio.url, tmp_path)
+    filename = obj.get(audio.url, tmp_path)
     assert get_hash(filename) == \
         "7b0dfb36784281f06c09011d631289f34aed8ba1cf0411b49d60c1d2594f7fe9"
-    filename = storage.get(video.url, tmp_path)
+    filename = obj.get(video.url, tmp_path)
     assert get_hash(filename) == \
         "ebc0b0ecf95a540a47696626e60e4ce4bd47582fd6b866ce72e762e531b03297"
 
@@ -80,9 +69,9 @@ def test_download_google_storage(tmp_path, monkeypatch):
     assert video.url == f"gs://{GS_TEST_BUCKET}/streams/{video._id}.mp4"
     assert video.duration_ms == 29303
 
-    filename = storage.get(audio.url, tmp_path)
+    filename = obj.get(audio.url, tmp_path)
     assert get_hash(filename) == \
         "7b0dfb36784281f06c09011d631289f34aed8ba1cf0411b49d60c1d2594f7fe9"
-    filename = storage.get(video.url, tmp_path)
+    filename = obj.get(video.url, tmp_path)
     assert get_hash(filename) == \
         "ebc0b0ecf95a540a47696626e60e4ce4bd47582fd6b866ce72e762e531b03297"

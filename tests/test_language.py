@@ -1,6 +1,6 @@
 from freespeech.types import Transcript, Event
 
-from freespeech import language
+from freespeech.lib import language
 
 
 def test_translate():

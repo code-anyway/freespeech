@@ -1,6 +1,6 @@
 import pytest
 
-from freespeech import gdocs
+from freespeech.lib import gdocs
 from googleapiclient import errors
 
 

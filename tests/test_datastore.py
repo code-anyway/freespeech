@@ -2,7 +2,8 @@ import pytest
 import uuid
 
 
-from freespeech import env, datastore
+from freespeech import env
+from freespeech.lib.storage import document
 from freespeech.types import Audio, Video, Media, Transcript, Event
 
 
@@ -44,13 +45,13 @@ async def test_all(monkeypatch):
         origin=origin_value
     )
 
-    datastore.put(media)
+    document.put(media)
 
-    res = datastore.get(media._id, kind="media")
+    res = document.get(media._id, kind="media")
 
     assert res == media
 
-    res = datastore.get_by_key_value(
+    res = document.get_by_key_value(
         "origin",
         origin_value,
         "media")
@@ -75,8 +76,8 @@ def test_transcript():
         ]
     )
 
-    datastore.put(transcript)
+    document.put(transcript)
 
-    res = datastore.get(transcript._id, "transcript")
+    res = document.get(transcript._id, "transcript")
 
     assert res == transcript

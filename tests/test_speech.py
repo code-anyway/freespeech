@@ -1,4 +1,4 @@
-from freespeech import speech
+from freespeech.lib import speech
 from freespeech.types import Audio, Transcript, Event
 
 

@@ -2,7 +2,7 @@ import json
 import uuid
 
 
-from freespeech.notion import client
+from freespeech.lib import notion
 from freespeech.types import Event
 
 
@@ -57,17 +57,17 @@ def test_get_all_pages():
         "fe999aa7-a53a-448a-8b6f-3dcfe07ab434"
     ]
 
-    pages = client.get_pages(TEST_DATABASE_ID, page_size=2)
+    pages = notion.get_pages(TEST_DATABASE_ID, page_size=2)
     assert set(expected) < set(pages)
 
 
 def test_get_page_info():
-    page = client.get_page_info(TEST_PAGE_ID)
+    page = notion.get_page_info(TEST_PAGE_ID)
     assert page["url"] == "https://www.notion.so/Announcer-s-test-fe999aa7a53a448a8b6f3dcfe07ab434"  # noqa: E501
 
 
 def test_parse_event():
-    parse = client._parse_event
+    parse = notion._parse_event
 
     assert parse("00:00:00.000/00:00:00.000") == (0, 0)
     assert parse(" 00:00:00.000 / 00:00:00.000 ") == (0, 0)
@@ -80,13 +80,13 @@ def test_parse_event():
 def test_get_events_from_test_data():
     with open("tests/data/transcript_block.json") as fd:
         block = json.load(fd)
-        events = client.get_events(block)
+        events = notion.get_events(block)
 
     assert events == EVENTS_EN
 
 
 def test_get_transcripts_from_notion():
-    en_EN, ru_RU, *_ = client.get_all_transcripts(TEST_PAGE_ID)
+    en_EN, ru_RU, *_ = notion.get_all_transcripts(TEST_PAGE_ID)
     assert en_EN.lang == "en-US"
     assert en_EN.events == EVENTS_EN
 
@@ -95,12 +95,12 @@ def test_get_transcripts_from_notion():
 
 
 def test_add_transcript():
-    transcripts_before = client.get_all_transcripts(TEST_PAGE_ID)
-    transcript = client.add_transcript(TEST_PAGE_ID, "uk-UK", EVENTS_UA)
+    transcripts_before = notion.get_all_transcripts(TEST_PAGE_ID)
+    transcript = notion.add_transcript(TEST_PAGE_ID, "uk-UK", EVENTS_UA)
     assert transcript.lang == "uk-UK"
     assert transcript.events == EVENTS_UA
 
-    transcripts_after = client.get_all_transcripts(TEST_PAGE_ID)
+    transcripts_after = notion.get_all_transcripts(TEST_PAGE_ID)
     assert transcripts_after == transcripts_before + [transcript]
 
 
@@ -115,4 +115,4 @@ def test_get_page_properties():
         'Target': ['ru-RU'],
         'Video': 'https://youtu.be/bhRaND9jiOA',
     }
-    assert client.get_page_properties(page) == expected
+    assert notion.get_page_properties(page) == expected

@@ -4,7 +4,8 @@ import logging.config
 import click
 from aiohttp import web
 
-from freespeech import api, youtube
+from freespeech import api
+from freespeech.lib import youtube
 
 LOGGING_CONFIG = {
     "version": 1,

@@ -1,6 +1,7 @@
 import uuid
 from dataclasses import dataclass, field
-from typing import Dict, List, Literal, Tuple
+from typing import List, Literal, Tuple
+from pathlib import Path
 
 
 AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC"]
@@ -12,6 +13,9 @@ Language = str
 Voice = str
 
 
+path = Path | str
+
+
 @dataclass(frozen=True)
 class Event:
     time_ms: int
@@ -20,20 +24,16 @@ class Event:
 
 
 @dataclass(frozen=True)
-class Stream:
+class Audio:
     duration_ms: int
-    ext: str
-
-
-@dataclass(frozen=True)
-class Audio(Stream):
     encoding: AudioEncoding
     sample_rate_hz: int
     num_channels: int = 1
 
 
 @dataclass(frozen=True)
-class Video(Stream):
+class Video:
+    duration_ms: int
     encoding: VideoEncoding
     # TODO (astaff): add fps, HxW, etc
 
@@ -51,9 +51,9 @@ class Info:
 
 @dataclass(frozen=False)
 class Media:
-    audio: List[Tuple[Voice, AudioLocator]]
-    video: VideoLocator
-    transcript: List[Event]
+    audio: List[Tuple[Voice, AudioLocator]] | None
+    video: VideoLocator | None
+    transcript: List[Event] | None
     lang: Language
     info: Info
     origin: Locator
