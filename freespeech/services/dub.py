@@ -1,4 +1,4 @@
-from freespeech.lib.storage import document
+from freespeech.lib.storage import doc
 from freespeech.lib import notion as nc
 
 
@@ -71,7 +71,7 @@ def create_voiceover_from_notion_page(page_id: str) -> Dict[str, object]:
 
 def import_transcript_from_notion_page(page_id: str) -> List[Events]:
     transcript = nc.get_transcript(page_id)
-    document.put(transcript)
+    doc.put(transcript)
     return transcript
 
 
@@ -79,7 +79,7 @@ def synthesize(transcript_id: str, voice: str) -> Audio:
     if voice not in VOICES:
         raise ValueError(
             f"Invalid voice {voice}. Expected values: {VOICES.keys()}")
-    transcript = document.get(transcript_id, "transcript")
+    transcript = doc.get(transcript_id, "transcript")
 
     if transcript.lang not in VOICES[voice]:
         raise ValueError(f"{transcript.lang} is not supported for {voice}")
@@ -90,7 +90,7 @@ def synthesize(transcript_id: str, voice: str) -> Audio:
         storage_url=env.get_storage_url()
     )
 
-    document.put(audio)
+    doc.put(audio)
 
     return audio
 
@@ -137,6 +137,6 @@ def voiceover(
         origin=f"voiceover:{transcript_id}:{media.origin}",
     )
 
-    document.put(new_media)
+    doc.put(new_media)
 
     return new_media

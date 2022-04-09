@@ -3,7 +3,7 @@ import uuid
 
 
 from freespeech import env
-from freespeech.lib.storage import document
+from freespeech.lib.storage import doc
 from freespeech.types import Audio, Video, Media, Transcript, Event
 
 
@@ -45,13 +45,13 @@ async def test_all(monkeypatch):
         origin=origin_value
     )
 
-    document.put(media)
+    doc.put(media)
 
-    res = document.get(media._id, kind="media")
+    res = doc.get(media._id, kind="media")
 
     assert res == media
 
-    res = document.get_by_key_value(
+    res = doc.get_by_key_value(
         "origin",
         origin_value,
         "media")
@@ -76,8 +76,8 @@ def test_transcript():
         ]
     )
 
-    document.put(transcript)
+    doc.put(transcript)
 
-    res = document.get(transcript._id, "transcript")
+    res = doc.get(transcript._id, "transcript")
 
     assert res == transcript

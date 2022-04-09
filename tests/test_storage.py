@@ -1,5 +1,5 @@
 import uuid
-from freespeech.lib.storage import object
+from freespeech.lib.storage import obj
 
 GS_TEST_BUCKET = "freespeech-tests"
 
@@ -14,8 +14,8 @@ def test_put_get_local(tmp_path):
     dst_file = f"{uuid.uuid4()}.txt"
     url = f"file:///{tmp_path}/{dst_file}"
 
-    object.put(src_file, url)
-    assert object.get(url, download_path) == str(download_path / dst_file)
+    obj.put(src_file, url)
+    assert obj.get(url, download_path) == str(download_path / dst_file)
 
     assert (download_path / dst_file).read_text() == "Hello Local World!"
 
@@ -30,7 +30,7 @@ def test_put_get_google_cloud_storage(tmp_path):
     dst_file = f"{uuid.uuid4()}.txt"
     url = f"gs://{GS_TEST_BUCKET}/test_storage/{dst_file}"
 
-    object.put(src_file, url)
-    assert object.get(url, download_path) == str(download_path / dst_file)
+    obj.put(src_file, url)
+    assert obj.get(url, download_path) == str(download_path / dst_file)
 
     assert (download_path / dst_file).read_text() == "Hello Cloud World!"
