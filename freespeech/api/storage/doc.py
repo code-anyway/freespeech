@@ -1,10 +1,9 @@
+from contextlib import contextmanager
 from typing import Dict, List, Literal
 
 from google.cloud import firestore
 
 from freespeech import env
-from contextlib import contextmanager
-
 
 QueryOperation = Literal["=="]
 
@@ -21,21 +20,21 @@ def google_firestore_client():
         client._http.close()
 
 
-def get(key: str, coll: str) -> Dict:
+def get(coll: str, key: str) -> Dict:
     with google_firestore_client() as client:
         doc = client.collection(coll).document(key)
         value = doc.get().to_dict()
     return value
 
 
-def put(key: str, value: Dict, coll: str):
+def put(coll: str, key: str, value: Dict):
     with google_firestore_client() as client:
         doc = client.collection(coll).document(key)
         doc.set(value)
 
 
-def query(attr: str, op: QueryOperation, value: str, coll: str) -> List[Dict]:
+def query(coll: str, attr: str, op: QueryOperation, value: str) -> List[Dict]:
     with google_firestore_client() as client:
-        query = client.collection(coll).where(attr, "==", value)
+        query = client.collection(coll).where(attr, op, value)
         res = query.stream()
     return [item.to_dict() for item in res]

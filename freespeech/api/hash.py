@@ -1,4 +1,5 @@
 import hashlib
+
 from freespeech.types import path
 
 
@@ -14,6 +15,6 @@ def file(filename: path) -> str:
 
 
 def string(s: str) -> str:
-    """Get SHA256 hash of a string as a hext digest."""
+    """Get SHA256 hash of a string as a hex digest."""
     sha256_hash = hashlib.sha256(s.encode())
     return sha256_hash.hexdigest()

@@ -1,4 +1,4 @@
-from freespeech.lib import media
+from freespeech.api import media
 from freespeech.types import Audio
 
 

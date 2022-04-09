@@ -2,7 +2,7 @@ import json
 import uuid
 
 
-from freespeech.lib import notion
+from freespeech.api import notion
 from freespeech.types import Event
 
 

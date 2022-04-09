@@ -2,7 +2,7 @@ import os
 
 from setuptools import setup
 
-VERSION = "0.1"
+VERSION = "0.2"
 
 
 def get_long_description():
@@ -29,8 +29,8 @@ setup(
     version=VERSION,
     packages=[
         "freespeech",
-        "freespeech.lib",
-        "freespeech.lib.storage",
+        "freespeech.api",
+        "freespeech.api.storage",
         "freespeech.services"],
     entry_points="""
         [console_scripts]

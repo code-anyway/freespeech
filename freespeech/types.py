@@ -1,8 +1,7 @@
 import uuid
 from dataclasses import dataclass, field
-from typing import List, Literal, Tuple
 from pathlib import Path
-
+from typing import List, Literal, Tuple
 
 AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC"]
 VideoEncoding = Literal["H264"]

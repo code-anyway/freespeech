@@ -1,12 +1,11 @@
-import uuid
-from typing import Dict, List, Tuple
-from pathlib import Path
-import ffmpeg
 import logging
+import uuid
+from pathlib import Path
+from typing import Dict, List, Tuple
 
+import ffmpeg
 
 from freespeech.types import Audio, AudioEncoding, Video, VideoEncoding, path
-
 
 logger = logging.getLogger(__name__)
 

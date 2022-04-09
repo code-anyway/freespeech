@@ -1,9 +1,8 @@
 import logging
 import shutil
+from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import ParseResult, urlparse
-from contextlib import contextmanager
-
 
 from google.cloud import storage
 
@@ -22,7 +21,6 @@ def google_storage_client():
 
 
 def put(src_file: Path | str, dst_url: str):
-    logger.debug(f"put: src_file={src_file} dst_url={dst_url}")
     src_file = Path(src_file)
 
     match urlparse(dst_url):

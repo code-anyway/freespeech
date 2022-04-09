@@ -1,12 +1,12 @@
-from tempfile import TemporaryDirectory
-from typing import List, Dict
 from functools import cache
+from tempfile import TemporaryDirectory
+from typing import Dict, List
 
 from google.cloud import speech as speech_api
 from google.cloud import texttospeech
 
-from freespeech.lib import media
-from freespeech.lib.text import chunk
+from freespeech.api import media
+from freespeech.api.text import chunk
 from freespeech.types import Audio, Event
 
 MAX_CHUNK_LENGTH = 1000  # Google Speech API Limit

@@ -1,4 +1,4 @@
-from freespeech.lib import text
+from freespeech.api import text
 
 
 def test_chunk():

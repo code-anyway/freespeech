@@ -1,6 +1,5 @@
 import google_auth_oauthlib.flow
 
-
 YOUTUBE_SCOPES = [
     "https://www.googleapis.com/auth/youtube.force-ssl",
     "https://www.googleapis.com/auth/youtube.upload",

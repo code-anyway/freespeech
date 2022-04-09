@@ -1,10 +1,10 @@
+from dataclasses import replace
 from typing import List
 
 from google.cloud import translate as translate_api
 
 from freespeech import env
 from freespeech.types import Event
-from dataclasses import replace
 
 
 def _translate_chunks(

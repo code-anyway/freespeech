@@ -1,6 +1,6 @@
 from typing import Dict, List
 from freespeech import services
-from freespeech.lib import language, speech
+from freespeech.api import language, speech
 from freespeech.types import Transcript, Event
 import requests
 

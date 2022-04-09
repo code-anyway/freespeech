@@ -3,6 +3,8 @@ import json
 import logging
 import random
 import time
+from pathlib import Path
+from typing import Tuple
 
 import httplib2
 import pytube
@@ -11,11 +13,8 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
-from freespeech.lib import media
+from freespeech.api import media
 from freespeech.types import Info
-from typing import Tuple
-from pathlib import Path
-
 
 logger = logging.getLogger(__name__)
 

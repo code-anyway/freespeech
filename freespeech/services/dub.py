@@ -1,12 +1,9 @@
-from freespeech.lib.storage import doc
-from freespeech.lib import notion as nc
-
-
 from typing import Dict
-
 
 from aiohttp import web
 
+from freespeech.api import notion as nc
+from freespeech.api.storage import doc
 
 routes = web.RouteTableDef()
 
