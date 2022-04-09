@@ -1,5 +1,5 @@
 from freespeech.api import speech
-from freespeech.types import Audio, Transcript, Event
+from freespeech.types import Audio, Event
 
 
 SPEECH_STORAGE_URL = "gs://freespeech-tests/streams/"

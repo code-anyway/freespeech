@@ -1,61 +1,60 @@
-from freespeech.api import media
-from freespeech.types import Audio
+from freespeech.api import media, hash
 
 
-SPEECH_STORAGE_URL = "gs://freespeech-tests/streams/"
-SPEECH_ID = "43ec9404-13c4-4133-9fd9-c7b57263158f"
-SPEECH_SUFFIX = "webm"
-TEST_AUDIO = Audio(
-    duration_ms=29_318,
-    storage_url=SPEECH_STORAGE_URL,
-    suffix=SPEECH_SUFFIX,
-    _id=SPEECH_ID,
-    encoding="WEBM_OPUS",
-    sample_rate_hz=48_000,
-    num_channels=2,
-    lang="en-US"
-)
+VIDEO_RU = "tests/api/data/media/ru-RU.mp4"
+VIDEO_EN = "tests/api/data/media/en-US.mp4"
+AUDIO_RU = "tests/api/data/media/ru-RU-mono.wav"
+AUDIO_EN = "tests/api/data/media/en-US-mono.wav"
+AUDIO_MIX_RU_EN = "tests/api/data/media/mix-ru-RU-1-en-US-10.wav"
+AUDIO_DUB_EN_RU = "tests/api/data/media/dub-en-US-ru-RU.mp4"
 
 
-def test_downmix_stereo_to_mono(tmp_path):
-    local_storage_url = f"file://{tmp_path}"
-    audio = media.downmix_stereo_to_mono(TEST_AUDIO, local_storage_url)
+def test_probe():
+    pass
 
-    assert audio.url == f"{local_storage_url}/{audio._id}.{audio.suffix}"
-    info, = media.probe(audio.url)
 
-    assert info.num_channels == 1
-    assert info.suffix == "webm"
+def test_multi_channel_audio_to_mono(tmp_path):
+    output_mono = media.multi_channel_audio_to_mono(VIDEO_EN, tmp_path)
+    (audio, *_), _ = media.probe(output_mono)
+    assert audio.num_channels == 1
+
+    output = media.multi_channel_audio_to_mono(output_mono, tmp_path)
+    assert output == output_mono
+
+
+def test_concat_and_pad(tmp_path):
+    clips = [
+        (10_000, AUDIO_RU),
+        (20_000, AUDIO_RU)
+    ]
+
+    (original_audio, *_), _ = media.probe(AUDIO_RU)
+    output = media.concat_and_pad(clips, tmp_path)
+    (audio, *_), _ = media.probe(output)
+    assert audio.duration_ms == 2 * original_audio.duration_ms + 30_000
 
 
 def test_concat(tmp_path):
-    storage_url = f"file://{tmp_path}"
-    audio = media.concat(
-        [
-            (5_000, TEST_AUDIO),
-            (10_000, TEST_AUDIO)
-        ],
-        storage_url=storage_url
-    )
+    clips = [AUDIO_RU] * 5
+    (original_audio, *_), _ = media.probe(AUDIO_RU)
 
-    info, = media.probe(audio.url)
+    output = media.concat(clips, tmp_path)
+    (audio, *_), _ = media.probe(output)
 
-    # TODO (astaff): looks like there is some error accumulation in ffmpeg
-    eps = -8
-    expected_duration_ms = TEST_AUDIO.duration_ms * 2 + 15_000 + eps
-    assert info.duration_ms == expected_duration_ms
+    epsilon = 1
+    assert audio.duration_ms == 5 * original_audio.duration_ms + epsilon
 
-    audio = media.concat(
-        [
-            (0, TEST_AUDIO),
-            (0, TEST_AUDIO)
-        ],
-        storage_url=storage_url
-    )
 
-    info, = media.probe(audio.url)
+def test_mix(tmp_path):
+    clips = [
+        (AUDIO_RU, 1),
+        (AUDIO_EN, 10)
+    ]
 
-    # TODO (astaff): looks like there is some error accumulation in ffmpeg
-    eps = -7
-    expected_duration_ms = TEST_AUDIO.duration_ms * 2 + eps
-    assert info.duration_ms == expected_duration_ms
+    output = media.mix(clips, tmp_path)
+    assert hash.file(output) == hash.file(AUDIO_MIX_RU_EN)
+
+
+def test_dub(tmp_path):
+    output = media.dub(VIDEO_EN, AUDIO_RU, tmp_path)
+    assert hash.file(output) == hash.file(AUDIO_DUB_EN_RU)

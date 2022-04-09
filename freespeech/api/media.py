@@ -28,48 +28,58 @@ def ffprobe_to_video_encoding(encoding: str) -> VideoEncoding:
     match encoding:
         case "h264":
             return "H264"
+        case "hevc":
+            return "HEVC"
         case invalid_encoding:
             raise ValueError(f"Invalid encoding: {invalid_encoding}")
 
 
-def probe(file: path) -> List[Audio | Video]:
+def probe(file: path) -> Tuple[List[Audio], List[Video]]:
     """Get a list of Audio and Video streams for a file.
 
     Args:
         file: path to a local file.
 
     Returns:
-        List of `Audio` and `Video` with stream information.
+        Tuple of lists of `Audio` and `Video` stream information.
     """
-    info = ffmpeg.probe(file)
 
-    def parse_stream(stream: Dict) -> Audio | Video:
+    try:
+        info = ffmpeg.probe(file)
+    except ffmpeg.Error as e:
+        raise RuntimeError(f"ffmpeg error: {e.stderr}")
+
+    def parse_stream(stream: Dict) -> Audio | Video | None:
         match stream["codec_type"]:
             case "audio":
                 return Audio(
-                    duration_ms=int(float(info["format"]["duration"]) * 1000),
+                    duration_ms=int(float(stream["duration"]) * 1000),
                     encoding=ffprobe_to_audio_encoding(stream["codec_name"]),
                     sample_rate_hz=int(stream["sample_rate"]),
                     num_channels=stream["channels"],
-                    ext=stream["extension"],
                 )
             case "video":
                 return Video(
-                    duration_ms=int(float(info["format"]["duration"]) * 1000),
+                    duration_ms=int(float(stream["duration"]) * 1000),
                     encoding=ffprobe_to_video_encoding(stream["codec_name"]),
-                    ext=stream["extension"],
                 )
             case codec_type:
-                raise ValueError(f"Unsupported codec type: {codec_type}")
+                logger.warning(f"Unsupported codec type: {codec_type}")
+                return None
 
-    return [parse_stream(s) for s in info["streams"]]
+    streams = [info for s in info["streams"] if (info := parse_stream(s))]
+
+    return (
+        [s for s in streams if isinstance(s, Audio)],
+        [s for s in streams if isinstance(s, Video)]
+    )
 
 
 def new_file(dir: path) -> Path:
     return Path(dir) / str(uuid.uuid4())
 
 
-def multi_channel_audio_to_mono(file: path, output_dir: path) -> path:
+def multi_channel_audio_to_mono(file: path, output_dir: path) -> Path:
     """Convert multi-channel audio to mono by downmixing.
 
     Args:
@@ -82,26 +92,30 @@ def multi_channel_audio_to_mono(file: path, output_dir: path) -> path:
     file = Path(file)
     output_dir = Path(output_dir)
 
-    streams = probe(file)
-    audio, *_ = [stream for stream in streams if isinstance(stream, Audio)]
+    (audio, *tail), _ = probe(file)
 
-    if _:
-        logger.warn(f"Additional audio streams in {file}: {_}")
+    if tail:
+        logger.warning(f"Additional audio streams in {file}: {tail}")
 
     if audio.num_channels == 1:
         return file
 
+    output_file = Path(f"{new_file(output_dir)}.wav")
     pipeline = ffmpeg.output(
         ffmpeg.input(file).audio,
-        output_file := new_file(output_dir),
+        filename=output_file,
         ac=1,  # audio channels = 1
     )
-    pipeline.run(overwrite_output=True, capture_stderr=True)
+
+    try:
+        pipeline.run(overwrite_output=True, capture_stderr=True)
+    except ffmpeg.Error as e:
+        raise RuntimeError(f"ffmpeg Error stderr: {e.stderr}")
 
     return output_file
 
 
-def concat_and_pad(clips: List[Tuple[int, path]], output_dir: path) -> path:
+def concat_and_pad(clips: List[Tuple[int, path]], output_dir: path) -> Path:
     """Concatenate audio clips and add padding.
 
     Args:
@@ -124,13 +138,14 @@ def concat_and_pad(clips: List[Tuple[int, path]], output_dir: path) -> path:
     # https://stackoverflow.com/questions/71390302/ffmpeg-python-stream-specifier-in-filtergraph-description-0concat-n-1s0-m
     stream = ffmpeg.concat(*inputs, v=0, a=1)
 
-    pipeline = ffmpeg.output(stream, output_file := new_file(output_dir))
+    output_file = Path(f"{new_file(output_dir)}.wav")
+    pipeline = ffmpeg.output(stream, filename=output_file)
     pipeline.run(overwrite_output=True, capture_stderr=True)
 
     return output_file
 
 
-def concat(clips: List[str], output_dir: path) -> path:
+def concat(clips: List[str], output_dir: path) -> Path:
     """Concatenate audio clips.
 
     Args:
@@ -143,29 +158,34 @@ def concat(clips: List[str], output_dir: path) -> path:
     return concat_and_pad([(0, clip) for clip in clips], output_dir)
 
 
-def mix(clips: List[Tuple[path, int]], output_dir: path) -> path:
+def mix(clips: List[Tuple[path, int]], output_dir: path) -> Path:
     """Mix multiple audio files into a single file.
 
     Args:
-        clips: list of weighted audio clips to mix.
+        clips: list of (path, weight) of clips to mix.
         output_dir: directory to store the conversion result.
 
     Returns:
         Audio file with all clips normalized and mixed according to weights.
     """
-    audio_streams = (ffmpeg.input(file).audio for file, _ in clips)
+    audio_streams = [ffmpeg.input(file).audio for file, _ in clips]
     weights = " ".join(str(weight) for _, weight in clips)
+    print(weights)
     mixed_audio = ffmpeg.filter(audio_streams, "amix", weights=weights)
 
-    pipeline = ffmpeg.output(mixed_audio, output_file := new_file(output_dir))
+    output_file = Path(f"{new_file(output_dir)}.wav")
+    pipeline = ffmpeg.output(mixed_audio, filename=output_file)
     pipeline.run(overwrite_output=True, capture_stderr=True)
 
     return output_file
 
 
-def dub(video: path, audio: path, output_dir: path) -> path:
+def dub(video: path, audio: path, output_dir: path) -> Path:
     streams = (ffmpeg.input(audio).audio, ffmpeg.input(video).video)
-    pipeline = ffmpeg.output(*streams, output_file := new_file(output_dir))
+
+    video = Path(video)
+    output_file = Path(f"{new_file(output_dir)}{video.suffix}")
+    pipeline = ffmpeg.output(*streams, filename=output_file)
     pipeline.run(overwrite_output=True, capture_stderr=True)
 
     return output_file

@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import List, Literal, Tuple
 
 AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC"]
-VideoEncoding = Literal["H264"]
+VideoEncoding = Literal["H264", "HEVC"]
 
 # For URLs/URIs.
 Locator = str
