@@ -17,7 +17,7 @@ def get_service_account_file() -> str | None:
     path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", None)
 
     if not path:
-        logger.info("GOOGLE_APPLICATION_CREDENTIALS is not set")
+        logger.warning("GOOGLE_APPLICATION_CREDENTIALS is not set")
 
     return path
 

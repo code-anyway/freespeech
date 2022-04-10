@@ -5,34 +5,43 @@
 [![Tests](https://github.com/astaff/freespeech/workflows/Test/badge.svg)](https://github.com/astaff/freespeech/actions?query=workflow%3ATest)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/astaff/freespeech/blob/master/LICENSE)
 
-null
-
 ## Installation
 
-Install this tool using `pip`:
+Prerequisites:
+* Docker
+* Google Cloud Service Account Credentials (default: `./id/google-cloud-development-credentials.json`)
 
-    $ pip install freespeech
+
+```bash
+docker build -t freespeech .
+```
+
 
 ## Usage
 
-Usage instructions go here.
+```
+docker run -e GOOGLE_APPLICATION_CREDENTIALS="/root/freespeech/id/google-cloud-development-credentials.json" freespeech --help
+```
 
 ## Development
 
-To contribute to this tool, first checkout the code. Then create a new virtual environment:
+### Environment
 
-    cd freespeech
-    python -m venv venv
-    source venv/bin/activate
+It is recommended to use VSCode's Dev Container extension and get a shell into container as a part of your development environment.
 
-Or if you are using `pipenv`:
+If your preferred workflow is different, you can get a shell with codebase mounted and application
+credentials mounted by running the following command from the repository's root directory:
 
-    pipenv shell
+```bash
+docker run -it \
+    -e GOOGLE_APPLICATION_CREDENTIALS="/root/freespeech/id/google-cloud-development-credentials.json" \
+    -v $(pwd):/root/freespeech \
+    --entrypoint /bin/bash freespeech
+```
 
-Now install the dependencies and test dependencies:
+### Common tasks
 
-    pip install -e '.[test]'
-
-To run the tests:
-
-    pytest
+From project home directory in the container:
+* To run locally: `pip install -e .`
+* To test locally: `pip install -e ".[test]"`
+* To run the tests: `pytest tests/` (or specific file or glob?).

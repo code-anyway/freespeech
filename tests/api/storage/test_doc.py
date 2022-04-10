@@ -24,7 +24,7 @@ def test_put_get_query():
     get = functools.partial(doc.get, "test")
     query = functools.partial(doc.query, "test")
 
-    put("test", key_1, value_1)
+    put(key_1, value_1)
     assert get(key_1) == value_1
 
     put(key_2, value_2)
