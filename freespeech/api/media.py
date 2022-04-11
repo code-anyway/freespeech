@@ -1,7 +1,7 @@
 import logging
 import uuid
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, Sequence, Tuple
 
 import ffmpeg
 
@@ -34,7 +34,7 @@ def ffprobe_to_video_encoding(encoding: str) -> VideoEncoding:
             raise ValueError(f"Invalid encoding: {invalid_encoding}")
 
 
-def probe(file: path) -> Tuple[List[Audio], List[Video]]:
+def probe(file: path) -> Tuple[Sequence[Audio], Sequence[Video]]:
     """Get a list of Audio and Video streams for a file.
 
     Args:
@@ -115,7 +115,10 @@ def multi_channel_audio_to_mono(file: path, output_dir: path) -> Path:
     return output_file
 
 
-def concat_and_pad(clips: List[Tuple[int, path]], output_dir: path) -> Path:
+def concat_and_pad(
+    clips: Sequence[Tuple[int, path]],
+    output_dir: path
+) -> Path:
     """Concatenate audio clips and add padding.
 
     Args:
@@ -140,12 +143,16 @@ def concat_and_pad(clips: List[Tuple[int, path]], output_dir: path) -> Path:
 
     output_file = Path(f"{new_file(output_dir)}.wav")
     pipeline = ffmpeg.output(stream, filename=output_file)
-    pipeline.run(overwrite_output=True, capture_stderr=True)
+
+    try:
+        pipeline.run(overwrite_output=True, capture_stderr=True)
+    except ffmpeg.Error as e:
+        raise RuntimeError(f"ffmpeg Error stderr: {e.stderr}")
 
     return output_file
 
 
-def concat(clips: List[str], output_dir: path) -> Path:
+def concat(clips: Sequence[str], output_dir: path) -> Path:
     """Concatenate audio clips.
 
     Args:
@@ -158,7 +165,7 @@ def concat(clips: List[str], output_dir: path) -> Path:
     return concat_and_pad([(0, clip) for clip in clips], output_dir)
 
 
-def mix(clips: List[Tuple[path, int]], output_dir: path) -> Path:
+def mix(clips: Sequence[Tuple[path, int]], output_dir: path) -> Path:
     """Mix multiple audio files into a single file.
 
     Args:
