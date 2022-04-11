@@ -155,6 +155,15 @@ def download_stream(stream: pytube.Stream, output_dir: media.path) -> Path:
 
 
 def download(url: str, output_dir: media.path) -> Tuple[Path, Path, Info]:
+    """Downloads YouTube video from URL into output_dir.
+
+    Args:
+        url: Video URL (i.e. "https://youtu.be/bhRaND9jiOA")
+        output_dir: directory where video and audio files will be created.
+
+    Returns:
+        A tuple (audio_stream, video_stream, info).
+    """
     yt = pytube.YouTube(url)
 
     filtered = yt.streams.filter(only_audio=True, audio_codec="opus")
