@@ -1,6 +1,4 @@
-from freespeech import env
 from freespeech.api import youtube, hash
-from freespeech.api.storage import obj
 
 
 VIDEO_DESCRIPTION = (
