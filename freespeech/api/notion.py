@@ -1,14 +1,19 @@
 import logging
 from datetime import datetime, time
-from typing import Any, Dict, List, Tuple
+from typing import Dict, List, Tuple, Literal
 
 import requests
 
 from freespeech import env
-from freespeech.types import Event, Transcript
+from freespeech.types import Event, Language
 
 logger = logging.getLogger(__name__)
 
+
+QueryOperator = Literal["greater_than", "equals", "after"]
+
+
+NOTION_MAX_PAGE_SIZE = 100
 
 HEADERS = {
     "Accept": "application/json",
@@ -26,7 +31,9 @@ def get_pages(database_id: str, page_size: int = 100) -> List[str]:
         response = requests.request("POST", url, json=payload, headers=HEADERS)
         data = response.json()
 
-        page_ids += [page["id"] for page in data["results"] if not page["archived"]]
+        page_ids += [
+            page["id"] for page in data["results"]
+            if not page["archived"]]
 
         if data["has_more"]:
             payload["start_cursor"] = data["next_cursor"]
@@ -36,7 +43,43 @@ def get_pages(database_id: str, page_size: int = 100) -> List[str]:
     return page_ids
 
 
-def get_page_info(_id: str) -> Dict:
+def query(
+    db_id: str,
+    property_name: str,
+    property_type: str,
+    operator: QueryOperator,
+    value: str
+) -> List[str]:
+    """Get all pages where property matches the expression."""
+    url = f"https://api.notion.com/v1/databases/{db_id}/query"
+    page_ids = []
+    payload = {
+        "filter": {
+            "property": property_name,
+            property_type: {
+                operator: value
+            }
+        },
+        "page_size": NOTION_MAX_PAGE_SIZE
+    }
+
+    while True:
+        response = requests.request("POST", url, json=payload, headers=HEADERS)
+        data = response.json()
+
+        page_ids += [
+            page["id"] for page in data["results"]
+            if not page["archived"]]
+
+        if data["has_more"]:
+            payload["start_cursor"] = data["next_cursor"]
+        else:
+            break
+
+    return page_ids
+
+
+def get_page_properties(_id: str) -> Dict:
     """Get page information.
 
     Args:
@@ -48,8 +91,30 @@ def get_page_info(_id: str) -> Dict:
         for that.
     """
     url = f"https://api.notion.com/v1/pages/{_id}"
-    response = requests.request("GET", url, headers=HEADERS)
-    return response.json()
+    response = requests.get(url, headers=HEADERS)
+    page = response.json()
+
+    properties = {
+        property: _parse_value(value)
+        for property, value in page["properties"].items()
+    }
+
+    return properties
+
+
+def _parse_value(value: Dict) -> str | List[str] | List[Dict]:
+    _type = value["type"]
+
+    match _type:
+        case "multi_select":
+            return [v["name"] for v in value[_type]]
+        case "select":
+            return value[_type]["name"]
+        case "title" | "rich_text" | "paragraph" | \
+             "heading_1" | "heading_2" | "heading_3":
+            return "\n".join(v["plain_text"] for v in value[_type])
+        case _:
+            return value[_type]
 
 
 def get_page_blocks(_id: str) -> Dict:
@@ -62,21 +127,134 @@ def get_page_blocks(_id: str) -> Dict:
         Dict with child block content.
     """
     url = f"https://api.notion.com/v1/blocks/{_id}/children"
-    response = requests.request("GET", url, headers=HEADERS)
+    response = requests.get(url, headers=HEADERS)
     return response.json()
 
 
-def get_page_properties(page: Dict) -> Dict[str, Any]:
-    properties = {
-        property: parse_property_value(value)
-        for property, value in page["properties"].items()
+def get_transcript(page_id: str) -> List[Event]:
+    """Parse Notion's page and generate transcript.
+
+    Args:
+        page_id: Notion page ID.
+
+    Returns:
+        Transcript represented as list of speech events.
+    """
+    HEADINGS = [
+        "heading_1",
+        "heading_2",
+        "heading_3",
+    ]
+
+    blocks = get_page_blocks(page_id)
+    results = (r for r in blocks["results"] if not r["archived"])
+    events: Dict[Tuple[int, int], List[str]] = dict()
+
+    for result in results:
+        _type = result["type"]
+        if _type in HEADINGS:
+            print(result)
+            value = _parse_value(result[_type])
+            assert isinstance(value, str)
+            key = _parse_event(value)
+            events[key] = events.get(key, [])
+        elif _type == "paragraph":
+            value = _parse_value(result[_type])
+            if not key:
+                logger.warning(f"Paragraph without timestamp: {value}")
+            assert isinstance(value, str)
+            events[key].append(value)
+
+    return [
+        Event(time_ms=time_ms, duration_ms=duration_ms, chunks=chunks)
+        for (time_ms, duration_ms), chunks in events.items()
+    ]
+
+
+def get_updated_pages(db_id: str, timestamp: str) -> List[str]:
+    """Get all pages that were updated after `timestamp`."""
+    raise NotImplementedError()
+
+
+def get_transcripts(db_id: str, url: str) -> Dict[Language, List[Event]]:
+    """Get all transcripts for a video url.
+
+    Args:
+        db_id: id of a Notion database containing transcripts.
+        url: url of a video transcripts are associated with.
+
+    Returns:
+        A dict with transcript's language as a key
+        and speech events as a value.
+    """
+
+    page_ids = query(
+        db_id=db_id,
+        property_name="Origin",
+        property_type="rich_text",
+        operator="equals",
+        value=url
+    )
+
+    transcripts = {
+        get_page_properties(_id)["Language"]: get_transcript(_id)
+        for _id in page_ids
     }
 
-    return properties
+    return transcripts
 
 
-def _get_pain_text(rich_text: List[Dict]) -> str:
-    return "\n".join(item["plain_text"] for item in rich_text)
+def add_transcript(
+    project_db_id: str,
+    transcript_db_id: str,
+    url: str,
+    lang: str,
+    title: str,
+    events: List[Event]
+) -> str:
+    url = "https://api.notion.com/v1/pages"
+
+    project_id, *tail = query(project_db_id, "Video", "url", "equals", url)
+    logger.warning(
+        f"Multiple projects with the same Video url in "
+        f"{project_db_id}: {[project_id] + tail}")
+
+    # Flatten event blocks
+    blocks: List[Dict] = sum(
+        [_get_blocks_from_event(event) for event in events], [])
+
+    payload = {
+        "parent": {
+            "type": "database_id",
+            "database_id": transcript_db_id
+        },
+        "properties": {
+            "title": [
+                {
+                    "type": "text",
+                    "text": {
+                        "content": title
+                    }
+                }
+            ],
+            "Project": {
+                "relation": {
+                    "id": project_id
+                }
+            },
+            "Language": {
+                "type": "select",
+                "select": {
+                    "name": lang
+                }
+            }
+        },
+        "children": blocks,
+    }
+
+    response = requests.post(url, json=payload, headers=HEADERS)
+
+    return response.json()["id"]
 
 
 def _parse_event(start_duration: str) -> Tuple[int, int]:
@@ -86,7 +264,7 @@ def _parse_event(start_duration: str) -> Tuple[int, int]:
         Event start time and duration in milliseconds.
     """
 
-    # TODO (astaff): couldnt find a sane way to do that
+    # TODO (astaff): couldn't find a sane way to do that
     # other than parsing it as datetime from a custom
     # ISO format that ingores date. Hence this.
     def _to_milliseconds(t: time):
@@ -105,91 +283,7 @@ def _parse_event(start_duration: str) -> Tuple[int, int]:
     return start_ms, finish_ms - start_ms
 
 
-def get_events(page_blocks: Dict) -> List[Event]:
-    """Generate transcript events by parsing Notion's page.
-
-    Args:
-        page_blocks: valid JSON from Notion's GET block API call.
-        lang: transcript language. i.e. en-US.
-
-    Returns:
-        Parsed trasncript.
-    """
-    HEADINGS = [
-        "heading_1",
-        "heading_2",
-        "heading_3",
-    ]
-
-    results = (r for r in page_blocks["results"] if not r["archived"])
-    events: Dict[Tuple[int, int], List[str]] = dict()
-
-    for result in results:
-        _type = result["type"]
-        value = result[_type]
-        if _type in HEADINGS:
-            key = _parse_event(_get_pain_text(value["rich_text"]))
-            events[key] = events.get(key, [])
-        elif _type == "paragraph":
-            if key is None:
-                logger.warning(f"Paragraph without timestamp: {value}")
-            events[key].append(_get_pain_text(value["rich_text"]))
-
-    return [
-        Event(time_ms=time_ms, duration_ms=duration_ms, chunks=chunks)
-        for (time_ms, duration_ms), chunks in events.items()
-    ]
-
-
-def get_transcript(page_id: str) -> Transcript:
-    properties = get_page_properties(get_page_info(page_id))
-    transcript = Transcript(
-        _id=page_id,
-        lang=properties["Language"],
-        events=get_events(page_blocks=get_page_blocks(page_id)),
-    )
-
-    return transcript
-
-
-def get_all_transcripts(main_page_id: str) -> List[Transcript]:
-    """Get all Transcripts from the main page.
-
-    Args:
-        main_page_id: id of the task's main page from Notion API.
-
-    Returns:
-        List of transcripts parsed from child pages
-        of the task's main page.
-    """
-
-    blocks = get_page_blocks(main_page_id)
-    child_pages = (
-        res["id"]
-        for res in blocks["results"]
-        if res["type"] == "child_page" and not res["archived"]
-    )
-
-    transcripts = [get_transcript(child_page_id) for child_page_id in child_pages]
-
-    return transcripts
-
-
-def parse_property_value(value: Dict) -> str | List[str] | List[Dict]:
-    _type = value["type"]
-
-    match _type:
-        case "multi_select":
-            return [v["name"] for v in value[_type]]
-        case "select":
-            return value[_type]["name"]
-        case "title":
-            return "\n".join(v["plain_text"] for v in value[_type])
-        case _:
-            return value[_type]
-
-
-def _event_to_text(event: Event) -> str:
+def _unparse_event(event: Event) -> str:
     start_ms = event.time_ms
     finish_ms = event.time_ms + event.duration_ms
 
@@ -201,35 +295,32 @@ def _event_to_text(event: Event) -> str:
 
 
 def _get_blocks_from_event(event: Event) -> List[Dict]:
+    text = {
+        "type": "text",
+        "text": {
+            "content": _unparse_event(event)
+        }
+    }
     header = {
         "object": "block",
         "type": "heading_3",
         "heading_3": {
-            "rich_text": [{"type": "text", "text": {"content": _event_to_text(event)}}]
+            "rich_text": [text]
         },
     }
     paragraphs = [
         {
             "object": "block",
             "type": "paragraph",
-            "paragraph": {"rich_text": [{"type": "text", "text": {"content": chunk}}]},
+            "paragraph": {
+                "rich_text": [
+                    {
+                        "type": "text",
+                        "text": {"content": chunk}
+                    }
+                ]},
         }
         for chunk in event.chunks
     ]
 
     return [header, *paragraphs]
-
-
-def add_transcript(parent: str, lang: str, events: List[Event]) -> Transcript:
-    url = "https://api.notion.com/v1/pages"
-    blocks: List[Dict] = sum([_get_blocks_from_event(event) for event in events], [])
-
-    payload = {
-        "parent": {"type": "page_id", "page_id": parent},
-        "properties": {"title": [{"type": "text", "text": {"content": lang}}]},
-        "children": blocks,
-    }
-
-    response = requests.request("POST", url, json=payload, headers=HEADERS).json()
-
-    return get_transcript(response["id"])

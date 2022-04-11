@@ -12,6 +12,7 @@ words:
   - pytube
   - rollup
   - texttospeech
+  - unparse
 ignoreWords:
   - ffmpeg
   - astaff

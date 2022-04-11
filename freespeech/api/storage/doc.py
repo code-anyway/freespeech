@@ -5,7 +5,7 @@ from google.cloud import firestore
 
 from freespeech import env
 
-QueryOperation = Literal["=="]
+QueryOperator = Literal["=="]
 
 
 @contextmanager
@@ -33,7 +33,7 @@ def put(coll: str, key: str, value: Dict):
         doc.set(value)
 
 
-def query(coll: str, attr: str, op: QueryOperation, value: str) -> List[Dict]:
+def query(coll: str, attr: str, op: QueryOperator, value: str) -> List[Dict]:
     with google_firestore_client() as client:
         query = client.collection(coll).where(attr, op, value)
         res = query.stream()

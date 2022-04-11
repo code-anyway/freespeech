@@ -7,7 +7,7 @@ from freespeech.types import Event
 
 
 TEST_PAGE_ID = "fe999aa7a53a448a8b6f3dcfe07ab434"
-TEST_DATABASE_ID = "4d8d51229d854929b193a13604bf47dc"
+TEST_DATABASE_ID = "da8013c44f6f4809b3e7ed53dfbfb461"
 TEST_PAGE_ID_ID_FOR_UPDATES = "553e3db2376341a7ae8abd4faa93131d"
 
 EVENTS_EN = [
@@ -51,19 +51,8 @@ EVENTS_UA = [
 
 
 def test_get_all_pages():
-    expected = [
-        "553e3db2-3763-41a7-ae8a-bd4faa93131d",
-        "8b4fcdb2-e90a-4a2b-951d-af46992d893a",
-        "fe999aa7-a53a-448a-8b6f-3dcfe07ab434"
-    ]
-
     pages = notion.get_pages(TEST_DATABASE_ID, page_size=2)
-    assert set(expected) < set(pages)
-
-
-def test_get_page_info():
-    page = notion.get_page_info(TEST_PAGE_ID)
-    assert page["url"] == "https://www.notion.so/Announcer-s-test-fe999aa7a53a448a8b6f3dcfe07ab434"  # noqa: E501
+    assert pages
 
 
 def test_parse_event():
@@ -77,10 +66,13 @@ def test_parse_event():
     assert parse("01:01:01.123/01:01:01.123") == (3661123, 0)
 
 
-def test_get_events_from_test_data():
-    with open("tests/data/transcript_block.json") as fd:
+def test_get_transcript_from_test_data(requests_mock):
+    with open("tests/api/data/notion/transcript_block.json") as fd:
         block = json.load(fd)
-        events = notion.get_events(block)
+        requests_mock.get(
+            f"https://api.notion.com/v1/blocks/{TEST_PAGE_ID}/children",
+            json=block)
+        events = notion.get_transcript(TEST_PAGE_ID)
 
     assert events == EVENTS_EN
 
@@ -104,9 +96,12 @@ def test_add_transcript():
     assert transcripts_after == transcripts_before + [transcript]
 
 
-def test_get_page_properties():
-    with open("tests/data/page.json") as fd:
+def test_get_page_properties(requests_mock):
+    with open("tests/api/data/notion/page.json") as fd:
         page = json.load(fd)
+        requests_mock.get(
+            f"https://api.notion.com/v1/pages/{TEST_PAGE_ID}",
+            json=page)
     expected = {
         'Name': "Announcer's test",
         'Source Language': 'en-US',
@@ -115,4 +110,4 @@ def test_get_page_properties():
         'Target': ['ru-RU'],
         'Video': 'https://youtu.be/bhRaND9jiOA',
     }
-    assert notion.get_page_properties(page) == expected
+    assert notion.get_page_properties(TEST_PAGE_ID) == expected

@@ -27,7 +27,7 @@ def get_project_id() -> str:
     file = get_service_account_file()
 
     if not file:
-        logger.info(
+        logger.warning(
             f"Service account file is not set. Will use {PROJECT_ID_URL}")
         response = requests.get(
             url=PROJECT_ID_URL, headers={"Metadata-Flavor": "Google"}
@@ -45,4 +45,9 @@ def get_storage_url() -> str:
 
 @functools.cache
 def get_notion_token() -> str:
-    return os.environ["NOTION_TOKEN"]
+    token = os.environ.get("NOTION_TOKEN", None)
+
+    if not token:
+        raise RuntimeError("Environment variable 'NOTION_TOKEN' is not set.")
+
+    return token

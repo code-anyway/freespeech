@@ -54,6 +54,12 @@ setup(
         "requests",
         "types-requests",
     ],
-    extras_require={"test": ["pytest", "pytest-asyncio", "black", "isort"]},
+    extras_require={"test": [
+        "pytest",
+        "pytest-asyncio",
+        "requests-mock",
+        "black",
+        "isort"
+    ]},
     python_requires=">=3.10",
 )
