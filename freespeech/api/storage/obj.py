@@ -22,7 +22,7 @@ class GoogleStorageObject:
             raise ValueError("object cannot start with `/`")
 
 
-def put(src: path, dst: url):
+def put(src: path, dst: url) -> str:
     src_file = Path(src)
     dst_url = urlparse(dst)
 
@@ -32,10 +32,12 @@ def put(src: path, dst: url):
     match dst_url.scheme:
         case "file":
             shutil.copy(src_file, dst_url.path)
+            return dst_url.path
         case "gs":
             assert dst_url.path.startswith("/")
             dst_obj = GoogleStorageObject(dst_url.netloc, dst_url.path[1:])
             _gs_copy_from_local(src_file, dst_obj)
+            return f"gs://{dst_obj.bucket}/{dst_obj.obj}"
         case scheme:
             raise ValueError(
                 f"Unsupported url scheme ({scheme}) for {dst_url}.")
