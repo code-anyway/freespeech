@@ -6,12 +6,11 @@ from typing import List, Literal, Tuple
 AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC"]
 VideoEncoding = Literal["H264", "HEVC"]
 
-# For URLs/URIs.
-Locator = str
 Language = str
 Voice = str
 
 
+url = str
 path = Path | str
 
 
@@ -27,7 +26,7 @@ class Audio:
     duration_ms: int
     encoding: AudioEncoding
     sample_rate_hz: int
-    num_channels: int = 1
+    num_channels: int
 
 
 @dataclass(frozen=True)
@@ -37,8 +36,8 @@ class Video:
     # TODO (astaff): add fps, HxW, etc
 
 
-AudioLocator = Tuple[Locator, Audio]
-VideoLocator = Tuple[Locator, Video]
+AudioLocator = Tuple[url, Audio]
+VideoLocator = Tuple[url, Video]
 
 
 @dataclass(frozen=True)
@@ -55,7 +54,7 @@ class Media:
     transcript: List[Event] | None
     lang: Language
     info: Info
-    origin: Locator
+    origin: url
 
 
 @dataclass(frozen=False)
