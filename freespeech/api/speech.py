@@ -1,6 +1,9 @@
 from functools import cache
 from tempfile import TemporaryDirectory
-from typing import Dict, List
+from typing import Dict, Sequence
+from pathlib import Path
+from google.api_core import exceptions as google_api_exceptions
+
 
 from google.cloud import speech as speech_api
 from google.cloud import texttospeech
@@ -31,7 +34,7 @@ GOOGLE_CLOUD_ENCODINGS = {
 # When synthesizing speech to match duration, this is the maximum delta.
 SYNTHESIS_ERROR_MS = 100
 
-# Number of retries when iteratvely adjusting speaking rate.
+# Number of retries when iteratively adjusting speaking rate.
 SYNTHESIS_RETRIES = 10
 
 # Speech-to-text API call timeout.
@@ -39,34 +42,35 @@ TRANSCRIBE_TIMEOUT_SEC = 120
 
 
 @cache
-def supported_voices() -> Dict[str, List[str]]:
+def supported_voices() -> Dict[str, Sequence[str]]:
     client = texttospeech.TextToSpeechClient()
 
     # Performs the list voices request
-    voices = client.list_voices()
+    response = client.list_voices()
 
     return {
         voice.name: voice.language_codes
-        for voice in voices
+        for voice in response.voices
     }
 
 
 def transcribe(
     uri: str, audio: Audio, lang: str, model: str = "default"
-) -> List[Event]:
+) -> Sequence[Event]:
     """Transcribe audio.
 
     Args:
-        uri: URI to the file. Supported: gs://bucket/path
-        audio: stream info.
-        lang: language-region (i.e. en-US, pt-BR)
+        uri: URI to the file. Supported: `gs://bucket/path`
+        audio: audio stream info.
+        lang: speaker's language-region (i.e. en-US, pt-BR)
             as per https://www.rfc-editor.org/rfc/rfc5646
-        model: transcription model.
+        model: transcription model (default: `"default"`).
             https://cloud.google.com/speech-to-text/docs/transcription-model
 
     Returns:
-        Transcript containing timed phrases.
+        Transcript containing timed phrases as `List[Event]`.
     """
+
     if lang is None:
         raise ValueError(
             "Unable to determine language: audio.lang and lang are not set."
@@ -88,23 +92,27 @@ def transcribe(
         )
 
     client = speech_api.SpeechClient()
-    operation = client.long_running_recognize(
-        config=speech_api.RecognitionConfig(
-            audio_channel_count=audio.num_channels,
-            encoding=GOOGLE_CLOUD_ENCODINGS[audio.encoding],
-            sample_rate_hertz=audio.sample_rate_hz,
-            language_code=lang,
-            model=model,
-            # TODO (astaff): are there any measurable gains
-            # from adjusting the hyper parameters?
-            # metadata=speech_api.RecognitionMetadata(
-            #     recording_device_type=speech_api.RecognitionMetadata.RecordingDeviceType.SMARTPHONE,  # noqa: E501
-            #     original_media_type=speech_api.RecognitionMetadata.OriginalMediaType.VIDEO,  # noqa: E501
-            # )
-        ),
-        audio=speech_api.RecognitionAudio(uri=uri),
-    )
-    response = operation.result(timeout=TRANSCRIBE_TIMEOUT_SEC)
+
+    try:
+        operation = client.long_running_recognize(
+            config=speech_api.RecognitionConfig(
+                audio_channel_count=audio.num_channels,
+                encoding=GOOGLE_CLOUD_ENCODINGS[audio.encoding],
+                sample_rate_hertz=audio.sample_rate_hz,
+                language_code=lang,
+                model=model,
+                # TODO (astaff): are there any measurable gains
+                # from adjusting the hyper parameters?
+                # metadata=speech_api.RecognitionMetadata(
+                #     recording_device_type=speech_api.RecognitionMetadata.RecordingDeviceType.SMARTPHONE,  # noqa: E501
+                #     original_media_type=speech_api.RecognitionMetadata.OriginalMediaType.VIDEO,  # noqa: E501
+                # )
+            ),
+            audio=speech_api.RecognitionAudio(uri=uri),
+        )
+        response = operation.result(timeout=TRANSCRIBE_TIMEOUT_SEC)
+    except google_api_exceptions.NotFound:
+        raise ValueError(f"Requested entity not found {uri}")
 
     current_time_ms = 0
     events = []
@@ -129,19 +137,36 @@ def synthesize_text(
     lang: str,
     pitch: float,
     output_dir: media.path
-) -> media.path:
+) -> Path:
     chunks = chunk(text, MAX_CHUNK_LENGTH)
-    all_voices = supported_voices()
-    if voice not in all_voices or lang not in all_voices[voice]:
+
+    if voice not in VOICES:
+        raise ValueError((
+            f"Unsupported voice: {voice}\n"
+            f"Supported voices: {VOICES}"
+        ))
+
+    if lang not in VOICES[voice]:
+        raise ValueError((
+            f"Unsupported lang {lang} for {voice}\n"
+            f"Supported voices: {VOICES}"
+        ))
+
+    google_voice = VOICES[voice][lang]
+    all_google_voices = supported_voices()
+
+    if google_voice not in all_google_voices or \
+       lang not in all_google_voices[google_voice]:
         raise ValueError(
             (
-                f"Unsupported language {lang} for voice {voice}"
-                f"Supported values: {all_voices}")
+                f"Google Speech Synthesis API "
+                "doesn't support {lang} for voice {voice}\n"
+                f"Supported values: {all_google_voices}")
         )
 
     client = texttospeech.TextToSpeechClient()
 
-    def _synthesize_step(rate, retries):
+    def _synthesize_step(rate, retries) -> Path:
         if retries < 0:
             raise RuntimeError(
                 (
@@ -166,27 +191,26 @@ def synthesize_text(
         ]
 
         with TemporaryDirectory() as tmp_dir:
-            files = [media.new_file(tmp_dir) for _ in responses]
+            files = [f"{media.new_file(tmp_dir)}.wav" for _ in responses]
             for file, response in zip(files, responses):
                 with open(file, "wb") as fd:
                     fd.write(response.audio_content)
+            audio_file = media.concat(files, output_dir)
 
-        audio_file = media.concat(files, output_dir)
-
-        audio, = media.probe(audio_file)
+        (audio, *_), _ = media.probe(audio_file)
         assert isinstance(audio, Audio)
 
         if abs(audio.duration_ms - duration_ms) < SYNTHESIS_ERROR_MS:
             return audio_file
         else:
             rate *= audio.duration_ms / duration_ms
-            _synthesize_step(rate, retries - 1)
+            return _synthesize_step(rate, retries - 1)
 
     return _synthesize_step(rate=1.0, retries=SYNTHESIS_RETRIES)
 
 
 def synthesize_events(
-    transcript: List[Event],
+    events: Sequence[Event],
     voice: str,
     lang: str,
     pitch: float,
@@ -195,7 +219,7 @@ def synthesize_events(
     current_time_ms = 0
     clips = []
 
-    for event in transcript:
+    for event in events:
         padding_ms = event.time_ms - current_time_ms
         clip = synthesize_text(
             text="".join(event.chunks),
@@ -205,7 +229,7 @@ def synthesize_events(
             pitch=pitch,
             output_dir=output_dir
         )
-        audio, = media.probe(clip)
+        (audio, *_), _ = media.probe(clip)
         assert isinstance(audio, Audio)
 
         clips += [(padding_ms, clip)]
