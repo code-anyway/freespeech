@@ -10,7 +10,7 @@ from freespeech.types import Event, Language
 logger = logging.getLogger(__name__)
 
 
-QueryOperator = Literal["greater_than", "equals", "after"]
+QueryOperator = Literal["greater_than", "equals", "after", "any"]
 
 
 NOTION_MAX_PAGE_SIZE = 100
@@ -23,44 +23,29 @@ HEADERS = {
 }
 
 
-def get_pages(database_id: str, page_size: int = 100) -> List[str]:
-    url = f"https://api.notion.com/v1/databases/{database_id}/query"
-    page_ids = []
-    payload = {"page_size": page_size}
-    while True:
-        response = requests.request("POST", url, json=payload, headers=HEADERS)
-        data = response.json()
-
-        page_ids += [
-            page["id"] for page in data["results"]
-            if not page["archived"]]
-
-        if data["has_more"]:
-            payload["start_cursor"] = data["next_cursor"]
-        else:
-            break
-
-    return page_ids
-
-
 def query(database_id: str,
           property_name: str,
           property_type: str,
           operator: QueryOperator,
-          value: str) -> List[str]:
+          value: str | Dict) -> List[str]:
     """Get all pages where property matches the expression."""
     url = f"https://api.notion.com/v1/databases/{database_id}/query"
     page_ids = []
-    payload = {
+
+    # How filtering in Notion API works:
+    # https://developers.notion.com/reference/post-database-query-filter#rollup-filter-condition  # noqa E501
+    payload: Dict[str, Dict | int] = {
         "filter": {
             "property": property_name,
             property_type: {
                 operator: value
             }
         },
-        "page_size": NOTION_MAX_PAGE_SIZE
     }
+    payload["page_size"] = NOTION_MAX_PAGE_SIZE
 
+    # TODO (astaff): There must be a more pythonic and reusable way
+    # to handle pagination it REST APIs but I can't quite express it yet.
     while True:
         response = requests.request("POST", url, json=payload, headers=HEADERS)
         data = response.json()
@@ -103,6 +88,8 @@ def get_page_properties(_id: str) -> Dict:
 def _parse_value(value: Dict,
                  value_type: str | None = None
                  ) -> str | List[str] | List[Dict]:
+    # Sometimes Notion response doesn't have "type" key
+    # and the caller will need to give a hint.
     _type = value_type or value["type"]
     match _type:
         case "multi_select":
@@ -140,22 +127,21 @@ def get_transcript(page_id: str) -> List[Event]:
     Returns:
         Transcript represented as list of speech events.
     """
-    HEADINGS = [
-        "heading_1",
-        "heading_2",
-        "heading_3",
-    ]
+    url = f"https://api.notion.com/v1/blocks/{page_id}/children"
+    response = requests.get(url, headers=HEADERS)
+    page_blocks = response.json()
 
-    blocks = get_page_blocks(page_id)
-    results = (r for r in blocks["results"] if not r["archived"])
+    results = (r for r in page_blocks["results"] if not r["archived"])
     events: Dict[Tuple[int, int], List[str]] = dict()
+
+    HEADINGS = ["heading_1", "heading_2", "heading_3"]
 
     for result in results:
         _type = result["type"]
         if _type in HEADINGS:
             value = _parse_value(result)
             assert isinstance(value, str)
-            key = _parse_event(value)
+            key = parse_time_interval(value)
             events[key] = events.get(key, [])
         elif _type == "paragraph":
             value = _parse_value(result)
@@ -164,10 +150,10 @@ def get_transcript(page_id: str) -> List[Event]:
             assert isinstance(value, str)
             events[key].append(value)
 
-    return [
-        Event(time_ms=time_ms, duration_ms=duration_ms, chunks=chunks)
-        for (time_ms, duration_ms), chunks in events.items()
-    ]
+    return [Event(time_ms=time_ms,
+                  duration_ms=duration_ms,
+                  chunks=chunks)
+            for (time_ms, duration_ms), chunks in events.items()]
 
 
 def get_updated_pages(db_id: str, timestamp: str) -> List[str]:
@@ -180,7 +166,7 @@ def get_transcripts(database_id: str, url: str) -> Dict[Language, List[Event]]:
 
     Args:
         database_id: id of a Notion database containing transcripts.
-        url: url of a video transcripts are associated with.
+        url: url of a video the transcripts are associated with.
 
     Returns:
         A dict with transcript's language as a key
@@ -190,9 +176,13 @@ def get_transcripts(database_id: str, url: str) -> Dict[Language, List[Event]]:
     page_ids = query(
         database_id=database_id,
         property_name="Origin",
-        property_type="url",
-        operator="equals",
-        value=url
+        property_type="rollup",
+        operator="any",
+        value={
+            "rich_text": {
+                "contains": url
+            }
+        }
     )
 
     transcripts = {
@@ -203,29 +193,28 @@ def get_transcripts(database_id: str, url: str) -> Dict[Language, List[Event]]:
     return transcripts
 
 
-def add_transcript(
-    project_db_id: str,
-    transcript_db_id: str,
-    url: str,
-    lang: str,
-    title: str,
-    events: List[Event]
-) -> str:
+def add_transcript(project_database_id: str,
+                   transcript_database_id: str,
+                   url: str,
+                   lang: str,
+                   title: str,
+                   events: List[Event]) -> str:
     url = "https://api.notion.com/v1/pages"
 
-    project_id, *tail = query(project_db_id, "Video", "url", "equals", url)
-    logger.warning(
-        f"Multiple projects with the same Video url in "
-        f"{project_db_id}: {[project_id] + tail}")
+    proj_id, *tail = query(project_database_id, "Video", "text", "equals", url)
 
-    # Flatten event blocks
-    blocks: List[Dict] = sum(
-        [_get_blocks_from_event(event) for event in events], [])
+    if tail:
+        logger.warning(
+            f"Multiple entries with the same Video url in "
+            f"{project_database_id}: {[proj_id] + tail}")
+
+    # Flatten lists of blocks returned by each render_event call
+    blocks: List[Dict] = sum([render_event(event) for event in events], [])
 
     payload = {
         "parent": {
             "type": "database_id",
-            "database_id": transcript_db_id
+            "database_id": transcript_database_id
         },
         "properties": {
             "title": [
@@ -238,7 +227,7 @@ def add_transcript(
             ],
             "Project": {
                 "relation": {
-                    "id": project_id
+                    "id": proj_id
                 }
             },
             "Language": {
@@ -256,11 +245,15 @@ def add_transcript(
     return response.json()["id"]
 
 
-def _parse_event(start_duration: str) -> Tuple[int, int]:
-    """Parse HH:MM:SS.MS/HH:MM:SS.MS into start and duration.
+def parse_time_interval(interval: str) -> Tuple[int, int]:
+    """Parses HH:MM:SS.fff/HH:MM:SS.fff into (start_ms, duration_ms).
 
-    Return:
-        Event start time and duration in milliseconds.
+    Args:
+        interval: encoded as two ISO 8601 timestamps separated by '/'
+            indicating start and finish of an interval.
+
+    Returns:
+        Time interval represented as a tuple: (time_ms, duration_ms).
     """
 
     # TODO (astaff): couldn't find a sane way to do that
@@ -274,7 +267,7 @@ def _parse_event(start_duration: str) -> Tuple[int, int]:
             + t.microsecond // 1_000
         )
 
-    start, duration = [s.strip() for s in start_duration.split("/")]
+    start, duration = [s.strip() for s in interval.split("/")]
 
     start_ms = _to_milliseconds(time.fromisoformat(start))
     finish_ms = _to_milliseconds(time.fromisoformat(duration))
@@ -282,9 +275,19 @@ def _parse_event(start_duration: str) -> Tuple[int, int]:
     return start_ms, finish_ms - start_ms
 
 
-def _unparse_event(event: Event) -> str:
-    start_ms = event.time_ms
-    finish_ms = event.time_ms + event.duration_ms
+def unparse_time_internval(time_ms, duration_ms) -> str:
+    """Transforms time interval into HH:MM:SS.fff/HH:MM:SS.fff
+
+    Args:
+        time_ms: start of an interval.
+        duration_ms: duration of an interval.
+
+    Returns:
+        Two ISO 8601 timestamps separated by '/'
+        indicating start and finish of an interval.
+    """
+    start_ms = time_ms
+    finish_ms = time_ms + duration_ms
 
     def _ms_to_iso_time(ms: int) -> str:
         t = datetime.fromtimestamp(ms / 1000.0).time()
@@ -293,18 +296,20 @@ def _unparse_event(event: Event) -> str:
     return f"{_ms_to_iso_time(start_ms)}/{_ms_to_iso_time(finish_ms)}"
 
 
-def _get_blocks_from_event(event: Event) -> List[Dict]:
-    text = {
+def render_event(event: Event) -> List[Dict]:
+    """Renders single event into a list of Notion Blocks."""
+    header_text = {
         "type": "text",
         "text": {
-            "content": _unparse_event(event)
+            "content": unparse_time_internval(time_ms=event.time_ms,
+                                              duration_ms=event.duration_ms)
         }
     }
     header = {
         "object": "block",
         "type": "heading_3",
         "heading_3": {
-            "rich_text": [text]
+            "rich_text": [header_text]
         },
     }
     paragraphs = [
