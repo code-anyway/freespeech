@@ -1,9 +1,11 @@
 import functools
 import uuid
 from freespeech.api.storage import doc
+import pytest
 
 
-def test_put_get_query():
+@pytest.mark.asyncio
+async def test_put_get_query():
     key_1 = str(uuid.uuid4())
     value_1 = {
         "num": 1,
@@ -20,14 +22,15 @@ def test_put_get_query():
         "bool": True,
     }
 
-    put = functools.partial(doc.put, "test")
-    get = functools.partial(doc.get, "test")
-    query = functools.partial(doc.query, "test")
+    client = doc.google_firestore_client()
+    put = functools.partial(doc.put, client, "test")
+    get = functools.partial(doc.get, client, "test")
+    query = functools.partial(doc.query, client, "test")
 
-    put(key_1, value_1)
-    assert get(key_1) == value_1
+    await put(key_1, value_1)
+    assert await get(key_1) == value_1
 
-    put(key_2, value_2)
-    assert len(query("num", "==", 1)) >= 1
-    assert len(query("bool", "==", True)) >= 2
-    assert query("str", "==", key_2) == [value_2]
+    await put(key_2, value_2)
+    assert await query("num", "==", 1)
+    assert await query("bool", "==", True)
+    assert await query("str", "==", key_2) == [value_2]

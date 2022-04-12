@@ -4,6 +4,8 @@ import googleapiclient.discovery
 from google.oauth2 import service_account
 
 from freespeech import env
+from contextlib import contextmanager
+from typing import Any
 
 
 def _read_paragraph_element(element):
@@ -47,6 +49,18 @@ def _read_structural_elements(elements):
     return text
 
 
+@contextmanager
+def gdocs_client(credentials: service_account.Credentials) -> Any:
+    service = googleapiclient.discovery.build(
+        "docs", "v1", credentials=credentials)
+    try:
+        yield service
+    finally:
+        # Some client libraries are leaving SSL connections unclosed
+        # https://github.com/googleapis/google-api-python-client/issues/618#issuecomment-669787286
+        service._http.http.close()
+
+
 def extract(url: str) -> str:
     """Extracts text contents of Google Docs document.
 
@@ -64,8 +78,9 @@ def extract(url: str) -> str:
         env.get_service_account_file(),
         scopes=["https://www.googleapis.com/auth/documents.readonly"],
     )
-    service = googleapiclient.discovery.build(
-        "docs", "v1", credentials=credentials)
 
-    document = service.documents().get(documentId=document_id).execute()
+    with gdocs_client(credentials) as client:
+        documents = client.documents()
+        document = documents.get(documentId=document_id).execute()
+
     return _read_structural_elements(document.get("body").get("content"))

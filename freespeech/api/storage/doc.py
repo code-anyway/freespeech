@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from typing import Dict, List, Literal
 
 from google.cloud import firestore
@@ -8,33 +7,27 @@ from freespeech import env
 QueryOperator = Literal["=="]
 
 
-@contextmanager
-def google_firestore_client():
+def google_firestore_client() -> firestore.AsyncClient:
     project_id = env.get_project_id()
-    client = firestore.Client(project=project_id)
-    try:
-        yield client
-    finally:
-        # Some Google client libraries are leaking resources
-        # https://github.com/googleapis/google-api-python-client/issues/618#issuecomment-669787286
-        client._http.close()
+    client = firestore.AsyncClient(project=project_id)
+    return client
 
 
-def get(coll: str, key: str) -> Dict:
-    with google_firestore_client() as client:
-        doc = client.collection(coll).document(key)
-        value = doc.get().to_dict()
-    return value
+async def get(client: firestore.Client, coll: str, key: str) -> Dict:
+    doc = client.collection(coll).document(key)
+    value = await doc.get()
+    return value.to_dict()
 
 
-def put(coll: str, key: str, value: Dict):
-    with google_firestore_client() as client:
-        doc = client.collection(coll).document(key)
-        doc.set(value)
+async def put(client: firestore.Client, coll: str, key: str, value: Dict):
+    doc = client.collection(coll).document(key)
+    await doc.set(value)
 
 
-def query(coll: str, attr: str, op: QueryOperator, value: str) -> List[Dict]:
-    with google_firestore_client() as client:
-        query = client.collection(coll).where(attr, op, value)
-        res = query.stream()
-    return [item.to_dict() for item in res]
+async def query(client: firestore.Client,
+                coll: str,
+                attr: str,
+                op: QueryOperator,
+                value: str) -> List[Dict]:
+    query = client.collection(coll).where(attr, op, value)
+    return [item.to_dict() async for item in query.stream()]

@@ -43,15 +43,13 @@ def get_pages(database_id: str, page_size: int = 100) -> List[str]:
     return page_ids
 
 
-def query(
-    db_id: str,
-    property_name: str,
-    property_type: str,
-    operator: QueryOperator,
-    value: str
-) -> List[str]:
+def query(database_id: str,
+          property_name: str,
+          property_type: str,
+          operator: QueryOperator,
+          value: str) -> List[str]:
     """Get all pages where property matches the expression."""
-    url = f"https://api.notion.com/v1/databases/{db_id}/query"
+    url = f"https://api.notion.com/v1/databases/{database_id}/query"
     page_ids = []
     payload = {
         "filter": {
@@ -102,17 +100,19 @@ def get_page_properties(_id: str) -> Dict:
     return properties
 
 
-def _parse_value(value: Dict) -> str | List[str] | List[Dict]:
-    _type = value["type"]
-
+def _parse_value(value: Dict,
+                 value_type: str | None = None
+                 ) -> str | List[str] | List[Dict]:
+    _type = value_type or value["type"]
     match _type:
         case "multi_select":
             return [v["name"] for v in value[_type]]
         case "select":
             return value[_type]["name"]
-        case "title" | "rich_text" | "paragraph" | \
-             "heading_1" | "heading_2" | "heading_3":
+        case "title" | "rich_text":
             return "\n".join(v["plain_text"] for v in value[_type])
+        case "heading_1" | "heading_2" | "heading_3" | "paragraph":
+            return _parse_value(value[_type], value_type="rich_text")
         case _:
             return value[_type]
 
@@ -153,13 +153,12 @@ def get_transcript(page_id: str) -> List[Event]:
     for result in results:
         _type = result["type"]
         if _type in HEADINGS:
-            print(result)
-            value = _parse_value(result[_type])
+            value = _parse_value(result)
             assert isinstance(value, str)
             key = _parse_event(value)
             events[key] = events.get(key, [])
         elif _type == "paragraph":
-            value = _parse_value(result[_type])
+            value = _parse_value(result)
             if not key:
                 logger.warning(f"Paragraph without timestamp: {value}")
             assert isinstance(value, str)
@@ -176,11 +175,11 @@ def get_updated_pages(db_id: str, timestamp: str) -> List[str]:
     raise NotImplementedError()
 
 
-def get_transcripts(db_id: str, url: str) -> Dict[Language, List[Event]]:
+def get_transcripts(database_id: str, url: str) -> Dict[Language, List[Event]]:
     """Get all transcripts for a video url.
 
     Args:
-        db_id: id of a Notion database containing transcripts.
+        database_id: id of a Notion database containing transcripts.
         url: url of a video transcripts are associated with.
 
     Returns:
@@ -189,9 +188,9 @@ def get_transcripts(db_id: str, url: str) -> Dict[Language, List[Event]]:
     """
 
     page_ids = query(
-        db_id=db_id,
+        database_id=database_id,
         property_name="Origin",
-        property_type="rich_text",
+        property_type="url",
         operator="equals",
         value=url
     )
