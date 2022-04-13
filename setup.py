@@ -59,7 +59,8 @@ setup(
         "pytest-asyncio",
         "requests-mock",
         "black",
-        "isort"
+        "isort",
+        "coverage"
     ]},
     python_requires=">=3.10",
 )

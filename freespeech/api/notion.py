@@ -50,6 +50,9 @@ def query(database_id: str,
         response = requests.request("POST", url, json=payload, headers=HEADERS)
         data = response.json()
 
+        if data["object"] == "error":
+            raise RuntimeError(data["message"])
+
         page_ids += [
             page["id"] for page in data["results"]
             if not page["archived"]]
@@ -62,18 +65,18 @@ def query(database_id: str,
     return page_ids
 
 
-def get_page_properties(_id: str) -> Dict:
+def get_page_properties(page_id: str) -> Dict:
     """Get page information.
 
     Args:
-        _id: id of a page.
+        page_id: id of a page.
 
     Returns:
         Dict with page info.
         Note: it doesn't return page content. Use `get_child_blocks`
         for that.
     """
-    url = f"https://api.notion.com/v1/pages/{_id}"
+    url = f"https://api.notion.com/v1/pages/{page_id}"
     response = requests.get(url, headers=HEADERS)
     page = response.json()
 
@@ -87,7 +90,7 @@ def get_page_properties(_id: str) -> Dict:
 
 def _parse_value(value: Dict,
                  value_type: str | None = None
-                 ) -> str | List[str] | List[Dict]:
+                 ) -> str | List[str] | List[Dict] | None:
     # Sometimes Notion response doesn't have "type" key
     # and the caller will need to give a hint.
     _type = value_type or value["type"]
@@ -95,6 +98,8 @@ def _parse_value(value: Dict,
         case "multi_select":
             return [v["name"] for v in value[_type]]
         case "select":
+            if value[_type] is None:
+                return None
             return value[_type]["name"]
         case "title" | "rich_text":
             return "\n".join(v["plain_text"] for v in value[_type])
@@ -102,20 +107,6 @@ def _parse_value(value: Dict,
             return _parse_value(value[_type], value_type="rich_text")
         case _:
             return value[_type]
-
-
-def get_page_blocks(_id: str) -> Dict:
-    """Get child blocks for a page.
-
-    Args:
-        _id: id of a page.
-
-    Returns:
-        Dict with child block content.
-    """
-    url = f"https://api.notion.com/v1/blocks/{_id}/children"
-    response = requests.get(url, headers=HEADERS)
-    return response.json()
 
 
 def get_transcript(page_id: str) -> List[Event]:
@@ -129,9 +120,9 @@ def get_transcript(page_id: str) -> List[Event]:
     """
     url = f"https://api.notion.com/v1/blocks/{page_id}/children"
     response = requests.get(url, headers=HEADERS)
-    page_blocks = response.json()
 
-    results = (r for r in page_blocks["results"] if not r["archived"])
+    blocks = response.json()
+    results = (r for r in blocks["results"] if not r["archived"])
     events: Dict[Tuple[int, int], List[str]] = dict()
 
     HEADINGS = ["heading_1", "heading_2", "heading_3"]
@@ -180,7 +171,7 @@ def get_transcripts(database_id: str, url: str) -> Dict[Language, List[Event]]:
         operator="any",
         value={
             "rich_text": {
-                "contains": url
+                "equals": url
             }
         }
     )
@@ -195,21 +186,26 @@ def get_transcripts(database_id: str, url: str) -> Dict[Language, List[Event]]:
 
 def add_transcript(project_database_id: str,
                    transcript_database_id: str,
-                   url: str,
+                   video_url: str,
                    lang: str,
                    title: str,
                    events: List[Event]) -> str:
     url = "https://api.notion.com/v1/pages"
 
-    proj_id, *tail = query(project_database_id, "Video", "text", "equals", url)
+    project_id, *tail = query(database_id=project_database_id,
+                              property_name="Video",
+                              property_type="url",
+                              operator="equals",
+                              value=video_url)
 
     if tail:
         logger.warning(
-            f"Multiple entries with the same Video url in "
-            f"{project_database_id}: {[proj_id] + tail}")
+            f"Multiple projects with the same Video url in "
+            f"{project_database_id}: {[project_id] + tail}")
 
-    # Flatten lists of blocks returned by each render_event call
-    blocks: List[Dict] = sum([render_event(event) for event in events], [])
+    # Flatten event blocks
+    blocks: List[Dict] = sum(
+        [render_event(event) for event in events], [])
 
     payload = {
         "parent": {
@@ -217,21 +213,22 @@ def add_transcript(project_database_id: str,
             "database_id": transcript_database_id
         },
         "properties": {
-            "title": [
-                {
+            "Name": {
+                "title": [{
                     "type": "text",
                     "text": {
                         "content": title
                     }
-                }
-            ],
+                }],
+            },
             "Project": {
-                "relation": {
-                    "id": proj_id
-                }
+                "relation": [
+                    {
+                        "id": project_id
+                    }
+                ]
             },
             "Language": {
-                "type": "select",
                 "select": {
                     "name": lang
                 }
@@ -249,11 +246,11 @@ def parse_time_interval(interval: str) -> Tuple[int, int]:
     """Parses HH:MM:SS.fff/HH:MM:SS.fff into (start_ms, duration_ms).
 
     Args:
-        interval: encoded as two ISO 8601 timestamps separated by '/'
-            indicating start and finish of an interval.
+        interval: start and finish encoded as
+            two ISO 8601 formatted timestamps separated by "/"
 
     Returns:
-        Time interval represented as a tuple: (time_ms, duration_ms).
+        Event start time and duration in milliseconds.
     """
 
     # TODO (astaff): couldn't find a sane way to do that
@@ -275,16 +272,16 @@ def parse_time_interval(interval: str) -> Tuple[int, int]:
     return start_ms, finish_ms - start_ms
 
 
-def unparse_time_internval(time_ms, duration_ms) -> str:
-    """Transforms time interval into HH:MM:SS.fff/HH:MM:SS.fff
+def unparse_time_interval(time_ms: int, duration_ms: int) -> str:
+    """Generates HH:MM:SS.fff/HH:MM:SS.fff representation for a time interval.
 
     Args:
-        time_ms: start of an interval.
-        duration_ms: duration of an interval.
+        time_ms: interval start time in milliseconds.
+        duration_ms: interval duration in milliseconds.
 
     Returns:
-        Two ISO 8601 timestamps separated by '/'
-        indicating start and finish of an interval.
+       Interval start and finish encoded as
+       two ISO 8601 formatted timespamps separated by "/".
     """
     start_ms = time_ms
     finish_ms = time_ms + duration_ms
@@ -297,19 +294,18 @@ def unparse_time_internval(time_ms, duration_ms) -> str:
 
 
 def render_event(event: Event) -> List[Dict]:
-    """Renders single event into a list of Notion Blocks."""
-    header_text = {
+    """Generates list of Notion blocks representing an speech event."""
+    text = {
         "type": "text",
         "text": {
-            "content": unparse_time_internval(time_ms=event.time_ms,
-                                              duration_ms=event.duration_ms)
+            "content": unparse_time_interval(event.time_ms, event.duration_ms)
         }
     }
     header = {
         "object": "block",
         "type": "heading_3",
         "heading_3": {
-            "rich_text": [header_text]
+            "rich_text": [text]
         },
     }
     paragraphs = [

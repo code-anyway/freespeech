@@ -79,7 +79,7 @@ def transcribe(
     if audio.encoding not in GOOGLE_CLOUD_ENCODINGS:
         raise ValueError(
             (
-                "Invalid audio.encoding. "
+                f"Invalid audio encoding: {audio.encoding} "
                 f"Expected values {','.join(GOOGLE_CLOUD_ENCODINGS)}."
             )
         )

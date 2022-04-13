@@ -19,8 +19,12 @@ docker build -t freespeech .
 
 ## Usage
 
-```
-docker run -e GOOGLE_APPLICATION_CREDENTIALS="/root/freespeech/id/google-cloud-development-credentials.json" freespeech --help
+```bash
+docker run -it \
+    -e GOOGLE_APPLICATION_CREDENTIALS="/root/id/test-service-credentials.json" \
+    -e NOTION_TOKEN="Notion-integration-token" \
+    -v $(pwd)/id:/root/id \
+freespeech --help
 ```
 
 ## Development
@@ -29,19 +33,28 @@ docker run -e GOOGLE_APPLICATION_CREDENTIALS="/root/freespeech/id/google-cloud-d
 
 It is recommended to use VSCode's Dev Container extension and get a shell into container as a part of your development environment.
 
-If your preferred workflow is different, you can get a shell with codebase mounted and application
-credentials mounted by running the following command from the repository's root directory:
+You are expected to set `GOOGLE_APPLICATION_CREDENTIALS` and `NOTION_TOKEN`.
+
+For example:
+```shell
+export GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/id/test-service-credentials.json
+export NOTION_TOKEN="Notion-integration-token"
+```
+
+If your preferred workflow is different, you can get shell access into a container with your local working directory mounted:
 
 ```bash
 docker run -it \
-    -e GOOGLE_APPLICATION_CREDENTIALS="/root/freespeech/id/google-cloud-development-credentials.json" \
-    -v $(pwd):/root/freespeech \
+    -e GOOGLE_APPLICATION_CREDENTIALS="/workspace/freespeech/id/test-service-credentials.json" \
+    -e NOTION_TOKEN="Notion-integration-token" \
+    -v $(pwd):/workspace/freespeech \
+    --workdir="/workspace/freespeech" \
     --entrypoint /bin/bash freespeech
 ```
 
 ### Common tasks
 
 From project home directory in the container:
-* To run locally: `pip install -e .`
+* To run locally: `pip install -e .` and `freespeech --help`
 * To test locally: `pip install -e ".[test]"`
 * To run the tests: `pytest tests/` (or specific file or glob?).

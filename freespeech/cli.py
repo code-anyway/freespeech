@@ -4,8 +4,17 @@ import logging.config
 import click
 from aiohttp import web
 
-from freespeech import api
+from freespeech.services import crud, dub, language, notion, pub, speech
 from freespeech.api import youtube
+
+SERVICE_ROUTES = {
+    "crud": crud.routes,
+    "dub": dub.routes,
+    "language": language.routes,
+    "notion": notion.routes,
+    "pub": pub.routes,
+    "speech": speech.routes
+}
 
 LOGGING_CONFIG = {
     "version": 1,
@@ -51,11 +60,21 @@ def cli():
     type=int,
     help="HTTP port to listen on",
 )
-def start(port: int):
+@click.argument('services', nargs=-1)
+def start(port: int, services):
     """Start HTTP API Server"""
     logger.info(f"Starting aiohttp server on port {port}")
     app = web.Application(logger=logger)
-    app.add_routes(api.routes)
+
+    for service in services:
+        if service not in SERVICE_ROUTES:
+            click.echo(f"Unknown service: {service}. "
+                       f"Expected values: {SERVICE_ROUTES.keys()}")
+            return -1
+        routes = SERVICE_ROUTES[service]
+        logger.info(f"Adding routes for {service}: {[r for r in routes]}")
+        app.add_routes(routes)
+
     web.run_app(app, port=port)
 
 

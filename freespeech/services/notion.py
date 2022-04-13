@@ -1,3 +1,8 @@
+from aiohttp import web
+
+
+routes = web.RouteTableDef()
+
 # POST /notion/media/sync/{page_id}
 # Takes information from Notion's page and creates or updates media.
 # Retruns media id and language for the synced page.

@@ -1,3 +1,8 @@
+from aiohttp import web
+
+
+routes = web.RouteTableDef()
+
 # Conventions:
 # - id is sha256 of a URL
 # - lang is a language tag (i.e. en-US, pt-BR)
@@ -26,20 +31,3 @@
 # Service: CRUD
 # POST /media/{id}/{lang}/transcript {events}
 # Updates transcript for a language.
-
-
-def get_media(url: str) -> Media:
-    res = datastore.get_by_key_value("origin", url, "media")
-    if res:
-        media, *tail = res
-        logger.info(f"Cache hit for {url}. _id={media._id}")
-
-        if tail:
-            logger.warning(f"Extra records for {url}: {tail}")
-    else:
-        media = youtube.download(url, env.get_storage_url())
-        logger.info(f"Downloaded {url} as {media._id}")
-
-    datastore.put(media)
-
-    return media
