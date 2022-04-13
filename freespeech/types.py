@@ -1,13 +1,17 @@
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
-from typing import List, Literal, Tuple
+from typing import List, Literal, Tuple, Sequence
+
 
 AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC"]
 VideoEncoding = Literal["H264", "HEVC"]
 
+
 Language = str
 Voice = str
+SpeechRate = str
 
 
 url = str
@@ -36,25 +40,27 @@ class Video:
     # TODO (astaff): add fps, HxW, etc
 
 
-AudioLocator = Tuple[url, Audio]
-VideoLocator = Tuple[url, Video]
+AudioStream = Tuple[url, Audio]
+VideoStream = Tuple[url, Video]
 
 
 @dataclass(frozen=True)
-class Info:
+class Meta:
     title: str
     description: str
     tags: List[str]
 
 
 @dataclass(frozen=False)
-class Media:
-    audio: List[Tuple[Voice, AudioLocator]] | None
-    video: VideoLocator | None
-    transcript: List[Event] | None
-    lang: Language
-    info: Info
+class Clip:
     origin: url
+    lang: Language
+    voice: Voice
+    audio: AudioStream
+    video: VideoStream | None
+    transcript: Sequence[Tuple[Event, SpeechRate]]
+    meta: Meta
+    last_updated: datetime = datetime.now()
 
 
 @dataclass(frozen=False)

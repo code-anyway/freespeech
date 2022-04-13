@@ -174,7 +174,6 @@ def mix(clips: Sequence[Tuple[path, int]], output_dir: path) -> Path:
     """
     audio_streams = [ffmpeg.input(file).audio for file, _ in clips]
     weights = " ".join(str(weight) for _, weight in clips)
-    print(weights)
     mixed_audio = ffmpeg.filter(audio_streams, "amix", weights=weights)
 
     output_file = Path(f"{new_file(output_dir)}.wav")

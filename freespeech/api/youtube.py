@@ -14,7 +14,7 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
 from freespeech.api import media
-from freespeech.types import Info
+from freespeech.types import Meta
 
 logger = logging.getLogger(__name__)
 
@@ -90,12 +90,12 @@ def resumable_upload(insert_request):
     retry = 0
     while response is None:
         try:
-            print("Uploading file...")
+            logger.info("Uploading file...")
             status, response = insert_request.next_chunk()
-            print(f"Status: {status}")
+            logger.info(f"Status: {status}")
             if response is not None:
                 if "id" in response:
-                    print(f"Video id '{ response['id']}' was successfully" " uploaded.")
+                    logger.info(f"Video id '{ response['id']}' was successfully" " uploaded.")
                 else:
                     exit("The upload failed with an unexpected response: %s" % response)
         except HttpError as e:
@@ -109,15 +109,15 @@ def resumable_upload(insert_request):
             error = f"A retriable error occurred: {e}"
 
         if error is not None:
-            print(error)
+            logger.error(error)
             retry += 1
             if retry > MAX_RETRIES:
-                print("No longer attempting to retry.")
+                logger.info("No longer attempting to retry.")
                 return
 
             max_sleep = 2**retry
             sleep_seconds = random.random() * max_sleep
-            print("Sleeping {sleep_seconds} seconds and then retrying...")
+            logger.info("Sleeping {sleep_seconds} seconds and then retrying...")
             time.sleep(sleep_seconds)
 
 
@@ -154,7 +154,7 @@ def download_stream(stream: pytube.Stream, output_dir: media.path) -> Path:
     return Path(file)
 
 
-def download(url: str, output_dir: media.path) -> Tuple[Path, Path, Info]:
+def download(url: str, output_dir: media.path) -> Tuple[Path, Path, Meta]:
     """Downloads YouTube video from URL into output_dir.
 
     Args:
@@ -175,6 +175,6 @@ def download(url: str, output_dir: media.path) -> Tuple[Path, Path, Info]:
     audio_stream = download_stream(stream=audio, output_dir=output_dir)
     video_stream = download_stream(stream=video, output_dir=output_dir)
 
-    info = Info(title=yt.title, description=yt.description, tags=yt.keywords)
+    info = Meta(title=yt.title, description=yt.description, tags=yt.keywords)
 
     return audio_stream, video_stream, info
