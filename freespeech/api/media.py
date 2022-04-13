@@ -97,9 +97,6 @@ def multi_channel_audio_to_mono(file: path, output_dir: path) -> Path:
     if tail:
         logger.warning(f"Additional audio streams in {file}: {tail}")
 
-    if audio.num_channels == 1:
-        return file
-
     output_file = Path(f"{new_file(output_dir)}.wav")
     pipeline = ffmpeg.output(
         ffmpeg.input(file).audio,
