@@ -6,7 +6,7 @@ ANNOUNCERS_TEST_VIDEO_URL = "https://youtu.be/bhRaND9jiOA"
 
 
 @pytest.mark.asyncio
-async def test_clip_upload(aiohttp_client):
+async def test_clip_upload_and_get(aiohttp_client):
     app = web.Application()
     # fill route table
     app.add_routes(crud.routes)
@@ -18,4 +18,7 @@ async def test_clip_upload(aiohttp_client):
     }
 
     resp = await client.post('/clips/upload', json=params)
-    assert await resp.json() == {}
+    clip = await resp.json()
+
+    resp = await client.get(f"/clips/{clip['_id']}")
+    assert clip == await resp.json()

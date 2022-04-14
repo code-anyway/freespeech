@@ -53,6 +53,22 @@ async def upload(request):
 
     return web.json_response(clip_dict)
 
+
+@routes.get("/clips/{clip_id}")
+async def get(request):
+    clip_id = request.match_info["clip_id"]
+
+    client = doc.google_firestore_client()
+    clip_dict = await doc.get(client, coll="clips", key=clip_id)
+
+    return web.json_response(clip_dict)
+
+
+@routes.get("/clips/latest/{encoded_url}/{lang}")
+async def latest(request):
+    pass
+
+
 # Service: CRUD
 # LIST /media/
 # Get all media records
