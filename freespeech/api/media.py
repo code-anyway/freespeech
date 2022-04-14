@@ -49,25 +49,33 @@ def probe(file: path) -> Tuple[Sequence[Audio], Sequence[Video]]:
     except ffmpeg.Error as e:
         raise RuntimeError(f"ffmpeg error: {e.stderr}")
 
-    def parse_stream(stream: Dict) -> Audio | Video | None:
+    def parse_stream(stream: Dict, format: Dict) -> Audio | Video | None:
+        duration = stream.get("duration", None) or \
+                   format.get("duration", None)
+        assert duration, "Couldn't infer duration from stream or format"
+        duration_ms = int(float(duration) * 1000)
+
         match stream["codec_type"]:
             case "audio":
                 return Audio(
-                    duration_ms=int(float(stream["duration"]) * 1000),
+                    duration_ms=duration_ms,
                     encoding=ffprobe_to_audio_encoding(stream["codec_name"]),
                     sample_rate_hz=int(stream["sample_rate"]),
                     num_channels=stream["channels"],
                 )
             case "video":
                 return Video(
-                    duration_ms=int(float(stream["duration"]) * 1000),
+                    duration_ms=duration_ms,
                     encoding=ffprobe_to_video_encoding(stream["codec_name"]),
                 )
             case codec_type:
                 logger.warning(f"Unsupported codec type: {codec_type}")
                 return None
 
-    streams = [info for s in info["streams"] if (info := parse_stream(s))]
+    streams = info["streams"]
+    format = info["format"]
+
+    streams = [info for s in streams if (info := parse_stream(s, format))]
 
     return (
         [s for s in streams if isinstance(s, Audio)],

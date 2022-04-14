@@ -1,6 +1,7 @@
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
+from datetime import timezone
 from pathlib import Path
 from typing import List, Literal, Tuple, Sequence
 
@@ -9,13 +10,13 @@ AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC"]
 VideoEncoding = Literal["H264", "HEVC"]
 
 
-Language = str
-Voice = str
-SpeechRate = str
+Language = Literal["en-US", "uk-UK", "ru-RU", "pt-PT", "es-MX"]
+Character = Literal["Alan Turing", "Grace Hopper", "Original"]
 
 
 url = str
 path = Path | str
+_last_updated = datetime.now(tz=timezone.utc).isoformat
 
 
 @dataclass(frozen=True)
@@ -23,6 +24,13 @@ class Event:
     time_ms: int
     duration_ms: int
     chunks: List[str]
+
+
+@dataclass(frozen=True)
+class Voice:
+    character: Character
+    speech_rate = float
+    pitch = float
 
 
 @dataclass(frozen=True)
@@ -55,12 +63,13 @@ class Meta:
 class Clip:
     origin: url
     lang: Language
-    voice: Voice
     audio: AudioStream
     video: VideoStream | None
-    transcript: Sequence[Tuple[Event, SpeechRate]]
+    transcript: Sequence[Tuple[Event, Voice | None]]
     meta: Meta
-    last_updated: datetime = datetime.now()
+    parent_id: str | None
+    _id: str = field(default=str(uuid.uuid4()))
+    last_updated: str = field(default=_last_updated())
 
 
 @dataclass(frozen=False)

@@ -56,6 +56,7 @@ setup(
     ],
     extras_require={"test": [
         "pytest",
+        "pytest-aiohttp",
         "pytest-asyncio",
         "requests-mock",
         "black",
