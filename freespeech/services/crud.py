@@ -64,10 +64,46 @@ async def get(request):
     return web.json_response(clip_dict)
 
 
-@routes.get("/clips/latest/{encoded_url}/{lang}")
-async def latest(request):
-    pass
+@routes.get("/clips/latest/{url}/{lang}")
+async def latest_by_lang(request):
+    url = request.match_info["url"]
+    lang = request.match_info["lang"]
 
+    client = doc.google_firestore_client()
+    clips = await doc.query(client,
+                            coll="clips",
+                            attr="origin",
+                            op="==",
+                            value=url,
+                            order=("last_updated", "DESCENDING"))
+
+    if not clips:
+        return web.HTTPNotFound(f"No clips for {url}.  "
+                                "Consider uploading if first.")
+
+    clip, *_ = [clip for clip in clips if clip["lang"] == lang]
+
+    return web.json_response(clip)
+
+
+@routes.get("/clips/latest/{url}")
+async def latest_all_langs(request):
+    url = request.match_info["url"]
+    client = doc.google_firestore_client()
+    clips = await doc.query(client,
+                            coll="clips",
+                            attr="origin",
+                            op="==",
+                            value=url,
+                            order=("last_updated", "ASCENDING"))
+
+    if not clips:
+        return web.HTTPNotFound(f"No clips for {url}.  "
+                                "Consider uploading if first.")
+
+    response = dict((clip["lang"], clip) for clip in clips)
+
+    return web.json_response(response)
 
 # Service: CRUD
 # LIST /media/
