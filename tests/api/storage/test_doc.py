@@ -1,7 +1,9 @@
 import functools
 import uuid
-from freespeech.api.storage import doc
+
 import pytest
+
+from freespeech.api.storage import doc
 
 
 @pytest.mark.asyncio

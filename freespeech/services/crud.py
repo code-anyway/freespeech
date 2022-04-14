@@ -1,12 +1,13 @@
+import logging
+from dataclasses import asdict
 from tempfile import TemporaryDirectory
+
 from aiohttp import web
+
+from freespeech import env
 from freespeech.api import media, youtube
 from freespeech.api.storage import doc, obj
 from freespeech.types import Clip
-from freespeech import env
-from dataclasses import asdict
-import logging
-
 
 logger = logging.getLogger(__name__)
 
@@ -36,13 +37,15 @@ async def upload(request):
         ((audio, *_), _) = media.probe(audio_file)
         (_, (video, *_)) = media.probe(video_file)
 
-        clip = Clip(origin=url,
-                    lang=lang,
-                    audio=(audio_url, audio),
-                    video=(audio_url, video),
-                    transcript=[],
-                    meta=meta,
-                    parent_id=None)
+        clip = Clip(
+            origin=url,
+            lang=lang,
+            audio=(audio_url, audio),
+            video=(audio_url, video),
+            transcript=[],
+            meta=meta,
+            parent_id=None,
+        )
 
         client = doc.google_firestore_client()
         clip_dict = asdict(clip)
@@ -70,16 +73,17 @@ async def latest_by_lang(request):
     lang = request.match_info["lang"]
 
     client = doc.google_firestore_client()
-    clips = await doc.query(client,
-                            coll="clips",
-                            attr="origin",
-                            op="==",
-                            value=url,
-                            order=("last_updated", "DESCENDING"))
+    clips = await doc.query(
+        client,
+        coll="clips",
+        attr="origin",
+        op="==",
+        value=url,
+        order=("last_updated", "DESCENDING"),
+    )
 
     if not clips:
-        return web.HTTPNotFound(f"No clips for {url}.  "
-                                "Consider uploading if first.")
+        return web.HTTPNotFound(f"No clips for {url}.  " "Consider uploading if first.")
 
     clip, *_ = [clip for clip in clips if clip["lang"] == lang]
 
@@ -90,20 +94,22 @@ async def latest_by_lang(request):
 async def latest_all_langs(request):
     url = request.match_info["url"]
     client = doc.google_firestore_client()
-    clips = await doc.query(client,
-                            coll="clips",
-                            attr="origin",
-                            op="==",
-                            value=url,
-                            order=("last_updated", "ASCENDING"))
+    clips = await doc.query(
+        client,
+        coll="clips",
+        attr="origin",
+        op="==",
+        value=url,
+        order=("last_updated", "ASCENDING"),
+    )
 
     if not clips:
-        return web.HTTPNotFound(f"No clips for {url}.  "
-                                "Consider uploading if first.")
+        return web.HTTPNotFound(f"No clips for {url}.  " "Consider uploading if first.")
 
     response = dict((clip["lang"], clip) for clip in clips)
 
     return web.json_response(response)
+
 
 # Service: CRUD
 # LIST /media/

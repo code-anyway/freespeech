@@ -38,11 +38,7 @@ def translate_text(text: str, source: str, target: str) -> str:
     return "\n".join(chunks)
 
 
-def translate_events(
-    events: List[Event],
-    source: str,
-    target: str
-) -> List[Event]:
+def translate_events(events: List[Event], source: str, target: str) -> List[Event]:
     return [
         replace(event, chunks=_translate_chunks(event.chunks, source, target))
         for event in events

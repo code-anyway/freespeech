@@ -1,10 +1,8 @@
 import json
 import uuid
 
-
 from freespeech.api import notion
 from freespeech.types import Event
-
 
 ANNOUNCERS_TEST_PROJECT_PAGE_ID = "fe999aa7a53a448a8b6f3dcfe07ab434"
 ANNOUNCERS_TEST_TRANSCRIPT_PAGE_ID_EN = "03182244413246de9d632b9e59548718"

@@ -1,7 +1,6 @@
-from freespeech.api import media, hash, speech
+from freespeech.api import hash, media, speech
 from freespeech.api.storage import obj
 from freespeech.types import Event
-
 
 VIDEO_RU = "tests/api/data/media/ru-RU.mp4"
 VIDEO_EN = "tests/api/data/media/en-US.mp4"

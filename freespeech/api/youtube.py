@@ -95,7 +95,9 @@ def resumable_upload(insert_request):
             logger.info(f"Status: {status}")
             if response is not None:
                 if "id" in response:
-                    logger.info(f"Video id '{ response['id']}' was successfully" " uploaded.")
+                    logger.info(
+                        f"Video id '{ response['id']}' was successfully" " uploaded."
+                    )
                 else:
                     exit("The upload failed with an unexpected response: %s" % response)
         except HttpError as e:

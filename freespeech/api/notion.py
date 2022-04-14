@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, time
-from typing import Dict, List, Tuple, Literal
+from typing import Dict, List, Literal, Tuple
 
 import requests
 
@@ -23,11 +23,13 @@ HEADERS = {
 }
 
 
-def query(database_id: str,
-          property_name: str,
-          property_type: str,
-          operator: QueryOperator,
-          value: str | Dict) -> List[str]:
+def query(
+    database_id: str,
+    property_name: str,
+    property_type: str,
+    operator: QueryOperator,
+    value: str | Dict,
+) -> List[str]:
     """Get all pages where property matches the expression."""
     url = f"https://api.notion.com/v1/databases/{database_id}/query"
     page_ids = []
@@ -35,12 +37,7 @@ def query(database_id: str,
     # How filtering in Notion API works:
     # https://developers.notion.com/reference/post-database-query-filter#rollup-filter-condition  # noqa E501
     payload: Dict[str, Dict | int] = {
-        "filter": {
-            "property": property_name,
-            property_type: {
-                operator: value
-            }
-        },
+        "filter": {"property": property_name, property_type: {operator: value}},
     }
     payload["page_size"] = NOTION_MAX_PAGE_SIZE
 
@@ -53,9 +50,7 @@ def query(database_id: str,
         if data["object"] == "error":
             raise RuntimeError(data["message"])
 
-        page_ids += [
-            page["id"] for page in data["results"]
-            if not page["archived"]]
+        page_ids += [page["id"] for page in data["results"] if not page["archived"]]
 
         if data["has_more"]:
             payload["start_cursor"] = data["next_cursor"]
@@ -81,16 +76,15 @@ def get_page_properties(page_id: str) -> Dict:
     page = response.json()
 
     properties = {
-        property: _parse_value(value)
-        for property, value in page["properties"].items()
+        property: _parse_value(value) for property, value in page["properties"].items()
     }
 
     return properties
 
 
-def _parse_value(value: Dict,
-                 value_type: str | None = None
-                 ) -> str | List[str] | List[Dict] | None:
+def _parse_value(
+    value: Dict, value_type: str | None = None
+) -> str | List[str] | List[Dict] | None:
     # Sometimes Notion response doesn't have "type" key
     # and the caller will need to give a hint.
     _type = value_type or value["type"]
@@ -141,10 +135,10 @@ def get_transcript(page_id: str) -> List[Event]:
             assert isinstance(value, str)
             events[key].append(value)
 
-    return [Event(time_ms=time_ms,
-                  duration_ms=duration_ms,
-                  chunks=chunks)
-            for (time_ms, duration_ms), chunks in events.items()]
+    return [
+        Event(time_ms=time_ms, duration_ms=duration_ms, chunks=chunks)
+        for (time_ms, duration_ms), chunks in events.items()
+    ]
 
 
 def get_updated_pages(db_id: str, timestamp: str) -> List[str]:
@@ -169,70 +163,51 @@ def get_transcripts(database_id: str, url: str) -> Dict[Language, List[Event]]:
         property_name="Origin",
         property_type="rollup",
         operator="any",
-        value={
-            "rich_text": {
-                "equals": url
-            }
-        }
+        value={"rich_text": {"equals": url}},
     )
 
     transcripts = {
-        get_page_properties(_id)["Language"]: get_transcript(_id)
-        for _id in page_ids
+        get_page_properties(_id)["Language"]: get_transcript(_id) for _id in page_ids
     }
 
     return transcripts
 
 
-def add_transcript(project_database_id: str,
-                   transcript_database_id: str,
-                   video_url: str,
-                   lang: str,
-                   title: str,
-                   events: List[Event]) -> str:
+def add_transcript(
+    project_database_id: str,
+    transcript_database_id: str,
+    video_url: str,
+    lang: str,
+    title: str,
+    events: List[Event],
+) -> str:
     url = "https://api.notion.com/v1/pages"
 
-    project_id, *tail = query(database_id=project_database_id,
-                              property_name="Video",
-                              property_type="url",
-                              operator="equals",
-                              value=video_url)
+    project_id, *tail = query(
+        database_id=project_database_id,
+        property_name="Video",
+        property_type="url",
+        operator="equals",
+        value=video_url,
+    )
 
     if tail:
         logger.warning(
             f"Multiple projects with the same Video url in "
-            f"{project_database_id}: {[project_id] + tail}")
+            f"{project_database_id}: {[project_id] + tail}"
+        )
 
     # Flatten event blocks
-    blocks: List[Dict] = sum(
-        [render_event(event) for event in events], [])
+    blocks: List[Dict] = sum([render_event(event) for event in events], [])
 
     payload = {
-        "parent": {
-            "type": "database_id",
-            "database_id": transcript_database_id
-        },
+        "parent": {"type": "database_id", "database_id": transcript_database_id},
         "properties": {
             "Name": {
-                "title": [{
-                    "type": "text",
-                    "text": {
-                        "content": title
-                    }
-                }],
+                "title": [{"type": "text", "text": {"content": title}}],
             },
-            "Project": {
-                "relation": [
-                    {
-                        "id": project_id
-                    }
-                ]
-            },
-            "Language": {
-                "select": {
-                    "name": lang
-                }
-            }
+            "Project": {"relation": [{"id": project_id}]},
+            "Language": {"select": {"name": lang}},
         },
         "children": blocks,
     }
@@ -297,28 +272,18 @@ def render_event(event: Event) -> List[Dict]:
     """Generates list of Notion blocks representing an speech event."""
     text = {
         "type": "text",
-        "text": {
-            "content": unparse_time_interval(event.time_ms, event.duration_ms)
-        }
+        "text": {"content": unparse_time_interval(event.time_ms, event.duration_ms)},
     }
     header = {
         "object": "block",
         "type": "heading_3",
-        "heading_3": {
-            "rich_text": [text]
-        },
+        "heading_3": {"rich_text": [text]},
     }
     paragraphs = [
         {
             "object": "block",
             "type": "paragraph",
-            "paragraph": {
-                "rich_text": [
-                    {
-                        "type": "text",
-                        "text": {"content": chunk}
-                    }
-                ]},
+            "paragraph": {"rich_text": [{"type": "text", "text": {"content": chunk}}]},
         }
         for chunk in event.chunks
     ]

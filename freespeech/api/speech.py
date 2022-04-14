@@ -1,10 +1,9 @@
 from functools import cache
+from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Dict, Sequence
-from pathlib import Path
+
 from google.api_core import exceptions as google_api_exceptions
-
-
 from google.cloud import speech as speech_api
 from google.cloud import texttospeech
 
@@ -48,10 +47,7 @@ def supported_voices() -> Dict[str, Sequence[str]]:
     # Performs the list voices request
     response = client.list_voices()
 
-    return {
-        voice.name: voice.language_codes
-        for voice in response.voices
-    }
+    return {voice.name: voice.language_codes for voice in response.voices}
 
 
 def transcribe(
@@ -86,9 +82,7 @@ def transcribe(
 
     if audio.num_channels != 1:
         raise ValueError(
-            (
-                "Audio should be mono for best results. "
-                "Set audio.num_channels to 1.")
+            ("Audio should be mono for best results. " "Set audio.num_channels to 1.")
         )
 
     client = speech_api.SpeechClient()
@@ -136,32 +130,33 @@ def synthesize_text(
     voice: str,
     lang: str,
     pitch: float,
-    output_dir: media.path
+    output_dir: media.path,
 ) -> Path:
     chunks = chunk(text, MAX_CHUNK_LENGTH)
 
     if voice not in VOICES:
-        raise ValueError((
-            f"Unsupported voice: {voice}\n"
-            f"Supported voices: {VOICES}"
-        ))
+        raise ValueError(
+            (f"Unsupported voice: {voice}\n" f"Supported voices: {VOICES}")
+        )
 
     if lang not in VOICES[voice]:
-        raise ValueError((
-            f"Unsupported lang {lang} for {voice}\n"
-            f"Supported voices: {VOICES}"
-        ))
+        raise ValueError(
+            (f"Unsupported lang {lang} for {voice}\n" f"Supported voices: {VOICES}")
+        )
 
     google_voice = VOICES[voice][lang]
     all_google_voices = supported_voices()
 
-    if google_voice not in all_google_voices or \
-       lang not in all_google_voices[google_voice]:
+    if (
+        google_voice not in all_google_voices
+        or lang not in all_google_voices[google_voice]
+    ):
         raise ValueError(
             (
                 f"Google Speech Synthesis API "
                 "doesn't support {lang} for voice {voice}\n"
-                f"Supported values: {all_google_voices}")
+                f"Supported values: {all_google_voices}"
+            )
         )
 
     client = texttospeech.TextToSpeechClient()
@@ -178,9 +173,7 @@ def synthesize_text(
         responses = [
             client.synthesize_speech(
                 input=texttospeech.SynthesisInput(text=phrase),
-                voice=texttospeech.VoiceSelectionParams(
-                    language_code=lang,
-                    name=voice),
+                voice=texttospeech.VoiceSelectionParams(language_code=lang, name=voice),
                 audio_config=texttospeech.AudioConfig(
                     audio_encoding=texttospeech.AudioEncoding.LINEAR16,
                     pitch=pitch,
@@ -210,11 +203,7 @@ def synthesize_text(
 
 
 def synthesize_events(
-    events: Sequence[Event],
-    voice: str,
-    lang: str,
-    pitch: float,
-    output_dir: media.path
+    events: Sequence[Event], voice: str, lang: str, pitch: float, output_dir: media.path
 ) -> media.path:
     current_time_ms = 0
     clips = []
@@ -227,7 +216,7 @@ def synthesize_events(
             voice=voice,
             lang=lang,
             pitch=pitch,
-            output_dir=output_dir
+            output_dir=output_dir,
         )
         (audio, *_), _ = media.probe(clip)
         assert isinstance(audio, Audio)

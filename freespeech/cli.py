@@ -4,8 +4,8 @@ import logging.config
 import click
 from aiohttp import web
 
-from freespeech.services import crud, dub, language, notion, pub, speech
 from freespeech.api import youtube
+from freespeech.services import crud, dub, language, notion, pub, speech
 
 SERVICE_ROUTES = {
     "crud": crud.routes,
@@ -13,7 +13,7 @@ SERVICE_ROUTES = {
     "language": language.routes,
     "notion": notion.routes,
     "pub": pub.routes,
-    "speech": speech.routes
+    "speech": speech.routes,
 }
 
 LOGGING_CONFIG = {
@@ -34,8 +34,7 @@ LOGGING_CONFIG = {
         "google": {"class": "freespeech.logging.GoogleCloudLoggingHandler"},
     },
     "loggers": {
-        "freespeech": {
-            "level": logging.INFO, "handlers": ["console", "google"]},
+        "freespeech": {"level": logging.INFO, "handlers": ["console", "google"]},
         "aiohttp": {"level": logging.INFO, "handlers": ["console", "google"]},
     },
 }
@@ -60,7 +59,7 @@ def cli():
     type=int,
     help="HTTP port to listen on",
 )
-@click.argument('services', nargs=-1)
+@click.argument("services", nargs=-1)
 def start(port: int, services):
     """Start HTTP API Server"""
     logger.info(f"Starting aiohttp server on port {port}")
@@ -68,8 +67,10 @@ def start(port: int, services):
 
     for service in services:
         if service not in SERVICE_ROUTES:
-            click.echo(f"Unknown service: {service}. "
-                       f"Expected values: {SERVICE_ROUTES.keys()}")
+            click.echo(
+                f"Unknown service: {service}. "
+                f"Expected values: {SERVICE_ROUTES.keys()}"
+            )
             return -1
         routes = SERVICE_ROUTES[service]
         logger.info(f"Adding routes for {service}: {[r for r in routes]}")

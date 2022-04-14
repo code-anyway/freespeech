@@ -1,6 +1,5 @@
 from aiohttp import web
 
-
 routes = web.RouteTableDef()
 
 # POST /notion/media/sync/{page_id}

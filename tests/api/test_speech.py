@@ -1,7 +1,6 @@
-from freespeech.api import speech, media
+from freespeech.api import media, speech
 from freespeech.api.storage import obj
 from freespeech.types import Event
-
 
 AUDIO_EN_LOCAL = "tests/api/data/media/en-US-mono.wav"
 AUDIO_EN_GS = "gs://freespeech-tests/test_speech/en-US-mono.wav"

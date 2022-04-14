@@ -50,8 +50,7 @@ def probe(file: path) -> Tuple[Sequence[Audio], Sequence[Video]]:
         raise RuntimeError(f"ffmpeg error: {e.stderr}")
 
     def parse_stream(stream: Dict, format: Dict) -> Audio | Video | None:
-        duration = stream.get("duration", None) or \
-                   format.get("duration", None)
+        duration = stream.get("duration", None) or format.get("duration", None)
         assert duration, "Couldn't infer duration from stream or format"
         duration_ms = int(float(duration) * 1000)
 
@@ -79,7 +78,7 @@ def probe(file: path) -> Tuple[Sequence[Audio], Sequence[Video]]:
 
     return (
         [s for s in streams if isinstance(s, Audio)],
-        [s for s in streams if isinstance(s, Video)]
+        [s for s in streams if isinstance(s, Video)],
     )
 
 
@@ -120,10 +119,7 @@ def multi_channel_audio_to_mono(file: path, output_dir: path) -> Path:
     return output_file
 
 
-def concat_and_pad(
-    clips: Sequence[Tuple[int, path]],
-    output_dir: path
-) -> Path:
+def concat_and_pad(clips: Sequence[Tuple[int, path]], output_dir: path) -> Path:
     """Concatenate audio clips and add padding.
 
     Args:
@@ -139,7 +135,8 @@ def concat_and_pad(
     # "adelay" errors out if duration is 0
     inputs = [
         audio.filter("adelay", delays=time_ms) if time_ms != 0 else audio
-        for time_ms, file in clips if (audio := ffmpeg.input(file).audio)
+        for time_ms, file in clips
+        if (audio := ffmpeg.input(file).audio)
     ]
 
     # TODO astaff (20220311): not specifying v and a gives a weird error

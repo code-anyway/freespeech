@@ -1,11 +1,11 @@
 import re
+from contextlib import contextmanager
+from typing import Any
 
 import googleapiclient.discovery
 from google.oauth2 import service_account
 
 from freespeech import env
-from contextlib import contextmanager
-from typing import Any
 
 
 def _read_paragraph_element(element):
@@ -51,8 +51,7 @@ def _read_structural_elements(elements):
 
 @contextmanager
 def gdocs_client(credentials: service_account.Credentials) -> Any:
-    service = googleapiclient.discovery.build(
-        "docs", "v1", credentials=credentials)
+    service = googleapiclient.discovery.build("docs", "v1", credentials=credentials)
     try:
         yield service
     finally:

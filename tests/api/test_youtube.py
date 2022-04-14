@@ -1,5 +1,4 @@
-from freespeech.api import youtube, hash
-
+from freespeech.api import hash, youtube
 
 VIDEO_DESCRIPTION = (
     "One hen\n\n"

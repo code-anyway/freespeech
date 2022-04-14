@@ -4,10 +4,11 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
+
 from google.api_core import exceptions as google_api_exceptions
 from google.cloud import storage
-from freespeech.types import path, url
 
+from freespeech.types import path, url
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +40,7 @@ def put(src: path, dst: url) -> str:
             _gs_copy_from_local(src_file, dst_obj)
             return f"gs://{dst_obj.bucket}/{dst_obj.obj}"
         case scheme:
-            raise ValueError(
-                f"Unsupported url scheme ({scheme}) for {dst_url}.")
+            raise ValueError(f"Unsupported url scheme ({scheme}) for {dst_url}.")
 
 
 def get(src: url, dst_dir: path) -> str:
@@ -64,8 +64,7 @@ def get(src: url, dst_dir: path) -> str:
             _gs_copy_from_gs(src_obj, dst_file)
             return str(dst_file)
         case scheme:
-            raise ValueError(
-                f"Unsupported url scheme ({scheme}) for {src_url}.")
+            raise ValueError(f"Unsupported url scheme ({scheme}) for {src_url}.")
 
 
 def _gs_copy_from_local(src: Path, dst: GoogleStorageObject):
@@ -79,9 +78,7 @@ def _gs_copy_from_local(src: Path, dst: GoogleStorageObject):
             "details": e.details,
             "response": e.response,
         }
-        logger.error(
-            f"API Call Error while copying to {dst}: {e.message}",
-            extra=extra)
+        logger.error(f"API Call Error while copying to {dst}: {e.message}", extra=extra)
         raise e
 
 
@@ -98,8 +95,8 @@ def _gs_copy_from_gs(src: GoogleStorageObject, dst: Path):
             "response": e.response,
         }
         logger.error(
-            f"API Call Error while copying from {src}: {e.message}",
-            extra=extra)
+            f"API Call Error while copying from {src}: {e.message}", extra=extra
+        )
         raise e
 
 

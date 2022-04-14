@@ -1,6 +1,5 @@
-from freespeech.types import Event
-
 from freespeech.api import language
+from freespeech.types import Event
 
 
 def test_translate_text():

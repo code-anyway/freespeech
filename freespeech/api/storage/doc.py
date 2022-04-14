@@ -28,13 +28,15 @@ async def put(client: firestore.AsyncClient, coll: str, key: str, value: Dict):
     await doc.set(value)
 
 
-async def query(client: firestore.AsyncClient,
-                coll: str,
-                attr: str,
-                op: QueryOperator,
-                value: str,
-                order: Tuple[field, QueryOrder] | None = None,
-                limit: int | None = None) -> List[Dict]:
+async def query(
+    client: firestore.AsyncClient,
+    coll: str,
+    attr: str,
+    op: QueryOperator,
+    value: str,
+    order: Tuple[field, QueryOrder] | None = None,
+    limit: int | None = None,
+) -> List[Dict]:
     query = client.collection(coll).where(attr, op, value)
 
     # https://github.com/astaff/freespeech/issues/1 will resolve this
@@ -45,9 +47,10 @@ async def query(client: firestore.AsyncClient,
     if order:
         field, direction = order
         from operator import itemgetter
-        items = list(sorted(items,
-                            key=itemgetter(field),
-                            reverse=(direction == "DESCENDING")))
+
+        items = list(
+            sorted(items, key=itemgetter(field), reverse=(direction == "DESCENDING"))
+        )
         if limit:
             return items[:limit]
         else:
