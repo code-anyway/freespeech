@@ -27,8 +27,8 @@ class Event:
 @dataclass(frozen=True)
 class Voice:
     character: Character
-    speech_rate = float
-    pitch = float
+    speech_rate: float
+    pitch: float
 
 
 @dataclass(frozen=True)

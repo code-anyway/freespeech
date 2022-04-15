@@ -20,12 +20,12 @@ def test_transcribe():
 
 
 def test_synthesize_text(tmp_path):
-    output = speech.synthesize_text(
+    output, voice = speech.synthesize_text(
         text="One. Two. Three.",
         duration_ms=4_000,
         voice="Grace Hopper",
         lang="en-US",
-        pitch=1.0,
+        pitch=0.0,
         output_dir=tmp_path,
     )
     (audio, *_), _ = media.probe(output)
@@ -38,6 +38,9 @@ def test_synthesize_text(tmp_path):
     (t_en, *tail) = speech.transcribe(output_gs, audio, "en-US", model="default")
     assert not tail, f"Extra events returned from transcribe: {tail}"
     assert t_en.chunks == ["1 2 3"]
+    assert voice.speech_rate == 0.4375
+    assert voice.character == "Grace Hopper"
+    assert voice.pitch == 0.0
 
 
 def test_synthesize_events(tmp_path):
@@ -46,8 +49,8 @@ def test_synthesize_events(tmp_path):
         Event(time_ms=5_000, duration_ms=2_000, chunks=["Three squawking geese."]),
     ]
 
-    output = speech.synthesize_events(
-        events=events, voice="Alan Turing", lang="en-US", pitch=1.0, output_dir=tmp_path
+    output, voices = speech.synthesize_events(
+        events=events, voice="Alan Turing", lang="en-US", pitch=0.0, output_dir=tmp_path
     )
     (audio, *_), _ = media.probe(output)
 
@@ -60,5 +63,15 @@ def test_synthesize_events(tmp_path):
 
     assert t_en == [
         Event(time_ms=0, duration_ms=3030, chunks=["one hen two ducks"]),
-        Event(time_ms=3030, duration_ms=3940, chunks=[" three squawking geese"]),
+        Event(time_ms=3030, duration_ms=3950, chunks=[" three squawking geese"]),
     ]
+
+    voice_1, voice_2 = voices
+
+    assert voice_1.speech_rate == 1.0
+    assert voice_1.character == "Alan Turing"
+    assert voice_1.pitch == 0.0
+
+    assert voice_2.speech_rate == 0.7695
+    assert voice_2.character == "Alan Turing"
+    assert voice_2.pitch == 0.0

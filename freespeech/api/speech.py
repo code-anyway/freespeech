@@ -1,7 +1,7 @@
 from functools import cache
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Dict, Sequence
+from typing import Dict, Sequence, Tuple
 
 from google.api_core import exceptions as google_api_exceptions
 from google.cloud import speech as speech_api
@@ -9,7 +9,7 @@ from google.cloud import texttospeech
 
 from freespeech.api import media
 from freespeech.api.text import chunk
-from freespeech.types import Audio, Event
+from freespeech.types import Audio, Character, Event, Voice
 
 MAX_CHUNK_LENGTH = 1000  # Google Speech API Limit
 
@@ -127,11 +127,11 @@ def transcribe(
 def synthesize_text(
     text: str,
     duration_ms: int,
-    voice: str,
+    voice: Character,
     lang: str,
     pitch: float,
     output_dir: media.path,
-) -> Path:
+) -> Tuple[Path, Voice]:
     chunks = chunk(text, MAX_CHUNK_LENGTH)
 
     if voice not in VOICES:
@@ -161,7 +161,7 @@ def synthesize_text(
 
     client = texttospeech.TextToSpeechClient()
 
-    def _synthesize_step(rate, retries) -> Path:
+    def _synthesize_step(rate, retries) -> Tuple[Path, float]:
         if retries < 0:
             raise RuntimeError(
                 (
@@ -194,34 +194,39 @@ def synthesize_text(
         assert isinstance(audio, Audio)
 
         if abs(audio.duration_ms - duration_ms) < SYNTHESIS_ERROR_MS:
-            return audio_file
+            return Path(audio_file), rate
         else:
             rate *= audio.duration_ms / duration_ms
             return _synthesize_step(rate, retries - 1)
 
-    return _synthesize_step(rate=1.0, retries=SYNTHESIS_RETRIES)
+    output_file, speech_rate = _synthesize_step(rate=1.0, retries=SYNTHESIS_RETRIES)
+
+    return output_file, Voice(speech_rate=speech_rate, character=voice, pitch=pitch)
 
 
 def synthesize_events(
-    events: Sequence[Event], voice: str, lang: str, pitch: float, output_dir: media.path
-) -> media.path:
+    events: Sequence[Event], voice: Character, lang: str, pitch: float, output_dir: media.path
+) -> Tuple[Path, Sequence[Voice]]:
     current_time_ms = 0
     clips = []
+    voices = []
 
     for event in events:
         padding_ms = event.time_ms - current_time_ms
-        clip = synthesize_text(
-            text="".join(event.chunks),
-            duration_ms=event.duration_ms,
-            voice=voice,
-            lang=lang,
-            pitch=pitch,
-            output_dir=output_dir,
-        )
+        clip, voice_info = synthesize_text(text="".join(event.chunks),
+                                           duration_ms=event.duration_ms,
+                                           voice=voice,
+                                           lang=lang,
+                                           pitch=pitch,
+                                           output_dir=output_dir)
         (audio, *_), _ = media.probe(clip)
         assert isinstance(audio, Audio)
 
         clips += [(padding_ms, clip)]
         current_time_ms = event.time_ms + audio.duration_ms
 
-    return media.concat_and_pad(clips, output_dir)
+        voices += [voice_info]
+
+    output_file = media.concat_and_pad(clips, output_dir)
+
+    return output_file, voices
