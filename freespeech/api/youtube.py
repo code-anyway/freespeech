@@ -151,7 +151,7 @@ def upload(video_file, meta_file, credentials_file):
 
 
 def download_stream(stream: pytube.Stream, output_dir: media.path) -> Path:
-    file = media.new_file(output_dir)
+    file = Path(f"{media.new_file(output_dir)}.{stream.subtype}")
     stream.download(output_path=output_dir, filename=file.name)
     return Path(file)
 

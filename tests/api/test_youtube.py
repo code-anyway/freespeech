@@ -23,6 +23,9 @@ def test_download_local(tmp_path):
     assert info.description == VIDEO_DESCRIPTION
     assert info.tags == ["announcer's", "test"]
 
+    assert audio_file.suffix == ".webm"
+    assert video_file.suffix == ".mp4"
+
     assert (
         hash.file(audio_file)
         == "7b0dfb36784281f06c09011d631289f34aed8ba1cf0411b49d60c1d2594f7fe9"
