@@ -109,3 +109,7 @@ def google_storage_client():
         # Some Google client libraries are leaking resources
         # https://github.com/googleapis/google-api-python-client/issues/618#issuecomment-669787286
         client._http.close()
+
+
+def get_public_url(url: url) -> url:
+    return url.replace("gs://", "https://storage.googleapis.com/")

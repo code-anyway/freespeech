@@ -23,6 +23,11 @@ async def test_clip_upload_and_get(aiohttp_client):
     resp = await client.get(f"/clips/{clip['_id']}")
     assert clip == await resp.json()
 
+    url = quote_plus(ANNOUNCERS_TEST_VIDEO_URL)
+    resp = await client.get(f"/clips/latest/{url}/en-US")
+    latest = await resp.json()
+    assert clip == latest
+
 
 @pytest.mark.asyncio
 async def test_clip_latest(aiohttp_client):
@@ -55,3 +60,21 @@ async def test_clip_latest(aiohttp_client):
 
     assert new == latest
     assert new["parent_id"] == clip_en_us["_id"]
+
+
+@pytest.mark.asyncio
+async def test_get_video(aiohttp_client):
+    app = web.Application()
+    # fill route table
+    app.add_routes(crud.routes)
+    client = await aiohttp_client(app)
+
+    url = quote_plus(ANNOUNCERS_TEST_VIDEO_URL)
+    resp = await client.get(f"/clips/latest/{url}/en-US")
+    clip_en_us = await resp.json()
+
+    resp = await client.get(f"/clips/{clip_en_us['_id']}/video")
+    video = await resp.json()
+
+    video_gs, _ = clip_en_us["video"]
+    assert video["url"] == video_gs.replace("gs://", "https://storage.googleapis.com/")

@@ -31,7 +31,7 @@ async def upload(request):
         audio_url = f"{env.get_storage_url()}/clips/{audio_file.name}"
         obj.put(src=audio_file, dst=audio_url)
 
-        video_url = f"{env.get_storage_url()}/clips/{audio_file.name}"
+        video_url = f"{env.get_storage_url()}/clips/{video_file.name}"
         obj.put(src=video_file, dst=video_url)
 
         ((audio, *_), _) = media.probe(audio_file)
@@ -41,7 +41,7 @@ async def upload(request):
             origin=url,
             lang=lang,
             audio=(audio_url, audio),
-            video=(audio_url, video),
+            video=(video_url, video),
             transcript=[],
             meta=meta,
             parent_id=None,
@@ -65,6 +65,21 @@ async def get(request):
     clip_dict = await doc.get(client, coll="clips", key=clip_id)
 
     return web.json_response(clip_dict)
+
+
+@routes.get("/clips/{clip_id}/video")
+async def get_video(request):
+    clip_id = request.match_info["clip_id"]
+
+    client = doc.google_firestore_client()
+    clip_dict = await doc.get(client, coll="clips", key=clip_id)
+
+    if not clip_dict["video"]:
+        return web.HTTPNotFound(f"No video for {clip_id}.")
+    url, _ = clip_dict["video"]
+    url = obj.get_public_url(url)
+
+    return web.json_response({"url": url})
 
 
 @routes.get("/clips/latest/{url}/{lang}")
@@ -122,7 +137,6 @@ async def update(request):
 
     client = doc.google_firestore_client()
     value = asdict(new_clip)
-
     await doc.put(client, "clips", key=new_clip._id, value=value)
 
     return web.json_response(value)
