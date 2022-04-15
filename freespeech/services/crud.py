@@ -83,7 +83,7 @@ async def latest_by_lang(request):
     )
 
     if not clips:
-        return web.HTTPNotFound(f"No clips for {url}.  " "Consider uploading if first.")
+        return web.HTTPNotFound(f"No clips for {url}.  " "Consider uploading it first.")
 
     clip, *_ = [clip for clip in clips if clip["lang"] == lang]
 
@@ -104,29 +104,25 @@ async def latest_all_langs(request):
     )
 
     if not clips:
-        return web.HTTPNotFound(f"No clips for {url}.  " "Consider uploading if first.")
+        return web.HTTPNotFound(f"No clips for {url}.  " "Consider uploading it first.")
 
     response = dict((clip["lang"], clip) for clip in clips)
 
     return web.json_response(response)
 
 
-# Service: CRUD
-# LIST /media/
-# Get all media records
+@routes.post("/clips/{_id}")
+async def update(request):
+    _id = request.match_info["_id"]
+    clip = await request.json()
 
-# Service: CRUD
-# LIST /media/{id}
-# Get all media records for an ID.
+    filter_keys = ("_id", "last_updated", "parent_id")
+    clip = {k: v for k, v in clip.items() if k not in filter_keys}
+    new_clip = Clip(**clip, parent_id=_id)
 
-# Service: CRUD
-# GET /media/{id}/{lang}
-# Get a media record for a given id and language.
+    client = doc.google_firestore_client()
+    value = asdict(new_clip)
 
-# Service: CRUD
-# GET /media/{id}/{lang}/transcript
-# Get transcript in lang for media
+    await doc.put(client, "clips", key=new_clip._id, value=value)
 
-# Service: CRUD
-# POST /media/{id}/{lang}/transcript {events}
-# Updates transcript for a language.
+    return web.json_response(value)

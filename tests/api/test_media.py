@@ -23,10 +23,7 @@ def test_multi_channel_audio_to_mono(tmp_path):
 
 
 def test_concat_and_pad(tmp_path):
-    clips = [
-        (10_000, AUDIO_RU),
-        (20_000, AUDIO_RU)
-    ]
+    clips = [(10_000, AUDIO_RU), (20_000, AUDIO_RU)]
 
     (original_audio, *_), _ = media.probe(AUDIO_RU)
     output = media.concat_and_pad(clips, tmp_path)
@@ -46,10 +43,7 @@ def test_concat(tmp_path):
 
 
 def test_mix(tmp_path):
-    clips = [
-        (AUDIO_RU, 1),
-        (AUDIO_EN, 10)
-    ]
+    clips = [(AUDIO_RU, 1), (AUDIO_EN, 10)]
 
     output = media.mix(clips, tmp_path)
     assert hash.file(output) == hash.file(AUDIO_MIX_RU_EN)
@@ -65,4 +59,4 @@ def test_dub(tmp_path):
     (audio, *_), _ = media.probe(output_mono)
 
     t_ru = speech.transcribe(uri, audio, "ru-RU")
-    assert t_ru == [Event(time_ms=0, duration_ms=3180, chunks=['123'])]
+    assert t_ru == [Event(time_ms=0, duration_ms=3180, chunks=["123"])]

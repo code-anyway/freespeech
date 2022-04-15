@@ -31,7 +31,8 @@ setup(
         "freespeech",
         "freespeech.api",
         "freespeech.api.storage",
-        "freespeech.services"],
+        "freespeech.services",
+    ],
     entry_points="""
         [console_scripts]
         freespeech=freespeech.cli:cli
@@ -54,14 +55,16 @@ setup(
         "requests",
         "types-requests",
     ],
-    extras_require={"test": [
-        "pytest",
-        "pytest-aiohttp",
-        "pytest-asyncio",
-        "requests-mock",
-        "black",
-        "isort",
-        "coverage"
-    ]},
+    extras_require={
+        "test": [
+            "pytest",
+            "pytest-aiohttp",
+            "pytest-asyncio",
+            "requests-mock",
+            "black",
+            "isort",
+            "coverage",
+        ]
+    },
     python_requires=">=3.10",
 )
