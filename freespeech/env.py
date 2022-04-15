@@ -37,7 +37,12 @@ def get_project_id() -> str:
 
 @functools.cache
 def get_storage_url() -> str:
-    return os.environ["FREESPEECH_STORAGE_URL"]
+    bucket = os.environ.get("FREESPEECH_STORAGE_BUCKET", None)
+
+    if not bucket:
+        raise RuntimeError("Environment variable 'FREESPEECH_STORAGE_BUCKET' not set")
+
+    return f"gs://{bucket}"
 
 
 @functools.cache
