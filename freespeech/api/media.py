@@ -194,6 +194,10 @@ def dub(video: path, audio: path, output_dir: path) -> Path:
     video = Path(video)
     output_file = Path(f"{new_file(output_dir)}{video.suffix}")
     pipeline = ffmpeg.output(*streams, filename=output_file)
-    pipeline.run(overwrite_output=True, capture_stderr=True)
+
+    try:
+        pipeline.run(overwrite_output=True, capture_stderr=True)
+    except ffmpeg.Error as e:
+        raise RuntimeError(f"ffmpeg Error stderr: {e.stderr}")
 
     return output_file
