@@ -130,7 +130,7 @@ def synthesize_text(
     voice: Character,
     lang: str,
     pitch: float,
-    output_dir: media.path,
+    output_dir: Path | str,
 ) -> Tuple[Path, Voice]:
     chunks = chunk(text, MAX_CHUNK_LENGTH)
 
@@ -173,7 +173,9 @@ def synthesize_text(
         responses = [
             client.synthesize_speech(
                 input=texttospeech.SynthesisInput(text=phrase),
-                voice=texttospeech.VoiceSelectionParams(language_code=lang, name=voice),
+                voice=texttospeech.VoiceSelectionParams(
+                    language_code=lang, name=google_voice
+                ),
                 audio_config=texttospeech.AudioConfig(
                     audio_encoding=texttospeech.AudioEncoding.LINEAR16,
                     pitch=pitch,
@@ -205,20 +207,27 @@ def synthesize_text(
 
 
 def synthesize_events(
-    events: Sequence[Event], voice: Character, lang: str, pitch: float, output_dir: media.path
+    events: Sequence[Event],
+    voice: Character,
+    lang: str,
+    pitch: float,
+    output_dir: Path | str,
 ) -> Tuple[Path, Sequence[Voice]]:
+    output_dir = Path(output_dir)
     current_time_ms = 0
     clips = []
     voices = []
 
     for event in events:
         padding_ms = event.time_ms - current_time_ms
-        clip, voice_info = synthesize_text(text="".join(event.chunks),
-                                           duration_ms=event.duration_ms,
-                                           voice=voice,
-                                           lang=lang,
-                                           pitch=pitch,
-                                           output_dir=output_dir)
+        clip, voice_info = synthesize_text(
+            text="".join(event.chunks),
+            duration_ms=event.duration_ms,
+            voice=voice,
+            lang=lang,
+            pitch=pitch,
+            output_dir=output_dir,
+        )
         (audio, *_), _ = media.probe(clip)
         assert isinstance(audio, Audio)
 
