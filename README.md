@@ -57,4 +57,4 @@ docker run -it \
 From project home directory in the container:
 * To run locally: `pip install -e .` and `freespeech --help`
 * To test locally: `pip install -e ".[test]"`
-* To run the tests: `pytest tests/` (or specific file or glob?).
+* To run the tests: `make test`.
