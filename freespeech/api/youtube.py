@@ -3,6 +3,7 @@ import json
 import logging
 import random
 import time
+from os import PathLike
 from pathlib import Path
 from typing import Tuple
 
@@ -150,13 +151,13 @@ def upload(video_file, meta_file, credentials_file):
     )
 
 
-def download_stream(stream: pytube.Stream, output_dir: media.path) -> Path:
+def download_stream(stream: pytube.Stream, output_dir: str | PathLike) -> PathLike:
     file = Path(f"{media.new_file(output_dir)}.{stream.subtype}")
     stream.download(output_path=output_dir, filename=file.name)
     return Path(file)
 
 
-def download(url: str, output_dir: media.path) -> Tuple[Path, Path, Meta]:
+def download(url: str, output_dir: str | PathLike) -> Tuple[PathLike, PathLike, Meta]:
     """Downloads YouTube video from URL into output_dir.
 
     Args:

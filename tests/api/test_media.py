@@ -43,9 +43,7 @@ def test_concat(tmp_path):
 
 
 def test_mix(tmp_path):
-    clips = [(AUDIO_RU, 1), (AUDIO_EN, 10)]
-
-    output = media.mix(clips, tmp_path)
+    output = media.mix(files=(AUDIO_RU, AUDIO_EN), weights=(1, 10), output_dir=tmp_path)
     assert hash.file(output) == hash.file(AUDIO_MIX_RU_EN)
 
 

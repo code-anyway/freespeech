@@ -30,7 +30,7 @@ async def test_clip_upload_and_get(aiohttp_client):
 
 
 @pytest.mark.asyncio
-async def test_clip_latest(aiohttp_client):
+async def test_clip_latest_and_update(aiohttp_client):
     app = web.Application()
     # fill route table
     app.add_routes(crud.routes)

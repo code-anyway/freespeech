@@ -2,13 +2,14 @@ import logging
 import shutil
 from contextlib import contextmanager
 from dataclasses import dataclass
+from os import PathLike
 from pathlib import Path
 from urllib.parse import urlparse
 
 from google.api_core import exceptions as google_api_exceptions
 from google.cloud import storage
 
-from freespeech.types import path, url
+from freespeech.types import url
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ class GoogleStorageObject:
             raise ValueError("object cannot start with `/`")
 
 
-def put(src: path, dst: url) -> str:
+def put(src: str | PathLike, dst: url) -> str:
     src_file = Path(src)
     dst_url = urlparse(dst)
 
@@ -43,7 +44,7 @@ def put(src: path, dst: url) -> str:
             raise ValueError(f"Unsupported url scheme ({scheme}) for {dst_url}.")
 
 
-def get(src: url, dst_dir: path) -> str:
+def get(src: url, dst_dir: str | PathLike) -> str:
     src_url = urlparse(src)
     dst_dir = Path(dst_dir)
 

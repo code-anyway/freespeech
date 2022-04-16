@@ -1,11 +1,12 @@
 import logging
 import uuid
+from os import PathLike
 from pathlib import Path
 from typing import Dict, Sequence, Tuple
 
 import ffmpeg
 
-from freespeech.types import Audio, AudioEncoding, Video, VideoEncoding, path
+from freespeech.types import Audio, AudioEncoding, Video, VideoEncoding
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ def ffprobe_to_video_encoding(encoding: str) -> VideoEncoding:
             raise ValueError(f"Invalid encoding: {invalid_encoding}")
 
 
-def probe(file: path) -> Tuple[Sequence[Audio], Sequence[Video]]:
+def probe(file: str | PathLike) -> Tuple[Sequence[Audio], Sequence[Video]]:
     """Get a list of Audio and Video streams for a file.
 
     Args:
@@ -82,11 +83,13 @@ def probe(file: path) -> Tuple[Sequence[Audio], Sequence[Video]]:
     )
 
 
-def new_file(dir: path) -> Path:
+def new_file(dir: str | PathLike) -> PathLike:
     return Path(dir) / str(uuid.uuid4())
 
 
-def multi_channel_audio_to_mono(file: path, output_dir: path) -> Path:
+def multi_channel_audio_to_mono(
+    file: str | PathLike, output_dir: str | PathLike
+) -> Path:
     """Convert multi-channel audio to mono by downmixing.
 
     Args:
@@ -99,10 +102,10 @@ def multi_channel_audio_to_mono(file: path, output_dir: path) -> Path:
     file = Path(file)
     output_dir = Path(output_dir)
 
-    (audio, *tail), _ = probe(file)
+    (audio), _ = probe(file)
 
-    if tail:
-        logger.warning(f"Additional audio streams in {file}: {tail}")
+    if len(audio) > 1:
+        logger.warning(f"Multiple audio streams in {file}: {audio}")
 
     output_file = Path(f"{new_file(output_dir)}.wav")
     pipeline = ffmpeg.output(
@@ -111,15 +114,14 @@ def multi_channel_audio_to_mono(file: path, output_dir: path) -> Path:
         ac=1,  # audio channels = 1
     )
 
-    try:
-        pipeline.run(overwrite_output=True, capture_stderr=True)
-    except ffmpeg.Error as e:
-        raise RuntimeError(f"ffmpeg Error stderr: {e.stderr}")
+    _run(pipeline)
 
     return output_file
 
 
-def concat_and_pad(clips: Sequence[Tuple[int, path]], output_dir: path) -> Path:
+def concat_and_pad(
+    clips: Sequence[Tuple[int, str | PathLike]], output_dir: str | PathLike
+) -> Path:
     """Concatenate audio clips and add padding.
 
     Args:
@@ -146,15 +148,12 @@ def concat_and_pad(clips: Sequence[Tuple[int, path]], output_dir: path) -> Path:
     output_file = Path(f"{new_file(output_dir)}.wav")
     pipeline = ffmpeg.output(stream, filename=output_file)
 
-    try:
-        pipeline.run(overwrite_output=True, capture_stderr=True)
-    except ffmpeg.Error as e:
-        raise RuntimeError(f"ffmpeg Error stderr: {e.stderr}")
+    _run(pipeline)
 
     return output_file
 
 
-def concat(clips: Sequence[str], output_dir: path) -> Path:
+def concat(clips: Sequence[str], output_dir: str | PathLike) -> Path:
     """Concatenate audio clips.
 
     Args:
@@ -167,37 +166,50 @@ def concat(clips: Sequence[str], output_dir: path) -> Path:
     return concat_and_pad([(0, clip) for clip in clips], output_dir)
 
 
-def mix(clips: Sequence[Tuple[path, int]], output_dir: path) -> Path:
+def mix(
+    files: Sequence[str | PathLike], weights: Sequence[int], output_dir: str | PathLike
+) -> Path:
     """Mix multiple audio files into a single file.
 
     Args:
-        clips: list of (path, weight) of clips to mix.
+        files: files to mix.
+        weights: weight of each file in the resulting mix.
         output_dir: directory to store the conversion result.
 
     Returns:
-        Audio file with all clips normalized and mixed according to weights.
+        Audio file with all files normalized and mixed according to weights.
     """
-    audio_streams = [ffmpeg.input(file).audio for file, _ in clips]
-    weights = " ".join(str(weight) for _, weight in clips)
-    mixed_audio = ffmpeg.filter(audio_streams, "amix", weights=weights)
+    audio_streams = [ffmpeg.input(file).audio for file in files]
+    mixed_audio = ffmpeg.filter(
+        audio_streams,
+        filter_name="amix",
+        weights=" ".join(str(weight) for weight in weights),
+    )
 
     output_file = Path(f"{new_file(output_dir)}.wav")
     pipeline = ffmpeg.output(mixed_audio, filename=output_file)
-    pipeline.run(overwrite_output=True, capture_stderr=True)
+
+    _run(pipeline)
 
     return output_file
 
 
-def dub(video: path, audio: path, output_dir: path) -> Path:
+def dub(
+    video: str | PathLike, audio: str | PathLike, output_dir: str | PathLike
+) -> Path:
     streams = (ffmpeg.input(audio).audio, ffmpeg.input(video).video)
 
     video = Path(video)
     output_file = Path(f"{new_file(output_dir)}{video.suffix}")
     pipeline = ffmpeg.output(*streams, filename=output_file)
 
+    _run(pipeline)
+
+    return output_file
+
+
+def _run(pipeline):
     try:
         pipeline.run(overwrite_output=True, capture_stderr=True)
     except ffmpeg.Error as e:
         raise RuntimeError(f"ffmpeg Error stderr: {e.stderr}")
-
-    return output_file

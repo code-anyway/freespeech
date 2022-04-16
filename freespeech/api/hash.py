@@ -1,9 +1,8 @@
 import hashlib
+from os import PathLike
 
-from freespeech.types import path
 
-
-def file(filename: path) -> str:
+def file(filename: PathLike | str) -> str:
     """Get SHA256 hash of a file contents as a hex digest."""
     sha256_hash = hashlib.sha256()
 
