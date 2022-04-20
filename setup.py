@@ -29,9 +29,9 @@ setup(
     version=VERSION,
     packages=[
         "freespeech",
+        "freespeech.lib",
+        "freespeech.lib.storage",
         "freespeech.api",
-        "freespeech.api.storage",
-        "freespeech.services",
     ],
     entry_points="""
         [console_scripts]
@@ -41,7 +41,9 @@ setup(
         "aiohttp",
         "click",
         "ffmpeg-python",
-        "pytube",
+        # TODO (astaff): update/remove after https://github.com/pytube/pytube/pull/1282
+        # is merged/released
+        "pytube @ git+https://github.com/kinshuk-h/pytube.git@72075dddb2153bde89a8de9eb8def91d41da3655#egg=pytube-12.0.1",  # noqa E501
         "google-cloud-texttospeech",
         "google-cloud-translate",
         "google-cloud-storage",
