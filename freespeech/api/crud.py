@@ -29,10 +29,10 @@ async def upload(request):
         audio_file, video_file, meta = youtube.download(url, tmp_dir)
 
         audio_url = f"{env.get_storage_url()}/clips/{audio_file.name}"
-        obj.put(src=audio_file, dst=audio_url)
+        await obj.put(src=audio_file, dst=audio_url)
 
         video_url = f"{env.get_storage_url()}/clips/{video_file.name}"
-        obj.put(src=video_file, dst=video_url)
+        await obj.put(src=video_file, dst=video_url)
 
         ((audio, *_), _) = media.probe(audio_file)
         (_, (video, *_)) = media.probe(video_file)

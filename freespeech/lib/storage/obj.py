@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 from google.api_core import exceptions as google_api_exceptions
 from google.cloud import storage
 
+from freespeech.lib import concurrency
 from freespeech.types import url
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ class GoogleStorageObject:
             raise ValueError("object cannot start with `/`")
 
 
-def put(src: str | PathLike, dst: url) -> str:
+async def put(src: str | PathLike, dst: url) -> str:
     src_file = Path(src)
     dst_url = urlparse(dst)
 
@@ -33,18 +34,23 @@ def put(src: str | PathLike, dst: url) -> str:
 
     match dst_url.scheme:
         case "file":
-            shutil.copy(src_file, dst_url.path)
+            def _copy():
+                shutil.copy(src_file, dst_url.path)
+            await concurrency.run_in_thread_pool(_copy)
             return dst_url.path
         case "gs":
             assert dst_url.path.startswith("/")
             dst_obj = GoogleStorageObject(dst_url.netloc, dst_url.path[1:])
-            _gs_copy_from_local(src_file, dst_obj)
+
+            def _copy():
+                _gs_copy_from_local(src_file, dst_obj)
+            await concurrency.run_in_thread_pool(_copy)
             return f"gs://{dst_obj.bucket}/{dst_obj.obj}"
         case scheme:
             raise ValueError(f"Unsupported url scheme ({scheme}) for {dst_url}.")
 
 
-def get(src: url, dst_dir: str | PathLike) -> str:
+async def get(src: url, dst_dir: str | PathLike) -> str:
     src_url = urlparse(src)
     dst_dir = Path(dst_dir)
 
@@ -57,12 +63,17 @@ def get(src: url, dst_dir: str | PathLike) -> str:
     match src_url.scheme:
         case "file":
             if src_path != dst_file:
-                shutil.copy(src_url.path or "/", dst_file)
+                def _copy():
+                    shutil.copy(src_url.path or "/", dst_file)
+                await concurrency.run_in_thread_pool(_copy)
             return str(dst_file)
         case "gs":
             assert src_url.path.startswith("/")
             src_obj = GoogleStorageObject(src_url.netloc, src_url.path[1:])
-            _gs_copy_from_gs(src_obj, dst_file)
+
+            def _copy():
+                return _gs_copy_from_gs(src_obj, dst_file)
+            await concurrency.run_in_thread_pool(_copy)
             return str(dst_file)
         case scheme:
             raise ValueError(f"Unsupported url scheme ({scheme}) for {src_url}.")

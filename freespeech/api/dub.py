@@ -24,7 +24,7 @@ async def create_dub(request):
     clip = await doc.get(db, "clips", clip_id)
     clip = Clip(**clip)
 
-    dub_clip = _dub(
+    dub_clip = await _dub(
         clip=clip,
         lang=params["lang"],
         voice=voice,
@@ -37,7 +37,7 @@ async def create_dub(request):
 
 
 # TODO (astaff): this should go into API eventually.
-def _dub(
+async def _dub(
     clip: Clip,
     lang: Language,
     voice: Voice,
@@ -58,7 +58,7 @@ def _dub(
         original_weight, synth_weight = weights
 
         audio_url, _ = clip.audio
-        audio_file = obj.get(audio_url, tmp_dir)
+        audio_file = await obj.get(audio_url, tmp_dir)
         mixed_file = media.mix(
             files=(audio_file, synth_file),
             weights=(original_weight, synth_weight),
@@ -66,7 +66,7 @@ def _dub(
         )
 
         video_url, _ = clip.video
-        video_file = obj.get(video_url, tmp_dir)
+        video_file = await obj.get(video_url, tmp_dir)
         dub_file = media.dub(video=video_file, audio=mixed_file, output_dir=tmp_dir)
 
         ((dub_audio, *_), (dub_video, *_)) = media.probe(dub_file)
@@ -83,6 +83,6 @@ def _dub(
             parent_id=clip._id,
         )
 
-        obj.put(dub_file, dub_url)
+        await obj.put(dub_file, dub_url)
 
         return dub_clip
