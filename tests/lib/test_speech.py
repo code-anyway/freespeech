@@ -80,3 +80,7 @@ async def test_synthesize_events(tmp_path):
     assert voice_2.speech_rate == 0.7235
     assert voice_2.character == "Alan Turing"
     assert voice_2.pitch == 0.0
+
+
+def test_normalize_speech():
+    raise NotImplementedError()
