@@ -1,7 +1,7 @@
 import pytest
 from googleapiclient import errors
 
-from freespeech.api import gdocs
+from freespeech.lib import gdocs
 
 
 def test_extract():

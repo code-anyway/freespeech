@@ -56,7 +56,7 @@ class Meta:
     tags: List[str]
 
 
-@dataclass(frozen=False)
+@dataclass(frozen=True)
 class Clip:
     origin: url
     lang: Language
@@ -69,7 +69,7 @@ class Clip:
     last_updated: str = field(default=_last_updated())
 
 
-@dataclass(frozen=False)
+@dataclass(frozen=True)
 class Job:
     status: Literal["Successful", "Cancelled", "Pending", "Failed"]
     _id: uuid.UUID = field(default_factory=uuid.uuid4)

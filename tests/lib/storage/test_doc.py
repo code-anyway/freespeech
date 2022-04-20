@@ -3,7 +3,7 @@ import uuid
 
 import pytest
 
-from freespeech.api.storage import doc
+from freespeech.lib.storage import doc
 
 
 @pytest.mark.asyncio

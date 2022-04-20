@@ -1,13 +1,13 @@
-from freespeech.api import hash, media, speech
-from freespeech.api.storage import obj
+from freespeech.lib import hash, media, speech
+from freespeech.lib.storage import obj
 from freespeech.types import Event
 
-VIDEO_RU = "tests/api/data/media/ru-RU.mp4"
-VIDEO_EN = "tests/api/data/media/en-US.mp4"
-AUDIO_RU = "tests/api/data/media/ru-RU-mono.wav"
-AUDIO_EN = "tests/api/data/media/en-US-mono.wav"
-AUDIO_MIX_RU_EN = "tests/api/data/media/mix-ru-RU-1-en-US-10.wav"
-AUDIO_DUB_EN_RU = "tests/api/data/media/dub-en-US-ru-RU.mp4"
+VIDEO_RU = "tests/lib/data/media/ru-RU.mp4"
+VIDEO_EN = "tests/lib/data/media/en-US.mp4"
+AUDIO_RU = "tests/lib/data/media/ru-RU-mono.wav"
+AUDIO_EN = "tests/lib/data/media/en-US-mono.wav"
+AUDIO_MIX_RU_EN = "tests/lib/data/media/mix-ru-RU-1-en-US-10.wav"
+AUDIO_DUB_EN_RU = "tests/lib/data/media/dub-en-US-ru-RU.mp4"
 
 AUDIO_RU_GS = "gs://freespeech-tests/test_media/ru-RU-mono.wav"
 

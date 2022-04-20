@@ -5,8 +5,8 @@ from typing import List, Tuple
 from aiohttp import web
 
 from freespeech import env
-from freespeech.api import media, speech
-from freespeech.api.storage import doc, obj
+from freespeech.lib import media, speech
+from freespeech.lib.storage import doc, obj
 from freespeech.types import Clip, Event, Language, Voice
 
 routes = web.RouteTableDef()

@@ -14,7 +14,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
-from freespeech.api import media
+from freespeech.lib import media
 from freespeech.types import Meta
 
 logger = logging.getLogger(__name__)

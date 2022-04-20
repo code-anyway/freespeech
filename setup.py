@@ -60,6 +60,7 @@ setup(
             "pytest",
             "pytest-aiohttp",
             "pytest-asyncio",
+            "pytest-xdist",
             "requests-mock",
             "black",
             "isort",

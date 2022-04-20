@@ -3,7 +3,7 @@ from urllib.parse import quote_plus
 import pytest
 from aiohttp import web
 
-from freespeech.services import crud
+from freespeech.api import crud
 
 ANNOUNCERS_TEST_VIDEO_URL = "https://youtu.be/bhRaND9jiOA"
 

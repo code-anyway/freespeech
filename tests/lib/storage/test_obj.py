@@ -1,6 +1,6 @@
 import uuid
 
-from freespeech.api.storage import obj
+from freespeech.lib.storage import obj
 
 GS_TEST_BUCKET = "freespeech-tests"
 

@@ -1,7 +1,7 @@
 import pytest
 from aiohttp import web
 
-from freespeech.services import crud, dub
+from freespeech.api import crud, dub
 
 ANNOUNCERS_TEST_VIDEO_URL = "https://youtu.be/bhRaND9jiOA"
 

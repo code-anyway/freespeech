@@ -1,7 +1,7 @@
 import json
 import uuid
 
-from freespeech.api import notion
+from freespeech.lib import notion
 from freespeech.types import Event
 
 ANNOUNCERS_TEST_PROJECT_PAGE_ID = "fe999aa7a53a448a8b6f3dcfe07ab434"
@@ -74,7 +74,7 @@ def test_parse_event():
 
 
 def test_get_transcript_from_test_data(requests_mock):
-    with open("tests/api/data/notion/transcript_block.json") as fd:
+    with open("tests/lib/data/notion/transcript_block.json") as fd:
         block = json.load(fd)
         requests_mock.get(f"https://api.notion.com/v1/blocks/{42}/children", json=block)
         events = notion.get_transcript(42)
@@ -105,7 +105,7 @@ def test_add_transcript():
 
 
 def test_get_page_properties(requests_mock):
-    with open("tests/api/data/notion/page.json") as fd:
+    with open("tests/lib/data/notion/page.json") as fd:
         page = json.load(fd)
         requests_mock.get(f"https://api.notion.com/v1/pages/{42}", json=page)
     expected = {

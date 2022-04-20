@@ -16,7 +16,7 @@
         "**/downloads/": true,
         "**/eggs/": true,
         "**/.eggs/": true,
-        "**/lib/": true,
+        "**/lib/": false,
         "**/lib64/": true,
         "**/parts/": true,
         "**/sdist/": true,

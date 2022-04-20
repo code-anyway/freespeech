@@ -1,4 +1,4 @@
-from freespeech.api import language
+from freespeech.lib import language
 from freespeech.types import Event
 
 
