@@ -1,11 +1,13 @@
+import html
 import http.client
 import json
 import logging
 import random
+import re
 import time
 from os import PathLike
 from pathlib import Path
-from typing import Tuple
+from typing import Dict, Sequence, Tuple
 
 import httplib2
 import pytube
@@ -15,7 +17,7 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
 from freespeech.lib import media
-from freespeech.types import Meta
+from freespeech.types import Event, Meta
 
 logger = logging.getLogger(__name__)
 
@@ -157,7 +159,9 @@ def download_stream(stream: pytube.Stream, output_dir: str | PathLike) -> PathLi
     return Path(file)
 
 
-def download(url: str, output_dir: str | PathLike) -> Tuple[PathLike, PathLike, Meta]:
+def download(
+    url: str, output_dir: str | PathLike
+) -> Tuple[PathLike, PathLike, Meta, Dict[str, Sequence[Event]]]:
     """Downloads YouTube video from URL into output_dir.
 
     Args:
@@ -179,5 +183,44 @@ def download(url: str, output_dir: str | PathLike) -> Tuple[PathLike, PathLike, 
     video_stream = download_stream(stream=video, output_dir=output_dir)
 
     info = Meta(title=yt.title, description=yt.description, tags=yt.keywords)
+    captions = [(caption.code, caption.xml_captions) for caption in yt.captions]
 
-    return audio_stream, video_stream, info
+    return audio_stream, video_stream, info, convert_captions(captions)
+
+
+def _language_tag(lang: str) -> str | None:
+    match lang:
+        case "en" | "en-US":
+            return "en-US"
+        case "uk":
+            return "uk-UK"
+        case "ru":
+            return "ru-RU"
+        case unsupported_language:
+            logger.warning(f"Unsupported caption language: {unsupported_language}")
+            return None
+
+
+def parse(xml: str) -> Sequence[Event]:
+    """Parses YouTube XML captions and generates a sequence of speech Events."""
+    parser = re.compile(r"<p t=\"(\d+)\" d=\"(\d+)\">(.+?)</p>")
+
+    def parse_events():
+        for match in parser.finditer(xml):
+            yield tuple(match.groups())
+
+    return [
+        Event(
+            time_ms=int(time), duration_ms=int(duration), chunks=[html.unescape(text)]
+        )
+        for time, duration, text in parse_events()
+    ]
+
+
+def convert_captions(captions: Sequence[Tuple[str, str]]) -> Dict[str, Sequence[Event]]:
+    """Converts YouTube captions for each language into speech Events."""
+    return {
+        language_tag: parse(xml_captions)
+        for code, xml_captions in captions
+        if (language_tag := _language_tag(code))
+    }

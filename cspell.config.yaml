@@ -12,6 +12,7 @@ words:
   - pythonic
   - pytube
   - rollup
+  - stdev
   - texttospeech
   - unparse
 ignoreWords:

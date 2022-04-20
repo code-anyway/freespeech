@@ -26,7 +26,7 @@ async def upload(request):
     logger.info("Downloading {url} {lang}")
 
     with TemporaryDirectory() as tmp_dir:
-        audio_file, video_file, meta = youtube.download(url, tmp_dir)
+        audio_file, video_file, meta, captions = youtube.download(url, tmp_dir)
 
         audio_url = f"{env.get_storage_url()}/clips/{audio_file.name}"
         await obj.put(src=audio_file, dst=audio_url)
@@ -42,7 +42,7 @@ async def upload(request):
             lang=lang,
             audio=(audio_url, audio),
             video=(video_url, video),
-            transcript=[],
+            transcript=captions.get(lang, None) or [],
             meta=meta,
             parent_id=None,
         )
