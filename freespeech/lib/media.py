@@ -6,6 +6,7 @@ from typing import Dict, Sequence, Tuple
 
 import ffmpeg
 
+from freespeech.lib import concurrency
 from freespeech.types import Audio, AudioEncoding, Video, VideoEncoding
 
 logger = logging.getLogger(__name__)
@@ -87,7 +88,7 @@ def new_file(dir: str | PathLike) -> PathLike:
     return Path(dir) / str(uuid.uuid4())
 
 
-def multi_channel_audio_to_mono(
+async def multi_channel_audio_to_mono(
     file: str | PathLike, output_dir: str | PathLike
 ) -> Path:
     """Convert multi-channel audio to mono by downmixing.
@@ -114,12 +115,12 @@ def multi_channel_audio_to_mono(
         ac=1,  # audio channels = 1
     )
 
-    _run(pipeline)
+    await _run(pipeline)
 
     return output_file
 
 
-def concat_and_pad(
+async def concat_and_pad(
     clips: Sequence[Tuple[int, str | PathLike]], output_dir: str | PathLike
 ) -> Path:
     """Concatenate audio clips and add padding.
@@ -148,12 +149,12 @@ def concat_and_pad(
     output_file = Path(f"{new_file(output_dir)}.wav")
     pipeline = ffmpeg.output(stream, filename=output_file)
 
-    _run(pipeline)
+    await _run(pipeline)
 
     return output_file
 
 
-def concat(clips: Sequence[str], output_dir: str | PathLike) -> Path:
+async def concat(clips: Sequence[str], output_dir: str | PathLike) -> Path:
     """Concatenate audio clips.
 
     Args:
@@ -163,10 +164,10 @@ def concat(clips: Sequence[str], output_dir: str | PathLike) -> Path:
     Returns:
         Path to audio file with concatenated clips.
     """
-    return concat_and_pad([(0, clip) for clip in clips], output_dir)
+    return await concat_and_pad([(0, clip) for clip in clips], output_dir)
 
 
-def mix(
+async def mix(
     files: Sequence[str | PathLike], weights: Sequence[int], output_dir: str | PathLike
 ) -> Path:
     """Mix multiple audio files into a single file.
@@ -189,12 +190,12 @@ def mix(
     output_file = Path(f"{new_file(output_dir)}.wav")
     pipeline = ffmpeg.output(mixed_audio, filename=output_file)
 
-    _run(pipeline)
+    await _run(pipeline)
 
     return output_file
 
 
-def dub(
+async def dub(
     video: str | PathLike, audio: str | PathLike, output_dir: str | PathLike
 ) -> Path:
     streams = (ffmpeg.input(audio).audio, ffmpeg.input(video).video)
@@ -203,13 +204,17 @@ def dub(
     output_file = Path(f"{new_file(output_dir)}{video.suffix}")
     pipeline = ffmpeg.output(*streams, filename=output_file)
 
-    _run(pipeline)
+    await _run(pipeline)
 
     return output_file
 
 
-def _run(pipeline):
+async def _run(pipeline):
     try:
-        pipeline.run(overwrite_output=True, capture_stderr=True)
+
+        def _run_pipeline():
+            pipeline.run(overwrite_output=True, capture_stderr=True)
+
+        await concurrency.run_in_thread_pool(_run_pipeline)
     except ffmpeg.Error as e:
         raise RuntimeError(f"ffmpeg Error stderr: {e.stderr}")

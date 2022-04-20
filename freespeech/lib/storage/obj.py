@@ -34,8 +34,10 @@ async def put(src: str | PathLike, dst: url) -> str:
 
     match dst_url.scheme:
         case "file":
+
             def _copy():
                 shutil.copy(src_file, dst_url.path)
+
             await concurrency.run_in_thread_pool(_copy)
             return dst_url.path
         case "gs":
@@ -44,6 +46,7 @@ async def put(src: str | PathLike, dst: url) -> str:
 
             def _copy():
                 _gs_copy_from_local(src_file, dst_obj)
+
             await concurrency.run_in_thread_pool(_copy)
             return f"gs://{dst_obj.bucket}/{dst_obj.obj}"
         case scheme:
@@ -63,8 +66,10 @@ async def get(src: url, dst_dir: str | PathLike) -> str:
     match src_url.scheme:
         case "file":
             if src_path != dst_file:
+
                 def _copy():
                     shutil.copy(src_url.path or "/", dst_file)
+
                 await concurrency.run_in_thread_pool(_copy)
             return str(dst_file)
         case "gs":
@@ -73,6 +78,7 @@ async def get(src: url, dst_dir: str | PathLike) -> str:
 
             def _copy():
                 return _gs_copy_from_gs(src_obj, dst_file)
+
             await concurrency.run_in_thread_pool(_copy)
             return str(dst_file)
         case scheme:

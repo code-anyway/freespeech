@@ -1,6 +1,6 @@
 import asyncio
 import concurrent.futures
-from typing import Callable, Any
+from typing import Any, Callable
 
 
 async def run_in_thread_pool(func: Callable) -> Any:

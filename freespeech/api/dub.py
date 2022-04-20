@@ -48,7 +48,7 @@ async def _dub(
         if not clip.video:
             raise ValueError(f"Clip _id={clip._id} has no video.")
 
-        synth_file, voices = speech.synthesize_events(
+        synth_file, voices = await speech.synthesize_events(
             events=events,
             voice=voice.character,
             lang=lang,
@@ -59,7 +59,7 @@ async def _dub(
 
         audio_url, _ = clip.audio
         audio_file = await obj.get(audio_url, tmp_dir)
-        mixed_file = media.mix(
+        mixed_file = await media.mix(
             files=(audio_file, synth_file),
             weights=(original_weight, synth_weight),
             output_dir=tmp_dir,
@@ -67,7 +67,9 @@ async def _dub(
 
         video_url, _ = clip.video
         video_file = await obj.get(video_url, tmp_dir)
-        dub_file = media.dub(video=video_file, audio=mixed_file, output_dir=tmp_dir)
+        dub_file = await media.dub(
+            video=video_file, audio=mixed_file, output_dir=tmp_dir
+        )
 
         ((dub_audio, *_), (dub_video, *_)) = media.probe(dub_file)
         dub_url = f"{env.get_storage_url()}/clips/{dub_file.name}"

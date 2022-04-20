@@ -4,7 +4,7 @@
 check_dirs := tests freespeech
 
 test:
-	python -m pytest -n auto --dist=loadfile -s -v ./tests/
+	python -m pytest -n auto --dist=loadfile -s -vv ./tests/
 
 typecheck:
 	python -m mypy $(check_dirs)

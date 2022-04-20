@@ -51,14 +51,11 @@ async def test_clip_latest_and_update(aiohttp_client):
 
     resp = await client.get(f"/clips/latest/{url}/ru-RU")
     resp.raise_for_status()
-    clip_ru_ru_latest = await resp.json()
 
     ignored = ("_id", "last_updated")
     clip_ru_ru = {k: v for k, v in clip_ru_ru.items() if k not in ignored}
     new = {k: v for k, v in clip_ru_ru_new.items() if k not in ignored}
-    latest = {k: v for k, v in clip_ru_ru_latest.items() if k not in ignored}
 
-    assert new == latest
     assert new["parent_id"] == clip_en_us["_id"]
 
 

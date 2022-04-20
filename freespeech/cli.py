@@ -4,8 +4,8 @@ import logging.config
 import click
 from aiohttp import web
 
-from freespeech.lib import youtube
 from freespeech.api import crud, dub, language, notion, pub, speech
+from freespeech.lib import youtube
 
 SERVICE_ROUTES = {
     "crud": crud.routes,

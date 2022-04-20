@@ -1,3 +1,4 @@
+import asyncio
 from functools import cache
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -7,7 +8,7 @@ from google.api_core import exceptions as google_api_exceptions
 from google.cloud import speech as speech_api
 from google.cloud import texttospeech
 
-from freespeech.lib import media
+from freespeech.lib import concurrency, media
 from freespeech.lib.text import chunk
 from freespeech.types import Audio, Character, Event, Voice
 
@@ -50,7 +51,7 @@ def supported_voices() -> Dict[str, Sequence[str]]:
     return {voice.name: voice.language_codes for voice in response.voices}
 
 
-def transcribe(
+async def transcribe(
     uri: str, audio: Audio, lang: str, model: str = "default"
 ) -> Sequence[Event]:
     """Transcribe audio.
@@ -88,23 +89,27 @@ def transcribe(
     client = speech_api.SpeechClient()
 
     try:
-        operation = client.long_running_recognize(
-            config=speech_api.RecognitionConfig(
-                audio_channel_count=audio.num_channels,
-                encoding=GOOGLE_CLOUD_ENCODINGS[audio.encoding],
-                sample_rate_hertz=audio.sample_rate_hz,
-                language_code=lang,
-                model=model,
-                # TODO (astaff): are there any measurable gains
-                # from adjusting the hyper parameters?
-                # metadata=speech_api.RecognitionMetadata(
-                #     recording_device_type=speech_api.RecognitionMetadata.RecordingDeviceType.SMARTPHONE,  # noqa: E501
-                #     original_media_type=speech_api.RecognitionMetadata.OriginalMediaType.VIDEO,  # noqa: E501
-                # )
-            ),
-            audio=speech_api.RecognitionAudio(uri=uri),
-        )
-        response = operation.result(timeout=TRANSCRIBE_TIMEOUT_SEC)
+
+        def _api_call():
+            operation = client.long_running_recognize(
+                config=speech_api.RecognitionConfig(
+                    audio_channel_count=audio.num_channels,
+                    encoding=GOOGLE_CLOUD_ENCODINGS[audio.encoding],
+                    sample_rate_hertz=audio.sample_rate_hz,
+                    language_code=lang,
+                    model=model,
+                    # TODO (astaff): are there any measurable gains
+                    # from adjusting the hyper parameters?
+                    # metadata=speech_api.RecognitionMetadata(
+                    #     recording_device_type=speech_api.RecognitionMetadata.RecordingDeviceType.SMARTPHONE,  # noqa: E501
+                    #     original_media_type=speech_api.RecognitionMetadata.OriginalMediaType.VIDEO,  # noqa: E501
+                    # )
+                ),
+                audio=speech_api.RecognitionAudio(uri=uri),
+            )
+            return operation.result(timeout=TRANSCRIBE_TIMEOUT_SEC)
+
+        response = await concurrency.run_in_thread_pool(_api_call)
     except google_api_exceptions.NotFound:
         raise ValueError(f"Requested entity not found {uri}")
 
@@ -124,7 +129,7 @@ def transcribe(
     return events
 
 
-def synthesize_text(
+async def synthesize_text(
     text: str,
     duration_ms: int,
     voice: Character,
@@ -161,7 +166,7 @@ def synthesize_text(
 
     client = texttospeech.TextToSpeechClient()
 
-    def _synthesize_step(rate, retries) -> Tuple[Path, float]:
+    async def _synthesize_step(rate, retries) -> Tuple[Path, float]:
         if retries < 0:
             raise RuntimeError(
                 (
@@ -170,8 +175,8 @@ def synthesize_text(
                 )
             )
 
-        responses = [
-            client.synthesize_speech(
+        def _api_call(phrase):
+            return client.synthesize_speech(
                 input=texttospeech.SynthesisInput(text=phrase),
                 voice=texttospeech.VoiceSelectionParams(
                     language_code=lang, name=google_voice
@@ -182,15 +187,20 @@ def synthesize_text(
                     speaking_rate=rate,
                 ),
             )
-            for phrase in chunks
-        ]
+
+        responses = await asyncio.gather(
+            *[
+                concurrency.run_in_thread_pool(lambda: _api_call(phrase))
+                for phrase in chunks
+            ]
+        )
 
         with TemporaryDirectory() as tmp_dir:
             files = [f"{media.new_file(tmp_dir)}.wav" for _ in responses]
             for file, response in zip(files, responses):
                 with open(file, "wb") as fd:
                     fd.write(response.audio_content)
-            audio_file = media.concat(files, output_dir)
+            audio_file = await media.concat(files, output_dir)
 
         (audio, *_), _ = media.probe(audio_file)
         assert isinstance(audio, Audio)
@@ -199,14 +209,16 @@ def synthesize_text(
             return Path(audio_file), rate
         else:
             rate *= audio.duration_ms / duration_ms
-            return _synthesize_step(rate, retries - 1)
+            return await _synthesize_step(rate, retries - 1)
 
-    output_file, speech_rate = _synthesize_step(rate=1.0, retries=SYNTHESIS_RETRIES)
+    output_file, speech_rate = await _synthesize_step(
+        rate=1.0, retries=SYNTHESIS_RETRIES
+    )
 
     return output_file, Voice(speech_rate=speech_rate, character=voice, pitch=pitch)
 
 
-def synthesize_events(
+async def synthesize_events(
     events: Sequence[Event],
     voice: Character,
     lang: str,
@@ -220,7 +232,7 @@ def synthesize_events(
 
     for event in events:
         padding_ms = event.time_ms - current_time_ms
-        clip, voice_info = synthesize_text(
+        clip, voice_info = await synthesize_text(
             text="".join(event.chunks),
             duration_ms=event.duration_ms,
             voice=voice,
@@ -236,6 +248,6 @@ def synthesize_events(
 
         voices += [voice_info]
 
-    output_file = media.concat_and_pad(clips, output_dir)
+    output_file = await media.concat_and_pad(clips, output_dir)
 
     return output_file, voices
