@@ -1,7 +1,9 @@
 from dataclasses import asdict
-from freespeech.types import Clip, Event, Language, Character, Meta
-import aiohttp.client
 from typing import Dict, Sequence, Tuple
+
+import aiohttp.client
+
+from freespeech.types import Character, Clip, Event, Language, Meta
 
 
 async def upload(service_url: str, video_url: str, lang: str) -> Clip:
@@ -22,9 +24,11 @@ async def upload(service_url: str, video_url: str, lang: str) -> Clip:
 
 def _build_clip(clip_dict: Dict) -> Clip:
     meta_dict = clip_dict["meta"]
-    meta = Meta(title=meta_dict["title"],
-                description=meta_dict["description"],
-                tags=meta_dict["tags"])
+    meta = Meta(
+        title=meta_dict["title"],
+        description=meta_dict["description"],
+        tags=meta_dict["tags"],
+    )
     transcript = [Event(**event) for event in clip_dict["transcript"]]
 
     clip = Clip(
@@ -36,19 +40,21 @@ def _build_clip(clip_dict: Dict) -> Clip:
         meta=meta,
         parent_id=clip_dict["parent_id"],
         _id=clip_dict["_id"],
-        last_updated=clip_dict["last_updated"]
+        last_updated=clip_dict["last_updated"],
     )
 
     return clip
 
 
-async def dub(service_url: str,
-              clip_id: str,
-              transcript: Sequence[Event],
-              default_character: Character,
-              lang: Language,
-              pitch: float,
-              weights: Tuple[int, int]) -> Clip:
+async def dub(
+    service_url: str,
+    clip_id: str,
+    transcript: Sequence[Event],
+    default_character: Character,
+    lang: Language,
+    pitch: float,
+    weights: Tuple[int, int],
+) -> Clip:
     params = {
         "transcript": [asdict(e) for e in transcript],
         "characters": {"default": default_character},

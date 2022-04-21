@@ -167,8 +167,6 @@ async def synthesize_text(
             )
         )
 
-    client = texttospeech.TextToSpeechClient()
-
     async def _synthesize_step(rate, retries) -> Tuple[Path, float]:
         if retries < 0:
             raise RuntimeError(
@@ -179,6 +177,7 @@ async def synthesize_text(
             )
 
         def _api_call(phrase):
+            client = texttospeech.TextToSpeechClient()
             return client.synthesize_speech(
                 input=texttospeech.SynthesisInput(text=phrase),
                 voice=texttospeech.VoiceSelectionParams(
@@ -193,7 +192,7 @@ async def synthesize_text(
 
         responses = await asyncio.gather(
             *[
-                concurrency.run_in_thread_pool(lambda: _api_call(phrase))
+                concurrency.run_in_thread_pool(_api_call, phrase)
                 for phrase in chunks
             ]
         )
@@ -262,7 +261,7 @@ def _speech_rate(event: Event) -> float:
 
 def normalize_speech(events: Sequence[Event]) -> Sequence[Event]:
     """Transforms speech events into a fewer and longer ones
-    representing continuos speech."""
+    representing continuous speech."""
     speech_rates = [_speech_rate(e) for e in events]
 
     sigma = statistics.stdev(speech_rates)

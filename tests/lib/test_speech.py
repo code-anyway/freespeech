@@ -82,5 +82,47 @@ async def test_synthesize_events(tmp_path):
     assert voice_2.pitch == 0.0
 
 
+@pytest.mark.asyncio
+async def test_synthesize_long_event(tmp_path):
+    event_en_us = Event(
+        time_ms=205649,
+        duration_ms=79029.04040786673,
+        chunks=[
+            "in this Plan are implemented, Russia will lose the opportunity "
+            "to finance the military machine. In particular, the Plan "
+            "provides for restrictions on Russia's energy sector, banking "
+            "sector, export-import operations, transport. The next steps "
+            "should include an oil embargo and a complete restriction on "
+            "oil supplies from Russia. We are also working to ensure that "
+            "all – I emphasize – all Russian officials who support this "
+            "shameful war receive a logical sanctions response from the "
+            "democratic world. Russia must be recognized as a state-sponsor "
+            "of terrorism, and the Russian Armed Forces must be recognized "
+            "as a terrorist organization. The European Union is currently "
+            "preparing a sixth package of sanctions. We discussed this "
+            "today with Charles Michel. We are working to make it truly "
+            "painful for the Russian military machine and the Russian state "
+            "as a whole. I emphasize in all negotiations that sanctions are "
+            "needed not as an end in themselves, but as a practical tool to "
+            "motivate Russia to seek peace. It is important that the EU "
+            "Delegation and the embassies of friendly countries resumed "
+            "work in Kyiv."
+        ],
+        voice=None,
+    )
+
+    _, voices = await speech.synthesize_events(
+        events=[event_en_us],
+        voice="Alan Turing",
+        lang="en-US",
+        pitch=0.0,
+        output_dir=tmp_path,
+    )
+
+    (voice, ) = voices
+
+    assert voice.speech_rate == pytest.approx(0.762, rel=1e-3)
+
+
 def test_normalize_speech():
     raise NotImplementedError()

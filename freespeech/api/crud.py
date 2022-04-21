@@ -23,7 +23,7 @@ async def upload(request):
     lang = params["lang"]
 
     # TODO (astaff): collect metrics with endpoints runtime
-    logger.info("Downloading {url} {lang}")
+    logger.info(f"Downloading {url} {lang}")
 
     with TemporaryDirectory() as tmp_dir:
         audio_file, video_file, meta, captions = youtube.download(url, tmp_dir)
@@ -52,7 +52,7 @@ async def upload(request):
         await doc.put(client, coll="clips", key=clip._id, value=clip_dict)
 
     # TODO (astaff): collect metrics with endpoints runtime
-    logger.info("Finished downloading {url} {lang}: clip _id='{clip._id}'")
+    logger.info(f"Finished downloading {url} {lang}: clip _id='{clip._id}'")
 
     return web.json_response(clip_dict)
 
