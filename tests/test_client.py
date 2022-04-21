@@ -1,4 +1,5 @@
 import pytest
+
 from freespeech import client
 from freespeech.lib import speech
 
@@ -14,17 +15,12 @@ async def test_upload_dub():
 
     normalized_transcript = speech.normalize_speech(clip.transcript)
 
-    from pprint import pprint
-    pprint(clip.transcript)
-    pprint(normalized_transcript)
-
-    assert False
-    # dubbed_clip = await client.dub(DUB_SERVICE_URL,
-    #                                clip_id=clip._id,
-    #                                transcript=normalized_transcript,
-    #                                default_character="Alan Turing",
-    #                                lang="en-US",
-    #                                pitch=0.0,
-    #                                weights=(2, 10))
-    # public_url = await client.video(CRUD_SERVICE_URL, dubbed_clip._id)
-    # assert public_url == ""
+    dubbed_clip = await client.dub(DUB_SERVICE_URL,
+                                   clip_id=clip._id,
+                                   transcript=normalized_transcript,
+                                   default_character="Alan Turing",
+                                   lang="en-US",
+                                   pitch=0.0,
+                                   weights=(2, 10))
+    public_url = await client.video(CRUD_SERVICE_URL, dubbed_clip._id)
+    assert public_url == ""
