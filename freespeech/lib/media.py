@@ -202,7 +202,7 @@ async def dub(
 
     video = Path(video)
     output_file = Path(f"{new_file(output_dir)}{video.suffix}")
-    pipeline = ffmpeg.output(*streams, filename=output_file)
+    pipeline = ffmpeg.output(*streams, vcodec="copy", filename=output_file)
 
     await _run(pipeline)
 
@@ -211,7 +211,6 @@ async def dub(
 
 async def _run(pipeline):
     try:
-
         def _run_pipeline():
             pipeline.run(overwrite_output=True, capture_stderr=True)
 
