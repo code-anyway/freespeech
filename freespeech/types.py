@@ -1,7 +1,7 @@
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import List, Literal, Sequence, Tuple
+from typing import List, Literal, Sequence, Tuple, TypeGuard
 
 AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC"]
 VideoEncoding = Literal["H264", "HEVC"]
@@ -11,6 +11,14 @@ Language = Literal["en-US", "uk-UK", "ru-RU", "pt-PT", "es-MX"]
 Character = Literal["Alan Turing", "Grace Hopper", "Original"]
 
 
+def is_language(val: str) -> TypeGuard[Language]:
+    return val in ("en-US", "uk-UK", "ru-RU", "pt-PT", "es-MX")
+
+
+def is_character(val: str) -> TypeGuard[Character]:
+    return val in ("Alan Turing", "Grace Hopper", "Original")
+
+
 url = str
 _last_updated = datetime.now(tz=timezone.utc).isoformat
 
@@ -18,7 +26,7 @@ _last_updated = datetime.now(tz=timezone.utc).isoformat
 @dataclass(frozen=True)
 class Voice:
     character: Character
-    pitch: float | None = None
+    pitch: float = 0.0
     speech_rate: float | None = None
 
 

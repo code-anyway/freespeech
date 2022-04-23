@@ -6,15 +6,19 @@ import aiohttp.client
 from freespeech.types import Character, Clip, Event, Language, Meta
 
 
+TIMEOUT = aiohttp.ClientTimeout(total=3600)
+
+
 async def upload(service_url: str, video_url: str, lang: str) -> Clip:
     params = {
         "url": video_url,
         "lang": lang,
     }
 
-    async with aiohttp.ClientSession() as client:
+    async with aiohttp.ClientSession(timeout=TIMEOUT) as client:
         async with client.post(f"{service_url}/clips/upload", json=params) as resp:
-            assert resp.status == 200
+            if resp.status != 200:
+                raise RuntimeError(await resp.text())
             clip_dict = await resp.json()
 
     clip = _build_clip(clip_dict)
@@ -46,6 +50,18 @@ def _build_clip(clip_dict: Dict) -> Clip:
     return clip
 
 
+async def clip(service_url: str, clip_id: str) -> Clip:
+    async with aiohttp.ClientSession(timeout=TIMEOUT) as client:
+        async with client.get(f"{service_url}/clips/{clip_id}") as resp:
+            if resp.status != 200:
+                raise RuntimeError(await resp.text())
+            clip_dict = await resp.json()
+
+    clip = _build_clip(clip_dict)
+
+    return clip
+
+
 async def dub(
     service_url: str,
     clip_id: str,
@@ -63,7 +79,7 @@ async def dub(
         "weights": weights,
     }
 
-    async with aiohttp.ClientSession() as client:
+    async with aiohttp.ClientSession(timeout=TIMEOUT) as client:
         url = f"{service_url}/clips/{clip_id}/dub"
         async with client.post(url=url, json=params) as resp:
             assert resp.status == 200
@@ -73,8 +89,10 @@ async def dub(
 
 
 async def video(service_url: str, clip_id: str) -> str:
-    async with aiohttp.ClientSession() as client:
+    async with aiohttp.ClientSession(timeout=TIMEOUT) as client:
         url = f"{service_url}/clips/{clip_id}/video"
         resp = await client.get(url)
+        if resp.status != 200:
+            raise RuntimeError(await resp.text())
         video_dict = await resp.json()
     return video_dict["url"]

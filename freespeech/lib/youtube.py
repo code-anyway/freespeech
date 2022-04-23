@@ -17,7 +17,7 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
 from freespeech.lib import media
-from freespeech.types import Event, Meta
+from freespeech.types import Event, Language, Meta
 
 logger = logging.getLogger(__name__)
 
@@ -186,6 +186,14 @@ def download(
     captions = [(caption.code, caption.xml_captions) for caption in yt.captions]
 
     return audio_stream, video_stream, info, convert_captions(captions)
+
+
+def get_captions(url: str, lang: Language) -> Sequence[Event]:
+    yt = pytube.YouTube(url)
+    captions = dict((caption.code, caption.xml_captions) for caption in yt.captions)
+    if lang not in captions:
+        raise ValueError(f"{url} has no captions for {lang}")
+    return captions[lang]
 
 
 def _language_tag(lang: str) -> str | None:
