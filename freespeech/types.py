@@ -1,7 +1,7 @@
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import List, Literal, Sequence, Tuple, TypeGuard
+from typing import List, Literal, NoReturn, Sequence, Tuple, TypeGuard
 
 AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC"]
 VideoEncoding = Literal["H264", "HEVC"]
@@ -81,3 +81,8 @@ class Clip:
 class Job:
     status: Literal["Successful", "Cancelled", "Pending", "Failed"]
     _id: uuid.UUID = field(default_factory=uuid.uuid4)
+
+
+def assert_never(x: NoReturn) -> NoReturn:
+    # runtime error, should not happen
+    raise Exception(f"Unhandled value: {x}")

@@ -1,14 +1,14 @@
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
 from datetime import datetime, time
 from typing import Any, Dict, List, Literal, Sequence, Tuple, TypeGuard
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
-import requests
+import aiohttp
 
-from freespeech import env
-from freespeech import types
-from freespeech.types import Event, Language, Voice, url, Meta
+from freespeech import env, types
+from freespeech.types import Event, Language, Meta, Voice, assert_never, url
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,8 @@ PROPERTY_NAME_DUB_URL = "Dub URL"
 PROPERTY_NAME_CLIP_ID = "Clip ID"
 PROPERTY_NAME_TRANSLATED_FROM = "Translated From"
 
-Source = Literal["Machine", "Subtitles", "Translate"]
+Source = Literal["Machine", "Subtitles", "Tranlate"]
+HTTPVerb = Literal["GET", "PATCH", "DELETE", "POST"]
 
 
 def is_source(val: str) -> TypeGuard[Source]:
@@ -53,17 +54,17 @@ class Transcript:
 QueryOperator = Literal["greater_than", "equals", "after", "any"]
 
 
-NOTION_MAX_PAGE_SIZE = 100
-
-HEADERS = {
+NOTION_API_MAX_PAGE_SIZE = 100
+NOTION_API_HEADERS = {
     "Accept": "application/json",
     "Notion-Version": "2022-02-22",
     "Content-Type": "application/json",
     "Authorization": f"Bearer {env.get_notion_token()}",
 }
+NOTION_API_BASE_URL = "https://api.notion.com"
 
 
-def query(
+async def query(
     database_id: str,
     property_name: str,
     property_type: str,
@@ -71,7 +72,6 @@ def query(
     value: str | Dict,
 ) -> List[str]:
     """Get all pages where property matches the expression."""
-    url = f"https://api.notion.com/v1/databases/{database_id}/query"
     page_ids = []
 
     # How filtering in Notion API works:
@@ -79,16 +79,14 @@ def query(
     payload: Dict[str, Dict | int] = {
         "filter": {"property": property_name, property_type: {operator: value}},
     }
-    payload["page_size"] = NOTION_MAX_PAGE_SIZE
+    payload["page_size"] = NOTION_API_MAX_PAGE_SIZE
 
     # TODO (astaff): There must be a more pythonic and reusable way
     # to handle pagination it REST APIs but I can't quite express it yet.
     while True:
-        response = requests.request("POST", url, json=payload, headers=HEADERS)
-        data = response.json()
-
-        if data["object"] == "error":
-            raise RuntimeError(data["message"])
+        data = await _make_api_call(
+            verb="POST", url=f"/v1/databases/{database_id}/query", payload=payload
+        )
 
         page_ids += [page["id"] for page in data["results"] if not page["archived"]]
 
@@ -100,29 +98,42 @@ def query(
     return page_ids
 
 
-def get_properties(page_id: str) -> Dict:
-    """Get page information.
+async def get_properties(page_id: str) -> Dict:
+    """Get Notion API representation of page properties.
 
     Args:
         page_id: id of a page.
 
     Returns:
-        Dict with page info.
-        Note: it doesn't return page content. Use `get_child_blocks`
+        Dict with property values in Notion API format.
+        Details: https://developers.notion.com/reference/property-value-object
+        Note: It doesn't return page content. Use `get_child_blocks`
         for that.
     """
-    url = f"https://api.notion.com/v1/pages/{page_id}"
-    response = requests.get(url, headers=HEADERS)
-    page = response.json()
+    result = await _make_api_call(verb="GET", url=f"/v1/pages/{page_id}")
+    return result["properties"]
 
-    return page["properties"]
+
+async def get_transcript(page_id: str) -> Transcript:
+    """Parse Notion page and generate transcript.
+
+    Args:
+        page_id: Notion page ID.
+
+    Returns:
+        Transcript generated from page properties and content.
+    """
+    properties = await get_properties(page_id)
+    results = await get_child_blocks(page_id)
+    blocks = [r for r in results if not r["archived"]]
+
+    transcript = parse_transcript(page_id, properties=properties, blocks=blocks)
+
+    return transcript
 
 
 def parse_properties(page: Dict) -> Dict[str, Any]:
-    return {
-        property: _parse_value(value)
-        for property, value in page.items()
-    }
+    return {property: _parse_value(value) for property, value in page.items()}
 
 
 def _parse_value(
@@ -139,59 +150,37 @@ def _parse_value(
                 return None
             return value[_type]["name"]
         case "title" | "rich_text":
-            return "\n".join(v.get("plain_text", None) or v["text"]["content"] for v in value[_type])
+            return "\n".join(
+                v.get("plain_text", None) or v["text"]["content"] for v in value[_type]
+            )
         case "heading_1" | "heading_2" | "heading_3" | "paragraph":
             return _parse_value(value[_type], value_type="rich_text")
+        case "date":
+            start = datetime.fromisoformat(value[_type]["start"])
+            time_zone = value[_type]["time_zone"]
+            if time_zone:
+                start = start.astimezone(tz=ZoneInfo(time_zone))
+            return start.isoformat()
         case _:
             return value[_type]
 
 
-def get_transcript(page_id: str) -> Transcript:
-    """Parse Notion's page and generate transcript.
-
-    Args:
-        page_id: Notion page ID.
-
-    Returns:
-        Transcript represented as list of speech events.
-    """
-    results = get_child_blocks(page_id)
-    properties = get_properties(page_id)
-    blocks = [r for r in results if not r["archived"]]
-    transcript = parse_transcript(page_id, properties=properties, blocks=blocks)
-
-    return transcript
-
-
-def get_child_blocks(page_id: str) -> List[Dict]:
-    url = f"https://api.notion.com/v1/blocks/{page_id}/children"
-    response = requests.get(url, headers=HEADERS)
-    results = response.json()["results"]
-
-    return results
-
-
-def append_child_blocks(page_id: str, blocks: List[Dict]) -> List[Dict]:
-    url = f"https://api.notion.com/v1/blocks/{page_id}/children"
-    payload = {
-        "children": blocks
-    }
-    response = requests.patch(url, json=payload, headers=HEADERS)
-    result = response.json()
-
-    if response.status_code != 200:
-        raise RuntimeError(f"Error {response.status_code}: {result}")
-
+async def get_child_blocks(page_id: str) -> List[Dict]:
+    result = await _make_api_call(verb="GET", url=f"/v1/blocks/{page_id}/children")
     return result["results"]
 
 
-def delete_block(block_id: str):
-    url = f"https://api.notion.com/v1/blocks/{block_id}"
-    response = requests.delete(url, headers=HEADERS)
-    result = response.json()
+async def append_child_blocks(page_id: str, blocks: List[Dict]) -> List[Dict]:
+    result = await _make_api_call(
+        verb="PATCH", url=f"/v1/blocks/{page_id}/children", payload={"children": blocks}
+    )
+    return result["results"]
 
-    if response.status_code != 200:
-        raise RuntimeError(f"Error {response.status_code}: {result}")
+
+async def delete_block(block_id: str) -> None:
+    result = await _make_api_call(verb="DELETE", url=f"/v1/blocks/{block_id}")
+    if result:
+        logger.warning(f"Non-empty response while deleting block {block_id}: {result}")
 
 
 def get_updated_pages(db_id: str, timestamp: str) -> List[str]:
@@ -224,15 +213,6 @@ def render_transcript(transcript: Transcript) -> Tuple[Dict[str, Any], List[Dict
         description = transcript.meta.description
         tags = transcript.meta.tags
 
-    if transcript.dub_timestamp is not None:
-        dub_timestamp = {
-            "start": transcript.dub_timestamp,
-            "end": None,
-            "time_zone": None
-        }
-    else:
-        dub_timestamp = {}
-
     properties = {
         PROPERTY_NAME_PAGE_TITLE: {
             "title": [{"type": "text", "text": {"content": transcript.title}}],
@@ -246,10 +226,16 @@ def render_transcript(transcript: Transcript) -> Tuple[Dict[str, Any], List[Dict
         PROPERTY_NAME_TITLE: {"rich_text": [{"text": {"content": title}}]},
         PROPERTY_NAME_DESCRIPTION: {"rich_text": [{"text": {"content": description}}]},
         PROPERTY_NAME_TAGS: {"multi_select": [{"name": tag} for tag in tags or []]},
-        PROPERTY_NAME_DUB_TIMESTAMP: {"date": dub_timestamp},
+        PROPERTY_NAME_DUB_TIMESTAMP: {
+            "rich_text": [{"text": {"content": transcript.dub_timestamp}}]
+        },
         PROPERTY_NAME_DUB_URL: {"url": transcript.dub_url},
-        PROPERTY_NAME_CLIP_ID: {"rich_text": [{"text": {"content": transcript.clip_id}}]},
-        PROPERTY_NAME_TRANSLATED_FROM: {"relation": [{"id": translated_from}] if translated_from else []},
+        PROPERTY_NAME_CLIP_ID: {
+            "rich_text": [{"text": {"content": transcript.clip_id}}]
+        },
+        PROPERTY_NAME_TRANSLATED_FROM: {
+            "relation": [{"id": translated_from}] if translated_from else []
+        },
     }
 
     # Flatten event blocks
@@ -283,7 +269,9 @@ def parse_events(blocks: List[Dict]) -> Sequence[Event]:
     ]
 
 
-def parse_transcript(_id: str, properties: Dict[str, Any], blocks: List[Dict]) -> Transcript:
+def parse_transcript(
+    _id: str, properties: Dict[str, Any], blocks: List[Dict]
+) -> Transcript:
     properties = parse_properties(properties)
     source = properties[PROPERTY_NAME_SOURCE]
     translated_from = properties[PROPERTY_NAME_TRANSLATED_FROM]
@@ -330,43 +318,45 @@ def parse_transcript(_id: str, properties: Dict[str, Any], blocks: List[Dict]) -
         dub_timestamp=properties[PROPERTY_NAME_DUB_TIMESTAMP],
         dub_url=properties[PROPERTY_NAME_DUB_URL],
         clip_id=properties[PROPERTY_NAME_CLIP_ID],
-        _id=_id
+        _id=_id,
     )
 
 
-def replace_blocks(page_id: str, blocks: List[Dict]) -> List[Dict]:
-    child_blocks = get_child_blocks(page_id)
+async def replace_blocks(page_id: str, blocks: List[Dict]) -> List[Dict]:
+    child_blocks = await get_child_blocks(page_id)
     for block in child_blocks:
-        delete_block(block["id"])
-    return append_child_blocks(page_id, blocks)
+        await delete_block(block["id"])
+    return await append_child_blocks(page_id, blocks)
 
 
-def put_transcript(
+async def put_transcript(
     database_id: str,
     transcript: Transcript,
 ) -> Transcript:
     properties, blocks = render_transcript(transcript)
     payload = {
         "properties": properties,
-        "children": blocks,
+        "parent": {"type": "database_id", "database_id": database_id},
     }
 
-    payload["parent"] = {"type": "database_id", "database_id": database_id}
-
     if transcript._id is None:
-        url = "https://api.notion.com/v1/pages"
-        response = requests.post(url, json=payload, headers=HEADERS)
+        result = await _make_api_call(
+            verb="POST",
+            url="/v1/pages",
+            payload={
+                **payload,
+                "children": blocks,
+            },
+        )
     else:
-        url = f"https://api.notion.com/v1/pages/{transcript._id}"
-        payload.pop("children")
-        response = requests.patch(url, json=payload, headers=HEADERS)
-        blocks = replace_blocks(transcript._id, blocks)
+        result = await _make_api_call(
+            verb="PATCH", url=f"/v1/pages/{transcript._id}", payload=payload
+        )
+        blocks = await replace_blocks(transcript._id, blocks)
 
-    result = response.json()
-    if response.status_code != 200:
-        raise RuntimeError(f"Error {response.status_code}: {result}")
-
-    return parse_transcript(result["id"], properties=result["properties"], blocks=blocks)
+    return parse_transcript(
+        result["id"], properties=result["properties"], blocks=blocks
+    )
 
 
 def parse_time_interval(interval: str) -> Tuple[int, int]:
@@ -421,15 +411,16 @@ def unparse_time_interval(time_ms: int, duration_ms: int) -> str:
 
 
 def render_event(event: Event) -> List[Dict]:
-    """Generates list of Notion blocks representing an speech event."""
+    """Generates list of Notion blocks representing a speech event."""
+    HEADER = "heading_3"
     text = {
         "type": "text",
         "text": {"content": unparse_time_interval(event.time_ms, event.duration_ms)},
     }
     header = {
         "object": "block",
-        "type": "heading_3",
-        "heading_3": {"rich_text": [text]},
+        "type": HEADER,
+        HEADER: {"rich_text": [text]},
     }
     paragraphs = [
         {
@@ -441,3 +432,33 @@ def render_event(event: Event) -> List[Dict]:
     ]
 
     return [header, *paragraphs]
+
+
+async def _parse_api_response(response: aiohttp.ClientResponse) -> Dict:
+    result = await response.json()
+
+    if response.status == 200:
+        return result
+    else:
+        raise RuntimeError(result["message"])
+
+
+async def _make_api_call(verb: HTTPVerb, url: url, payload: Dict | None = None) -> Dict:
+    async with aiohttp.ClientSession(
+        base_url=NOTION_API_BASE_URL, headers=NOTION_API_HEADERS
+    ) as session:
+        match verb:
+            case "GET":
+                async with session.get(url) as response:
+                    return await _parse_api_response(response)
+            case "POST":
+                async with session.post(url, json=payload) as response:
+                    return await _parse_api_response(response)
+            case "DELETE":
+                async with session.delete(url) as response:
+                    return await _parse_api_response(response)
+            case "PATCH":
+                async with session.patch(url, json=payload) as response:
+                    return await _parse_api_response(response)
+            case never:
+                assert_never(never)
