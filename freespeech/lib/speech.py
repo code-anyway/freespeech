@@ -1,11 +1,11 @@
 import asyncio
-import functools
+import logging
 import statistics
 from dataclasses import replace
 from functools import cache
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, Sequence, Tuple
 
 from google.api_core import exceptions as google_api_exceptions
 from google.cloud import speech as speech_api
@@ -14,6 +14,8 @@ from google.cloud import texttospeech
 from freespeech.lib import concurrency, media
 from freespeech.lib.text import chunk
 from freespeech.types import Audio, Character, Event, Voice
+
+logger = logging.getLogger(__name__)
 
 MAX_CHUNK_LENGTH = 1000  # Google Speech API Limit
 
@@ -191,10 +193,7 @@ async def synthesize_text(
             )
 
         responses = await asyncio.gather(
-            *[
-                concurrency.run_in_thread_pool(_api_call, phrase)
-                for phrase in chunks
-            ]
+            *[concurrency.run_in_thread_pool(_api_call, phrase) for phrase in chunks]
         )
 
         with TemporaryDirectory() as tmp_dir:
@@ -259,13 +258,20 @@ def _speech_rate(event: Event) -> float:
     return len(" ".join(event.chunks)) / event.duration_ms
 
 
-def normalize_speech(events: Sequence[Event]) -> Sequence[Event]:
+def normalize_speech(
+    events: Sequence[Event], gap_threshold: float = 300
+) -> Sequence[Event]:
     """Transforms speech events into a fewer and longer ones
     representing continuous speech."""
-    speech_rates = [_speech_rate(e) for e in events]
+    adjusted_events = _adjust_duration(events)
+    gaps = [
+        e2.time_ms - e1.time_ms - e1.duration_ms
+        for e1, e2 in zip(adjusted_events[:-1], adjusted_events[1:])
+    ]
+    sigma = statistics.stdev(gaps)
+    mean = statistics.mean(gaps)
 
-    sigma = statistics.stdev(speech_rates)
-    mean = statistics.mean(speech_rates)
+    logger.warning(f"gaps={gaps} mean={mean}, sigma={sigma}")
 
     def _concat_events(e1: Event, e2: Event) -> Event:
         return Event(
@@ -274,19 +280,35 @@ def normalize_speech(events: Sequence[Event]) -> Sequence[Event]:
             chunks=[" ".join(e1.chunks + e2.chunks)],
         )
 
-    def _chunk_speech():
-        acc: List[Event] = []
-        for event, speech_rate in zip(events, speech_rates):
-            acc += [event]
-            # Detect event where speech rate is one sigma below mean.
-            if speech_rate < mean - sigma and acc:
-                long_event = functools.reduce(_concat_events, acc)
-                # shorten concatinated event as if the last phrase
-                # was spoken at the standard rate.
-                delta = event.duration_ms * (1.0 - speech_rate / mean)
-                yield replace(long_event, duration_ms=long_event.duration_ms - delta)
-                acc = []
-        if acc:
-            yield functools.reduce(_concat_events, acc)
+    first_event, *events = events
+    acc = [first_event]
 
-    return list(_chunk_speech())
+    for event, gap in zip(events, gaps):
+        last_event = acc.pop()
+        if gap > gap_threshold:
+            acc += [last_event, event]
+        else:
+            acc += [_concat_events(last_event, event)]
+
+    return acc
+
+
+def _adjust_duration(events: Sequence[Event]) -> Sequence[Event]:
+    speech_rates = [_speech_rate(e) for e in events]
+
+    sigma = statistics.stdev(speech_rates)
+    mean = statistics.mean(speech_rates)
+
+    durations = [
+        event.duration_ms * (1.0 - speech_rate / mean)
+        if speech_rate < mean - sigma
+        else event.duration_ms
+        for event, speech_rate in zip(events, speech_rates)
+    ]
+
+    adjusted_events = [
+        replace(event, duration_ms=duration)
+        for duration, event in zip(durations, events)
+    ]
+
+    return adjusted_events

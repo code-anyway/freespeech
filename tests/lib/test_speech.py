@@ -119,10 +119,21 @@ async def test_synthesize_long_event(tmp_path):
         output_dir=tmp_path,
     )
 
-    (voice, ) = voices
+    (voice,) = voices
 
     assert voice.speech_rate == pytest.approx(0.762, rel=1e-3)
 
 
 def test_normalize_speech():
-    raise NotImplementedError()
+    # Two events with 0ms in between, followed by another event in 1sec
+    events = [
+        Event(time_ms=100, duration_ms=400, chunks=["one"]),
+        Event(time_ms=500, duration_ms=400, chunks=["two"]),
+        Event(time_ms=2_100, duration_ms=500, chunks=["three"]),
+    ]
+
+    normalized = speech.normalize_speech(events)
+    assert normalized == [
+        Event(time_ms=100, duration_ms=800, chunks=["one two"]),
+        Event(time_ms=2_100, duration_ms=500, chunks=["three"]),
+    ]
