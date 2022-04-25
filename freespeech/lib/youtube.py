@@ -153,14 +153,16 @@ def upload(video_file, meta_file, credentials_file):
     )
 
 
-def download_stream(stream: pytube.Stream, output_dir: str | PathLike) -> PathLike:
+def download_stream(
+    stream: pytube.Stream, output_dir: str | PathLike, max_retries: int
+) -> PathLike:
     file = Path(f"{media.new_file(output_dir)}.{stream.subtype}")
-    stream.download(output_path=output_dir, filename=file.name)
+    stream.download(output_path=output_dir, filename=file.name, max_retries=max_retries)
     return Path(file)
 
 
 def download(
-    url: str, output_dir: str | PathLike
+    url: str, output_dir: str | PathLike, max_retries: int = 0
 ) -> Tuple[PathLike, PathLike, Meta, Dict[str, Sequence[Event]]]:
     """Downloads YouTube video from URL into output_dir.
 
@@ -179,8 +181,12 @@ def download(
 
     logger.info(f"Downloading {audio} and {video}")
 
-    audio_stream = download_stream(stream=audio, output_dir=output_dir)
-    video_stream = download_stream(stream=video, output_dir=output_dir)
+    audio_stream = download_stream(
+        stream=audio, output_dir=output_dir, max_retries=max_retries
+    )
+    video_stream = download_stream(
+        stream=video, output_dir=output_dir, max_retries=max_retries
+    )
 
     info = Meta(title=yt.title, description=yt.description, tags=yt.keywords)
     captions = [(caption.code, caption.xml_captions) for caption in yt.captions]
