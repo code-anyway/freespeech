@@ -211,6 +211,7 @@ async def dub(
 
 async def _run(pipeline):
     try:
+
         def _run_pipeline():
             pipeline.run(overwrite_output=True, capture_stderr=True)
 

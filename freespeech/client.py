@@ -5,7 +5,6 @@ import aiohttp.client
 
 from freespeech.types import Character, Clip, Event, Language, Meta
 
-
 TIMEOUT = aiohttp.ClientTimeout(total=3600)
 
 
