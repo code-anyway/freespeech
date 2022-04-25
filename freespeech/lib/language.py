@@ -1,5 +1,5 @@
 from dataclasses import replace
-from typing import List
+from typing import Sequence
 
 from google.cloud import translate as translate_api
 
@@ -8,10 +8,10 @@ from freespeech.types import Event
 
 
 def _translate_chunks(
-    chunks: List[str],
+    chunks: Sequence[str],
     source: str,
     target: str,
-) -> List[str]:
+) -> Sequence[str]:
     if source == target:
         return chunks
 
@@ -38,7 +38,9 @@ def translate_text(text: str, source: str, target: str) -> str:
     return "\n".join(chunks)
 
 
-def translate_events(events: List[Event], source: str, target: str) -> List[Event]:
+def translate_events(
+    events: Sequence[Event], source: str, target: str
+) -> Sequence[Event]:
     return [
         replace(event, chunks=_translate_chunks(event.chunks, source, target))
         for event in events
