@@ -7,12 +7,12 @@ AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC"]
 VideoEncoding = Literal["H264", "HEVC"]
 
 
-Language = Literal["en-US", "uk-UK", "ru-RU", "pt-PT", "es-MX"]
+Language = Literal["en-US", "uk-UK", "ru-RU", "pt-PT", "es-MX", "de-DE"]
 Character = Literal["Alan Turing", "Grace Hopper", "Original"]
 
 
 def is_language(val: str) -> TypeGuard[Language]:
-    return val in ("en-US", "uk-UK", "ru-RU", "pt-PT", "es-MX")
+    return val in ("en-US", "uk-UK", "ru-RU", "pt-PT", "es-MX", "de-DE")
 
 
 def is_character(val: str) -> TypeGuard[Character]:

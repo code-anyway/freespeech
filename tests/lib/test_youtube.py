@@ -47,15 +47,17 @@ def test_download_local(tmp_path):
 def test_convert_captions():
     with open("tests/lib/data/youtube/captions_en.xml") as fd:
         en = "\n".join(fd.readlines())
-    with open("tests/lib/data/youtube/captions_uk.xml") as fd:
-        uk = "\n".join(fd.readlines())
 
-    t = youtube.convert_captions([("en", en), ("uk", uk)])
+    with open("tests/lib/data/youtube/captions_ru.xml") as fd:
+        ru = "\n".join(fd.readlines())
+
+    t = youtube.convert_captions([("en", en), ("ru", ru)])
 
     with open("tests/lib/data/youtube/transcript_en_US.json", encoding="utf-8") as fd:
         expected_en_US = [Event(**item) for item in json.load(fd)]
-    with open("tests/lib/data/youtube/transcript_uk_UK.json", encoding="utf-8") as fd:
-        expected_uk_UK = [Event(**item) for item in json.load(fd)]
+
+    with open("tests/lib/data/youtube/transcript_ru_RU.json", encoding="utf-8") as fd:
+        expected_ru_RU = [Event(**item) for item in json.load(fd)]
 
     assert expected_en_US == t["en-US"]
-    assert expected_uk_UK == t["uk-UK"]
+    assert expected_ru_RU == t["ru-RU"]

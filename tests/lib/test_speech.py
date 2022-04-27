@@ -1,3 +1,4 @@
+import json
 import pytest
 
 from freespeech.lib import media, speech
@@ -137,3 +138,9 @@ def test_normalize_speech():
         Event(time_ms=100, duration_ms=800, chunks=["one two"]),
         Event(time_ms=2_100, duration_ms=500, chunks=["three"]),
     ]
+
+
+def test_normalize_speech_long():
+    with open("tests/lib/data/youtube/transcript_ru_RU.json", encoding="utf-8") as fd:
+        events_dict = json.load(fd)
+        events = [Event(**item) for item in events_dict]

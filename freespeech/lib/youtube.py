@@ -3,11 +3,11 @@ import http.client
 import json
 import logging
 import random
-import re
 import time
 from os import PathLike
 from pathlib import Path
 from typing import Dict, Sequence, Tuple
+import xml.etree.ElementTree as ET
 
 import httplib2
 import pytube
@@ -210,6 +210,10 @@ def _language_tag(lang: str) -> str | None:
             return "uk-UK"
         case "ru":
             return "ru-RU"
+        case "pt":
+            return "pt-PT"
+        case "de":
+            return "de-DE"
         case unsupported_language:
             logger.warning(f"Unsupported caption language: {unsupported_language}")
             return None
@@ -217,17 +221,18 @@ def _language_tag(lang: str) -> str | None:
 
 def parse(xml: str) -> Sequence[Event]:
     """Parses YouTube XML captions and generates a sequence of speech Events."""
-    parser = re.compile(r"<p t=\"(\d+)\" d=\"(\d+)\">(.+?)</p>")
 
-    def parse_events():
-        for match in parser.finditer(xml):
-            yield tuple(match.groups())
+    body = ET.fromstring(xml).find("body")
+    assert body is not None
 
     return [
         Event(
-            time_ms=int(time), duration_ms=int(duration), chunks=[html.unescape(text)]
+            time_ms=int(child.attrib["t"]),
+            duration_ms=int(child.attrib["d"]),
+            chunks=[html.unescape(child.text)],
         )
-        for time, duration, text in parse_events()
+        for child in body
+        if child.text
     ]
 
 

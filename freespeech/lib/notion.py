@@ -8,9 +8,12 @@ from zoneinfo import ZoneInfo
 import aiohttp
 
 from freespeech import env, types
+from freespeech.lib import text
 from freespeech.types import Event, Language, Meta, Voice, assert_never, url
 
 logger = logging.getLogger(__name__)
+
+NOTION_RICH_TEXT_CONTENT_LIMIT = 200
 
 PROPERTY_NAME_PAGE_TITLE = "Name"
 PROPERTY_NAME_ORIGIN = "Origin"
@@ -42,13 +45,13 @@ class Transcript:
     lang: Language
     source: Source | UUID
     events: Sequence[Event]
-    voice: Voice | None
-    weights: Tuple[int, int] | None
     meta: Meta | None
     dub_timestamp: str | None
     dub_url: url | None
     clip_id: str
     _id: str | None
+    voice: Voice = Voice(character="Grace Hopper")
+    weights: Tuple[int, int] = (2, 10)
 
 
 QueryOperator = Literal["greater_than", "equals", "after", "any"]
@@ -150,7 +153,7 @@ def _parse_value(
                 return None
             return value[_type]["name"]
         case "title" | "rich_text":
-            return "\n".join(
+            return "".join(
                 v.get("plain_text", None) or v["text"]["content"] for v in value[_type]
             )
         case "heading_1" | "heading_2" | "heading_3" | "paragraph":
@@ -222,17 +225,13 @@ def render_transcript(transcript: Transcript) -> Tuple[Dict[str, Any], List[Dict
         PROPERTY_NAME_SOURCE: {"select": {"name": source}},
         PROPERTY_NAME_CHARACTER: {"select": {"name": character} if character else {}},
         PROPERTY_NAME_PITCH: {"number": pitch},
-        PROPERTY_NAME_WEIGHTS: {"rich_text": [{"text": {"content": weights}}]},
-        PROPERTY_NAME_TITLE: {"rich_text": [{"text": {"content": title}}]},
-        PROPERTY_NAME_DESCRIPTION: {"rich_text": [{"text": {"content": description}}]},
+        PROPERTY_NAME_WEIGHTS: render_text(weights),
+        PROPERTY_NAME_TITLE: render_text(title),
+        PROPERTY_NAME_DESCRIPTION: render_text(description),
         PROPERTY_NAME_TAGS: {"multi_select": [{"name": tag} for tag in tags or []]},
-        PROPERTY_NAME_DUB_TIMESTAMP: {
-            "rich_text": [{"text": {"content": transcript.dub_timestamp}}]
-        },
+        PROPERTY_NAME_DUB_TIMESTAMP: render_text(transcript.dub_timestamp or ""),
         PROPERTY_NAME_DUB_URL: {"url": transcript.dub_url},
-        PROPERTY_NAME_CLIP_ID: {
-            "rich_text": [{"text": {"content": transcript.clip_id}}]
-        },
+        PROPERTY_NAME_CLIP_ID: render_text(transcript.clip_id),
         PROPERTY_NAME_TRANSLATED_FROM: {
             "relation": [{"id": translated_from}] if translated_from else []
         },
@@ -242,6 +241,15 @@ def render_transcript(transcript: Transcript) -> Tuple[Dict[str, Any], List[Dict
     blocks: List[Dict] = sum([render_event(event) for event in transcript.events], [])
 
     return properties, blocks
+
+
+def render_text(t: str) -> Dict:
+    return {
+        "rich_text": [
+            {"text": {"content": chunk}}
+            for chunk in text.chunk_raw(t, NOTION_RICH_TEXT_CONTENT_LIMIT)
+        ]
+    }
 
 
 def parse_events(blocks: List[Dict]) -> Sequence[Event]:
@@ -279,8 +287,8 @@ def parse_transcript(
     if not is_source(source):
         raise ValueError(f"Invalid transcript source: {source}")
 
-    if source == "Translated":
-        source = UUID(translated_from[0]) if translated_from is not None else None
+    if source == "Translate":
+        source = UUID(translated_from[0]['id']) if translated_from is not None else None
 
     lang = properties[PROPERTY_NAME_LANG]
     if not types.is_language(lang):
@@ -297,7 +305,7 @@ def parse_transcript(
     voice = Voice(character=character, pitch=pitch)
 
     weights = properties[PROPERTY_NAME_WEIGHTS]
-    if weights is not None:
+    if weights:
         weights = tuple(int(w.strip()) for w in weights.split(","))
 
     meta = Meta(
@@ -329,30 +337,44 @@ async def replace_blocks(page_id: str, blocks: List[Dict]) -> List[Dict]:
     return await append_child_blocks(page_id, blocks)
 
 
+async def create_page(database_id: str, properties: Dict, blocks: List[Dict]) -> Dict:
+    payload = {
+        "parent": {"type": "database_id", "database_id": database_id},
+        "properties": properties,
+    }
+
+    if blocks:
+        payload["children"] = blocks
+
+    result = await _make_api_call(verb="POST", url="/v1/pages", payload=payload)
+
+    return result
+
+
+async def update_page_properties(page_id: str, properties: Dict) -> Dict:
+    result = await _make_api_call(
+        verb="PATCH", url=f"/v1/pages/{page_id}", payload={"properties": properties}
+    )
+    return result
+
+
 async def put_transcript(
     database_id: str,
     transcript: Transcript,
 ) -> Transcript:
     properties, blocks = render_transcript(transcript)
-    payload = {
-        "properties": properties,
-        "parent": {"type": "database_id", "database_id": database_id},
-    }
 
     if transcript._id is None:
-        result = await _make_api_call(
-            verb="POST",
-            url="/v1/pages",
-            payload={
-                **payload,
-                "children": blocks,
-            },
+        result = await create_page(
+            database_id=database_id, properties=properties, blocks=blocks
         )
     else:
-        result = await _make_api_call(
-            verb="PATCH", url=f"/v1/pages/{transcript._id}", payload=payload
+        result = await update_page_properties(
+            page_id=transcript._id, properties=properties
         )
-        blocks = await replace_blocks(transcript._id, blocks)
+
+        if blocks:
+            blocks = await replace_blocks(transcript._id, blocks)
 
     return parse_transcript(
         result["id"], properties=result["properties"], blocks=blocks
@@ -426,7 +448,7 @@ def render_event(event: Event) -> List[Dict]:
         {
             "object": "block",
             "type": "paragraph",
-            "paragraph": {"rich_text": [{"type": "text", "text": {"content": chunk}}]},
+            "paragraph": render_text(chunk),
         }
         for chunk in event.chunks
     ]
@@ -440,7 +462,9 @@ async def _parse_api_response(response: aiohttp.ClientResponse) -> Dict:
     if response.status == 200:
         return result
     else:
-        raise RuntimeError(result["message"])
+        raise RuntimeError(
+            f"Error making API call to {response.url}: {result['message']}"
+        )
 
 
 async def _make_api_call(verb: HTTPVerb, url: url, payload: Dict | None = None) -> Dict:

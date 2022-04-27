@@ -12,7 +12,7 @@ from google.cloud import speech as speech_api
 from google.cloud import texttospeech
 
 from freespeech.lib import concurrency, media
-from freespeech.lib.text import chunk
+from freespeech.lib.text import chunk, remove_symbols
 from freespeech.types import Audio, Character, Event, Voice
 
 logger = logging.getLogger(__name__)
@@ -24,10 +24,14 @@ VOICES = {
     "Grace Hopper": {
         "en-US": "en-US-Wavenet-C",
         "ru-RU": "ru-RU-Wavenet-C",
+        "pt-PT": "pt-PT-Wavenet-A",
+        "de-DE": "de-DE-Wavenet-F",
     },
     "Alan Turing": {
         "en-US": "en-US-Wavenet-I",
         "ru-RU": "ru-RU-Wavenet-D",
+        "pt-PT": "pt-PT-Wavenet-C",
+        "de-DE": "de-DE-Wavenet-B",
     },
 }
 
@@ -263,15 +267,15 @@ def normalize_speech(
 ) -> Sequence[Event]:
     """Transforms speech events into a fewer and longer ones
     representing continuous speech."""
-    adjusted_events = _adjust_duration(events)
+
+    REMOVE_SYMBOLS = "\n"
+
+    scrubbed_events = [replace(e, chunks=[remove_symbols("".join(e.chunks), REMOVE_SYMBOLS)]) for e in events]
+    adjusted_events = _adjust_duration(scrubbed_events)
     gaps = [
         e2.time_ms - e1.time_ms - e1.duration_ms
         for e1, e2 in zip(adjusted_events[:-1], adjusted_events[1:])
     ]
-    sigma = statistics.stdev(gaps)
-    mean = statistics.mean(gaps)
-
-    logger.warning(f"gaps={gaps} mean={mean}, sigma={sigma}")
 
     def _concat_events(e1: Event, e2: Event) -> Event:
         return Event(
@@ -280,7 +284,7 @@ def normalize_speech(
             chunks=[" ".join(e1.chunks + e2.chunks)],
         )
 
-    first_event, *events = events
+    first_event, *events = adjusted_events
     acc = [first_event]
 
     for event, gap in zip(events, gaps):
@@ -300,11 +304,12 @@ def _adjust_duration(events: Sequence[Event]) -> Sequence[Event]:
     mean = statistics.mean(speech_rates)
 
     durations = [
-        event.duration_ms * (1.0 - speech_rate / mean)
-        if speech_rate < mean - sigma
+        event.duration_ms * (speech_rate / mean) if speech_rate < mean - sigma
         else event.duration_ms
         for event, speech_rate in zip(events, speech_rates)
     ]
+
+    logger.warning(f"durations = {durations}")
 
     adjusted_events = [
         replace(event, duration_ms=duration)

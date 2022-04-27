@@ -10,14 +10,16 @@ from freespeech.types import Event, Meta, Voice
 TRANSCRIPT_DATABASE_ID = "da8013c44f6f4809b3e7ed53dfbfb461"
 
 SHORT_EVENT_1_EN = Event(time_ms=1001, duration_ms=1000, chunks=["One hen. Two ducks."])
-SHORT_EVENT_2_EN = Event(
-    time_ms=4001, duration_ms=2000, chunks=["Three squawking geese."]
+LONG_EVENT_1_EN = Event(
+    time_ms=4001, duration_ms=2000, chunks=["Three squawking geese. " * 100]
 )
 
 SHORT_EVENT_1_RU = Event(
     time_ms=1001, duration_ms=1000, chunks=["Одна курица. Две утки."]
 )
-SHORT_EVENT_2_RU = Event(time_ms=4001, duration_ms=2000, chunks=["Два кричащих гуся."])
+LONG_EVENT_1_RU = Event(
+    time_ms=4001, duration_ms=2000, chunks=["Два кричащих гуся." * 150]
+)
 
 
 def test_parse_event():
@@ -34,15 +36,16 @@ def test_parse_event():
 @pytest.mark.asyncio
 async def test_create_update_get_transcript():
     # PAGE_ID = "cfe33f84267f43ec8f5c7e46b2daf0be"
+    meta = Meta(title="Foo", description="Bar" * 700, tags=["one", "two"])
     TEST_TRANSCRIPT = notion.Transcript(
         title="Test Transcript",
         origin="https://",
         lang="en-US",
         source="Subtitles",
-        events=[SHORT_EVENT_1_EN, SHORT_EVENT_2_EN],
+        events=[SHORT_EVENT_1_EN, LONG_EVENT_1_EN],
         voice=Voice(character="Alan Turing", pitch=1.0),
         weights=(2, 10),
-        meta=Meta(title="Foo", description="Bar", tags=["one", "two"]),
+        meta=meta,
         dub_timestamp=datetime.now(tz=timezone.utc).isoformat(),
         dub_url="https://dub",
         clip_id="uuid",
@@ -52,17 +55,18 @@ async def test_create_update_get_transcript():
     assert transcript == replace(TEST_TRANSCRIPT, _id=transcript._id)
     assert await notion.get_transcript(transcript._id) == transcript
 
+    meta_updated = Meta(
+        title="Updated Foo", description="Updated Bar" * 200, tags=["three", "four"]
+    )
     TEST_TRANSCRIPT_UPDATED = notion.Transcript(
         title="Test Transcript Updated",
         origin="https://Updated",
         lang="ru-RU",
         source="Translate",
-        events=[SHORT_EVENT_1_RU, SHORT_EVENT_2_RU],
+        events=[SHORT_EVENT_1_RU, LONG_EVENT_1_RU],
         voice=Voice(character="Grace Hopper", pitch=2.0),
         weights=(3, 30),
-        meta=Meta(
-            title="Updated Foo", description="Updated Bar", tags=["three", "four"]
-        ),
+        meta=meta_updated,
         dub_timestamp=datetime.now(tz=timezone.utc).isoformat(),
         dub_url="https://dub/updated",
         clip_id="uuid-updated",

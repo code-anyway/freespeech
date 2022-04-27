@@ -30,3 +30,20 @@ def chunk(text: str, max_chars: int) -> List[str]:
             yield res.strip()
 
     return list(chunk_sentences())
+
+
+def chunk_raw(s: str, length: int) -> List[str]:
+    assert length > 0
+    remainder = len(s) % length
+    args = [iter(s)] * length
+    res = ["".join(chunk) for chunk in zip(*args)]
+
+    if remainder:
+        return res + [s[-remainder:]]
+    else:
+        return res
+
+
+def remove_symbols(s, symbols):
+    t = str.maketrans(s, s, symbols)
+    return str.translate(s, t)
