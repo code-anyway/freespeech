@@ -1,4 +1,5 @@
 import json
+
 import pytest
 
 from freespeech.lib import media, speech

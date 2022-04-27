@@ -1,15 +1,16 @@
+import traceback
 from dataclasses import replace
 from datetime import datetime, timezone
+from tempfile import TemporaryDirectory
+
 import pytest
-from freespeech import client
-from freespeech.api import crud, dub
-
-from freespeech.lib import language, notion, speech
-
 from aiohttp import web
 
+from freespeech import client, env
+from freespeech.api import crud, dub
+from freespeech.lib import language, media, notion, speech
+from freespeech.lib.storage import obj
 from freespeech.types import Character, Language, url
-
 
 TRANSCRIPT_DATABASE_ID = "da8013c44f6f4809b3e7ed53dfbfb461"
 
@@ -32,9 +33,19 @@ VOICE = "Alan Turing"
 
 async def _dub(dub_http_client, crud_http_client, page_id) -> notion.Transcript:
     transcript = await notion.get_transcript(page_id)
+
+    if not transcript.clip_id:
+        clip = await client.upload(
+            http_client=crud_http_client,
+            video_url=transcript.origin,
+            lang=transcript.lang,
+        )
+    else:
+        clip = await client.clip(crud_http_client, transcript.clip_id)
+
     dubbed_clip = await client.dub(
         http_client=dub_http_client,
-        clip_id=transcript.clip_id,
+        clip_id=clip._id,
         transcript=transcript.events,
         default_character=transcript.voice.character,
         lang=transcript.lang,
@@ -98,8 +109,9 @@ async def test_subtitles(aiohttp_client):
 
 @pytest.mark.asyncio
 async def test_translate():
-    page_id = "3e7e4e5345c94d8f87fc7ba06595c35e"
-
+    # page_id = "6082a0d8ee364dc88364eba754363630"  # arestovich
+    # page_id = "3e7e4e5345c94d8f87fc7ba06595c35e"  # zelensky
+    page_id = "03a28d2496344cf2b85dda51428603b4"  # freespeech walkthrough
     transcript = await notion.get_transcript(page_id)
     transcript_from = await notion.get_transcript(transcript.source)
     events = language.translate_events(
@@ -113,9 +125,44 @@ async def test_translate():
 
 
 @pytest.mark.asyncio
+async def test_transcribe(aiohttp_client, tmp_path):
+    # https://www.notion.so/Freespeech-walkthrough-48da07972b834a23bb8338d6349f7b96
+    # page_id = "f0aac8aab73e443a878f2ea76f05141d"  # arestovich
+    page_id = "48da07972b834a23bb8338d6349f7b96"
+    transcript = await notion.get_transcript(page_id)
+
+    crud_service = web.Application()
+    crud_service.add_routes(crud.routes)
+    crud_http_client = await aiohttp_client(crud_service)
+
+    if not transcript.clip_id:
+        clip = await client.upload(
+            http_client=crud_http_client,
+            video_url=transcript.origin,
+            lang=transcript.lang,
+        )
+    else:
+        clip = await client.clip(crud_http_client, transcript.clip_id)
+
+    audio_url, _ = clip.audio
+
+    audio_file = await obj.get(audio_url, tmp_path)
+    mono_file = await media.multi_channel_audio_to_mono(audio_file, tmp_path)
+    ((audio_info, *_), _) = media.probe(mono_file)
+    output_url = f"{env.get_storage_url()}/transcribe/{mono_file.name}"
+    await obj.put(mono_file, output_url)
+
+    events = await speech.transcribe(uri=output_url, audio=audio_info, lang=transcript.lang, model="latest_long")
+
+    transcribed = replace(transcript, clip_id=clip._id, events=events)
+    await notion.put_transcript(TRANSCRIPT_DATABASE_ID, transcribed)
+
+
+@pytest.mark.asyncio
 async def test_dub(aiohttp_client):
     # page_id = "3e7e4e5345c94d8f87fc7ba06595c35e"  # Zelensky
-    page_id = "c013589eb1af41e0a92b775ce4025186"  # CGP Grey
+    # page_id = "c013589eb1af41e0a92b775ce4025186"  # CGP Grey
+    page_id = "03a28d2496344cf2b85dda51428603b4"
     crud_service = web.Application()
     crud_service.add_routes(crud.routes)
     crud_http_client = await aiohttp_client(crud_service)

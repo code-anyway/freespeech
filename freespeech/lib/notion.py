@@ -17,7 +17,7 @@ NOTION_RICH_TEXT_CONTENT_LIMIT = 200
 
 PROPERTY_NAME_PAGE_TITLE = "Name"
 PROPERTY_NAME_ORIGIN = "Origin"
-PROPERTY_NAME_LANG = "Speak In"
+PROPERTY_NAME_LANG = "Language"
 PROPERTY_NAME_SOURCE = "Transcript Source"
 PROPERTY_NAME_CHARACTER = "Voice"
 PROPERTY_NAME_PITCH = "Pitch"
@@ -30,7 +30,7 @@ PROPERTY_NAME_DUB_URL = "Dub URL"
 PROPERTY_NAME_CLIP_ID = "Clip ID"
 PROPERTY_NAME_TRANSLATED_FROM = "Translated From"
 
-Source = Literal["Machine", "Subtitles", "Tranlate"]
+Source = Literal["Machine", "Subtitles", "Translate"]
 HTTPVerb = Literal["GET", "PATCH", "DELETE", "POST"]
 
 
@@ -49,7 +49,7 @@ class Transcript:
     dub_timestamp: str | None
     dub_url: url | None
     clip_id: str
-    _id: str | None
+    _id: str
     voice: Voice = Voice(character="Grace Hopper")
     weights: Tuple[int, int] = (2, 10)
 
@@ -69,19 +69,24 @@ NOTION_API_BASE_URL = "https://api.notion.com"
 
 async def query(
     database_id: str,
-    property_name: str,
-    property_type: str,
-    operator: QueryOperator,
-    value: str | Dict,
-) -> List[str]:
+    property_name: str | None = None,
+    property_type: str | None = None,
+    operator: QueryOperator | None = None,
+    value: str | Dict | None = None,
+) -> List[Dict[str, Any]]:
     """Get all pages where property matches the expression."""
-    page_ids = []
+    pages = []
 
     # How filtering in Notion API works:
     # https://developers.notion.com/reference/post-database-query-filter#rollup-filter-condition  # noqa E501
-    payload: Dict[str, Dict | int] = {
-        "filter": {"property": property_name, property_type: {operator: value}},
-    }
+    payload: Dict[str, Dict | int] = (
+        {
+            "filter": {"property": property_name, property_type: {operator: value}},
+        }
+        if property_name
+        else {}
+    )
+
     payload["page_size"] = NOTION_API_MAX_PAGE_SIZE
 
     # TODO (astaff): There must be a more pythonic and reusable way
@@ -91,14 +96,14 @@ async def query(
             verb="POST", url=f"/v1/databases/{database_id}/query", payload=payload
         )
 
-        page_ids += [page["id"] for page in data["results"] if not page["archived"]]
+        pages += [page for page in data["results"] if not page["archived"]]
 
         if data["has_more"]:
             payload["start_cursor"] = data["next_cursor"]
         else:
             break
 
-    return page_ids
+    return pages
 
 
 async def get_properties(page_id: str) -> Dict:
@@ -133,6 +138,30 @@ async def get_transcript(page_id: str) -> Transcript:
     transcript = parse_transcript(page_id, properties=properties, blocks=blocks)
 
     return transcript
+
+
+async def get_transcripts(
+    database_id: str, timestamp: datetime | None
+) -> List[Transcript]:
+    if timestamp:
+        pages = await query(
+            database_id=database_id,
+            property_name="last_updated",
+            property_type="date",
+            operator="after",
+            value=timestamp.isoformat(),
+        )
+    else:
+        pages = await query(database_id)
+
+    return [
+        parse_transcript(
+            _id=page["id"],
+            properties=page["properties"],
+            blocks=await get_child_blocks(page["id"]),
+        )
+        for page in pages
+    ]
 
 
 def parse_properties(page: Dict) -> Dict[str, Any]:
@@ -288,21 +317,22 @@ def parse_transcript(
         raise ValueError(f"Invalid transcript source: {source}")
 
     if source == "Translate":
-        source = UUID(translated_from[0]['id']) if translated_from is not None else None
+        source = UUID(translated_from[0]["id"]) if translated_from is not None else None
 
     lang = properties[PROPERTY_NAME_LANG]
     if not types.is_language(lang):
         raise ValueError(f"Invalid language: {lang}")
 
     character = properties[PROPERTY_NAME_CHARACTER]
-    if not types.is_character(character):
+    if character is not None and not types.is_character(character):
         raise ValueError(f"Invalid character name: {character}")
 
     pitch = properties[PROPERTY_NAME_PITCH]
-    if pitch:
+    if pitch is not None:
         pitch = float(pitch)
 
-    voice = Voice(character=character, pitch=pitch)
+    if character is not None:
+        voice = Voice(character=character, pitch=pitch)
 
     weights = properties[PROPERTY_NAME_WEIGHTS]
     if weights:

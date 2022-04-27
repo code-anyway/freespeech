@@ -3,8 +3,7 @@ from typing import Dict, Sequence, Tuple
 
 import aiohttp.client
 
-from freespeech.types import Character, Clip, Event, Language, Meta
-
+from freespeech.types import Audio, Character, Clip, Event, Language, Meta
 
 TIMEOUT = aiohttp.ClientTimeout(total=3600)
 
@@ -33,10 +32,13 @@ def _build_clip(clip_dict: Dict) -> Clip:
     )
     transcript = [Event(**event) for event in clip_dict["transcript"]]
 
+    audio_url, audio_dict = clip_dict["audio"]
+    audio = Audio(**audio_dict)
+
     clip = Clip(
         origin=clip_dict["origin"],
         lang=clip_dict["lang"],
-        audio=clip_dict["audio"],
+        audio=(audio_url, audio),
         video=clip_dict.get("video", None),
         transcript=transcript,
         meta=meta,

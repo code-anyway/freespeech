@@ -53,3 +53,27 @@ def get_notion_token() -> str:
         raise RuntimeError("Environment variable 'NOTION_TOKEN' is not set.")
 
     return token
+
+
+@functools.cache
+def get_crud_service_url() -> str:
+    url = os.environ.get("FREESPEECH_CRUD_SERVICE_URL", None)
+
+    if not url:
+        raise RuntimeError(
+            "Environment variable 'FREESPEECH_CRUD_SERVICE_URL' is not set."
+        )
+
+    return url
+
+
+@functools.cache
+def get_dub_service_url() -> str:
+    url = os.environ.get("FREESPEECH_DUB_SERVICE_URL", None)
+
+    if not url:
+        raise RuntimeError(
+            "Environment variable 'FREESPEECH_DUB_SERVICE_URL' is not set."
+        )
+
+    return url

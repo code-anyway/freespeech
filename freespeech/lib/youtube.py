@@ -4,10 +4,10 @@ import json
 import logging
 import random
 import time
+import xml.etree.ElementTree as ET
 from os import PathLike
 from pathlib import Path
 from typing import Dict, Sequence, Tuple
-import xml.etree.ElementTree as ET
 
 import httplib2
 import pytube

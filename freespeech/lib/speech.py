@@ -47,7 +47,7 @@ SYNTHESIS_ERROR_MS = 100
 SYNTHESIS_RETRIES = 10
 
 # Speech-to-text API call timeout.
-TRANSCRIBE_TIMEOUT_SEC = 120
+TRANSCRIBE_TIMEOUT_SEC = 300
 
 
 @cache
@@ -107,6 +107,7 @@ async def transcribe(
                     sample_rate_hertz=audio.sample_rate_hz,
                     language_code=lang,
                     model=model,
+                    enable_automatic_punctuation=True,
                     # TODO (astaff): are there any measurable gains
                     # from adjusting the hyper parameters?
                     # metadata=speech_api.RecognitionMetadata(
@@ -270,7 +271,10 @@ def normalize_speech(
 
     REMOVE_SYMBOLS = "\n"
 
-    scrubbed_events = [replace(e, chunks=[remove_symbols("".join(e.chunks), REMOVE_SYMBOLS)]) for e in events]
+    scrubbed_events = [
+        replace(e, chunks=[remove_symbols("".join(e.chunks), REMOVE_SYMBOLS)])
+        for e in events
+    ]
     adjusted_events = _adjust_duration(scrubbed_events)
     gaps = [
         e2.time_ms - e1.time_ms - e1.duration_ms
@@ -304,7 +308,8 @@ def _adjust_duration(events: Sequence[Event]) -> Sequence[Event]:
     mean = statistics.mean(speech_rates)
 
     durations = [
-        event.duration_ms * (speech_rate / mean) if speech_rate < mean - sigma
+        event.duration_ms * (speech_rate / mean)
+        if speech_rate < mean - sigma
         else event.duration_ms
         for event, speech_rate in zip(events, speech_rates)
     ]
