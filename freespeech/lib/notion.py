@@ -58,13 +58,6 @@ QueryOperator = Literal["greater_than", "equals", "after", "any"]
 
 
 NOTION_API_MAX_PAGE_SIZE = 100
-NOTION_API_HEADERS = {
-    "Accept": "application/json",
-    "Notion-Version": "2022-02-22",
-    "Content-Type": "application/json",
-    "Authorization": f"Bearer {env.get_notion_token()}",
-}
-NOTION_API_BASE_URL = "https://api.notion.com"
 
 
 async def query(
@@ -498,6 +491,14 @@ async def _parse_api_response(response: aiohttp.ClientResponse) -> Dict:
 
 
 async def _make_api_call(verb: HTTPVerb, url: url, payload: Dict | None = None) -> Dict:
+    NOTION_API_HEADERS = {
+        "Accept": "application/json",
+        "Notion-Version": "2022-02-22",
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {env.get_notion_token()}",
+    }
+    NOTION_API_BASE_URL = "https://api.notion.com"
+
     async with aiohttp.ClientSession(
         base_url=NOTION_API_BASE_URL, headers=NOTION_API_HEADERS
     ) as session:
