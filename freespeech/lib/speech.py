@@ -26,6 +26,7 @@ VOICES = {
         "ru-RU": "ru-RU-Wavenet-C",
         "pt-PT": "pt-PT-Wavenet-A",
         "de-DE": "de-DE-Wavenet-F",
+        "uk-UA": "uk-UA-Wavenet-A",
     },
     "Alan Turing": {
         "en-US": "en-US-Wavenet-I",
@@ -239,7 +240,7 @@ async def synthesize_events(
     for event in events:
         padding_ms = event.time_ms - current_time_ms
         clip, voice_info = await synthesize_text(
-            text="".join(event.chunks),
+            text=" ".join(event.chunks),
             duration_ms=event.duration_ms,
             voice=voice,
             lang=lang,
@@ -272,7 +273,7 @@ def normalize_speech(
     REMOVE_SYMBOLS = "\n"
 
     scrubbed_events = [
-        replace(e, chunks=[remove_symbols("".join(e.chunks), REMOVE_SYMBOLS)])
+        replace(e, chunks=[remove_symbols(" ".join(e.chunks), REMOVE_SYMBOLS)])
         for e in events
     ]
     adjusted_events = _adjust_duration(scrubbed_events)

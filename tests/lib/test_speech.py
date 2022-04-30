@@ -20,7 +20,7 @@ async def test_transcribe():
 
     t_en = await speech.transcribe(AUDIO_EN_GS, audio, "en-US", model="default")
 
-    event = Event(time_ms=0, duration_ms=3230, chunks=["1 2 3"])
+    event = Event(time_ms=0, duration_ms=3230, chunks=["1, 2 3."])
     assert t_en == [event]
 
 
@@ -43,7 +43,7 @@ async def test_synthesize_text(tmp_path):
 
     (t_en, *tail) = await speech.transcribe(output_gs, audio, "en-US", model="default")
     assert not tail, f"Extra events returned from transcribe: {tail}"
-    assert t_en.chunks == ["1 2 3"]
+    assert t_en.chunks == ["1, 2 3."]
     assert voice.speech_rate == 0.45375
     assert voice.character == "Grace Hopper"
     assert voice.pitch == 0.0
@@ -69,13 +69,13 @@ async def test_synthesize_events(tmp_path):
     t_en = await speech.transcribe(output_gs, audio, "en-US", model="default")
 
     assert t_en == [
-        Event(time_ms=0, duration_ms=3120, chunks=["one hen two ducks"]),
-        Event(time_ms=3120, duration_ms=3820, chunks=[" three squawking geese"]),
+        Event(time_ms=0, duration_ms=3270, chunks=["One, hen two ducks."]),
+        Event(time_ms=3270, duration_ms=3650, chunks=[" Three, squawking geese."]),
     ]
 
     voice_1, voice_2 = voices
 
-    assert voice_1.speech_rate == 0.9185
+    assert voice_1.speech_rate == 0.8625
     assert voice_1.character == "Alan Turing"
     assert voice_1.pitch == 0.0
 

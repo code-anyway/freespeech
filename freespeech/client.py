@@ -51,7 +51,8 @@ def _build_clip(clip_dict: Dict) -> Clip:
 
 
 async def clip(http_client: aiohttp.ClientSession, clip_id: str) -> Clip:
-    async with http_client.get(f"/clips/{clip_id}") as resp:
+    resp = await http_client.get(f"/clips/{clip_id}")
+    async with resp:
         if resp.status != 200:
             raise RuntimeError(await resp.text())
         clip_dict = await resp.json()

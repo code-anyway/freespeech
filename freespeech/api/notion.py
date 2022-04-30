@@ -1,4 +1,6 @@
-from dataclasses import replace
+import logging
+
+from dataclasses import asdict, replace
 from datetime import datetime, timezone
 from tempfile import TemporaryDirectory
 from typing import Dict
@@ -12,16 +14,43 @@ from freespeech.lib import language, media, notion, speech
 from freespeech.lib.storage import obj
 from freespeech.types import assert_never
 
+
+DUB_CLIENT_TIMEOUT = 3600
+CRUD_CLIENT_TIMEOUT = 3600
+
+
+logger = logging.getLogger(__name__)
 routes = web.RouteTableDef()
 
 
-async def process(database_id: str) -> Dict[str, notion.Transcript]:
-    transcripts = await notion.get_transcripts(database_id, timestamp=None)
+@routes.post("/notion/{database_id}/process")
+async def process(request):
+    database_id = request.match_info["database_id"]
+    params = await request.json()
+
+    timestamp = params.get("timestamp", None)
+    if timestamp:
+        timestamp = datetime.fromisoformat(timestamp)
+
+    updated_transcripts = await _process(database_id=database_id, timestamp=timestamp)
+
+    def _serialize(d: Dict) -> Dict:
+        return {k: v if not isinstance(v, UUID) else str(v) for k, v in d.items()}
+
+    return web.json_response(
+        {k: _serialize(asdict(v)) for k, v in updated_transcripts.items()}
+    )
+
+
+async def _process(
+    database_id: str, timestamp: datetime | None
+) -> Dict[str, notion.Transcript]:
+    transcripts = await notion.get_transcripts(database_id, timestamp=timestamp)
     updated_transcripts: Dict[str, notion.Transcript] = {}
 
     for transcript in transcripts:
         if not transcript.clip_id and transcript.origin:
-            transcript = await _upload(transcript)
+            transcript = await _upload(database_id, transcript)
 
         if not transcript.events:
             match transcript.source:
@@ -37,7 +66,7 @@ async def process(database_id: str) -> Dict[str, notion.Transcript]:
                 case never:
                     assert_never(never)
 
-        if not transcript.dub_url:
+        if not transcript.dub_url and transcript.events:
             transcript = await _dub(database_id, transcript)
             updated_transcripts[transcript._id] = transcript
 
@@ -47,6 +76,8 @@ async def process(database_id: str) -> Dict[str, notion.Transcript]:
 async def _translate(
     database_id: str, transcript: notion.Transcript
 ) -> notion.Transcript:
+    logger.warning(f"Translating: {transcript}")
+
     transcript_from = await notion.get_transcript(str(transcript.source))
     events = language.translate_events(
         transcript_from.events,
@@ -54,21 +85,22 @@ async def _translate(
         target=transcript.lang,
     )
 
-    transcript_translated = replace(transcript, events=events)
-    transcript_translated = await notion.put_transcript(
-        database_id=database_id, transcript=transcript_translated
+    updated_transcript = await notion.put_transcript(
+        database_id=database_id, transcript=replace(transcript, events=events)
     )
 
-    return transcript_translated
+    return updated_transcript
 
 
 async def _from_subtitles(
     database_id: str, transcript: notion.Transcript
 ) -> notion.Transcript:
+    logger.warning(f"Syncing Subtitles: {transcript}")
+
     async with get_crud_client() as _client:
         clip = await client.clip(_client, transcript.clip_id)
 
-    new_transcript = await notion.put_transcript(
+    updated_transcript = await notion.put_transcript(
         database_id=database_id,
         transcript=replace(
             transcript,
@@ -76,12 +108,16 @@ async def _from_subtitles(
         ),
     )
 
-    return new_transcript
+    logger.warning(f"Synced Subtitles: {updated_transcript}")
+
+    return updated_transcript
 
 
 async def _transcribe(
     database_id: str, transcript: notion.Transcript
 ) -> notion.Transcript:
+    logger.warning(f"Transcribing: {transcript}")
+
     async with get_crud_client() as _client:
         clip = await client.clip(_client, transcript.clip_id)
 
@@ -100,12 +136,16 @@ async def _transcribe(
         lang=transcript.lang,
         model="latest_long",
     )
-    transcribed = replace(transcript, clip_id=transcript.clip_id, events=events)
+    updated_transcript = replace(transcript, events=events)
 
-    return await notion.put_transcript(database_id, transcribed)
+    logger.warning(f"Trabscribed: {updated_transcript}")
+
+    return await notion.put_transcript(database_id, updated_transcript)
 
 
-async def _upload(transcript: notion.Transcript) -> notion.Transcript:
+async def _upload(database_id: str, transcript: notion.Transcript) -> notion.Transcript:
+    logger.warning(f"Uploading: {transcript}")
+
     async with get_crud_client() as _client:
         clip = await client.upload(
             http_client=_client,
@@ -113,14 +153,23 @@ async def _upload(transcript: notion.Transcript) -> notion.Transcript:
             lang=transcript.lang,
         )
 
-    return replace(
-        transcript,
-        clip_id=clip._id,
-        meta=replace(clip.meta, description=clip.meta.description),
+    updated_transcript = await notion.put_transcript(
+        database_id=database_id,
+        transcript=replace(
+            transcript,
+            clip_id=clip._id,
+            meta=replace(clip.meta, description=clip.meta.description),
+        ),
     )
+
+    logger.warning(f"Uploaded: {updated_transcript}")
+
+    return updated_transcript
 
 
 async def _dub(database_id: str, transcript: notion.Transcript) -> notion.Transcript:
+    logger.warning(f"Dubbing: {transcript}")
+
     async with get_crud_client() as _client:
         clip = await client.clip(_client, transcript.clip_id)
 
@@ -143,12 +192,21 @@ async def _dub(database_id: str, transcript: notion.Transcript) -> notion.Transc
         dub_url=public_url,
         dub_timestamp=datetime.now(tz=timezone.utc).isoformat(),
     )
-    return await notion.put_transcript(database_id, updated_transcript)
+
+    logger.warning(f"Dubbed: {updated_transcript}")
+
+    return await notion.put_transcript(database_id, updated_transcript, only_props=True)
 
 
 def get_dub_client():
-    return aiohttp.ClientSession(base_url=env.get_dub_service_url())
+    return aiohttp.ClientSession(
+        base_url=env.get_dub_service_url(),
+        timeout=aiohttp.ClientTimeout(DUB_CLIENT_TIMEOUT),
+    )
 
 
 def get_crud_client():
-    return aiohttp.ClientSession(base_url=env.get_crud_service_url())
+    return aiohttp.ClientSession(
+        base_url=env.get_crud_service_url(),
+        timeout=aiohttp.ClientTimeout(CRUD_CLIENT_TIMEOUT),
+    )

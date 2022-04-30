@@ -228,10 +228,10 @@ def render_transcript(transcript: Transcript) -> Tuple[Dict[str, Any], List[Dict
         character = None
         pitch = None
 
-    if transcript.weights is not None:
+    if transcript.weights:
         weights = ", ".join(str(w) for w in transcript.weights)
     else:
-        weights = None
+        weights = "2, 10"
 
     if transcript.meta is not None:
         title = transcript.meta.title
@@ -310,7 +310,7 @@ def parse_transcript(
         raise ValueError(f"Invalid transcript source: {source}")
 
     if source == "Translate":
-        source = UUID(translated_from[0]["id"]) if translated_from is not None else None
+        source = UUID(translated_from[0]["id"]) if translated_from else source
 
     lang = properties[PROPERTY_NAME_LANG]
     if not types.is_language(lang):
@@ -330,6 +330,8 @@ def parse_transcript(
     weights = properties[PROPERTY_NAME_WEIGHTS]
     if weights:
         weights = tuple(int(w.strip()) for w in weights.split(","))
+    else:
+        weights = (2, 10)
 
     meta = Meta(
         title=properties[PROPERTY_NAME_TITLE],
@@ -382,8 +384,7 @@ async def update_page_properties(page_id: str, properties: Dict) -> Dict:
 
 
 async def put_transcript(
-    database_id: str,
-    transcript: Transcript,
+    database_id: str, transcript: Transcript, only_props: bool = False
 ) -> Transcript:
     properties, blocks = render_transcript(transcript)
 
@@ -396,7 +397,7 @@ async def put_transcript(
             page_id=transcript._id, properties=properties
         )
 
-        if blocks:
+        if blocks and not only_props:
             blocks = await replace_blocks(transcript._id, blocks)
 
     return parse_transcript(

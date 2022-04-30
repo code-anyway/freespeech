@@ -137,7 +137,7 @@ async def concat_and_pad(
 
     # "adelay" errors out if duration is 0
     inputs = [
-        audio.filter("adelay", delays=time_ms) if time_ms != 0 else audio
+        audio.filter("adelay", delays=time_ms) if time_ms > 0 else audio
         for time_ms, file in clips
         if (audio := ffmpeg.input(file).audio)
     ]

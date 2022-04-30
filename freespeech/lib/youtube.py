@@ -207,7 +207,7 @@ def _language_tag(lang: str) -> str | None:
         case "en" | "en-US":
             return "en-US"
         case "uk":
-            return "uk-UK"
+            return "uk-UA"
         case "ru":
             return "ru-RU"
         case "pt":
