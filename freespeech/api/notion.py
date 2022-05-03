@@ -1,9 +1,8 @@
 import logging
-
 from dataclasses import asdict, replace
 from datetime import datetime, timezone
 from tempfile import TemporaryDirectory
-from typing import Dict
+from typing import Dict, List
 from uuid import UUID
 
 import aiohttp
@@ -13,7 +12,6 @@ from freespeech import client, env
 from freespeech.lib import language, media, notion, speech
 from freespeech.lib.storage import obj
 from freespeech.types import assert_never
-
 
 DUB_CLIENT_TIMEOUT = 3600
 CRUD_CLIENT_TIMEOUT = 3600
@@ -46,31 +44,35 @@ async def _process(
     database_id: str, timestamp: datetime | None
 ) -> Dict[str, notion.Transcript]:
     transcripts = await notion.get_transcripts(database_id, timestamp=timestamp)
-    updated_transcripts: Dict[str, notion.Transcript] = {}
+    updated_transcripts: List[notion.Transcript] = []
 
     for transcript in transcripts:
-        if not transcript.clip_id and transcript.origin:
-            transcript = await _upload(database_id, transcript)
+        updated_transcripts += [await _process_transcript(database_id, transcript)]
 
-        if not transcript.events:
-            match transcript.source:
-                case "Machine":
-                    transcript = await _transcribe(database_id, transcript)
-                    updated_transcripts[transcript._id] = transcript
-                case "Subtitles":
-                    transcript = await _from_subtitles(database_id, transcript)
-                    updated_transcripts[transcript._id] = transcript
-                case UUID() | "Translate":
-                    transcript = await _translate(database_id, transcript)
-                    updated_transcripts[transcript._id] = transcript
-                case never:
-                    assert_never(never)
+    return {transcript._id: transcript for transcript in updated_transcripts}
 
-        if not transcript.dub_url and transcript.events:
-            transcript = await _dub(database_id, transcript)
-            updated_transcripts[transcript._id] = transcript
 
-    return updated_transcripts
+async def _process_transcript(
+    database_id: str, transcript: notion.Transcript
+) -> notion.Transcript:
+    if not transcript.clip_id and transcript.origin:
+        transcript = await _upload(database_id, transcript)
+
+    if not transcript.events:
+        match transcript.source:
+            case "Machine":
+                transcript = await _transcribe(database_id, transcript)
+            case "Subtitles":
+                transcript = await _from_subtitles(database_id, transcript)
+            case UUID() | "Translate":
+                transcript = await _translate(database_id, transcript)
+            case never:
+                assert_never(never)
+
+    if not transcript.dub_url and transcript.events:
+        transcript = await _dub(database_id, transcript)
+
+    return transcript
 
 
 async def _translate(
@@ -160,6 +162,7 @@ async def _upload(database_id: str, transcript: notion.Transcript) -> notion.Tra
             clip_id=clip._id,
             meta=replace(clip.meta, description=clip.meta.description),
         ),
+        only_props=True,
     )
 
     logger.warning(f"Uploaded: {updated_transcript}")

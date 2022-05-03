@@ -72,9 +72,15 @@ async def query(
 
     # How filtering in Notion API works:
     # https://developers.notion.com/reference/post-database-query-filter#rollup-filter-condition  # noqa E501
+    key = "property" if property_type != "timestamp" else "timestamp"
     payload: Dict[str, Dict | int] = (
         {
-            "filter": {"property": property_name, property_type: {operator: value}},
+            "filter": {
+                key: property_name,
+                property_type
+                if property_type != "timestamp"
+                else property_name: {operator: value},
+            },
         }
         if property_name
         else {}
@@ -139,8 +145,8 @@ async def get_transcripts(
     if timestamp:
         pages = await query(
             database_id=database_id,
-            property_name="last_updated",
-            property_type="date",
+            property_name="last_edited_time",
+            property_type="timestamp",
             operator="after",
             value=timestamp.isoformat(),
         )
@@ -363,13 +369,13 @@ async def replace_blocks(page_id: str, blocks: List[Dict]) -> List[Dict]:
 
 
 async def create_page(database_id: str, properties: Dict, blocks: List[Dict]) -> Dict:
-    payload = {
+    payload: Dict[str, Dict | List] = {
         "parent": {"type": "database_id", "database_id": database_id},
         "properties": properties,
     }
 
     if blocks:
-        payload["children"] = blocks
+        payload = {**payload, "children": blocks}
 
     result = await _make_api_call(verb="POST", url="/v1/pages", payload=payload)
 

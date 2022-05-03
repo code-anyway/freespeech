@@ -1,7 +1,11 @@
+from datetime import datetime, timedelta, timezone
+
+import aiohttp
 import pytest
 from aiohttp import web
 
 from freespeech.api import crud, dub, notion
+
 # from freespeech.lib import notion
 # from freespeech.types import Character, Language, url
 
@@ -49,14 +53,15 @@ async def test_notion(aiohttp_client, aiohttp_server, monkeypatch):
 
     app = web.Application()
     app.add_routes(notion.routes)
-    client = await aiohttp_client(app)
+
+    TIMEOUT = aiohttp.ClientTimeout(total=3600)
+    client = await aiohttp_client(app, timeout=TIMEOUT)
 
     monkeypatch.setenv("FREESPEECH_CRUD_SERVICE_URL", "http://localhost:8088")
     monkeypatch.setenv("FREESPEECH_DUB_SERVICE_URL", "http://localhost:8088")
 
-    params = {}
+    timestamp = datetime.now(tz=timezone.utc) - timedelta(hours=1)
+    params = {"timestamp": timestamp.isoformat()}
     resp = await client.post(f"/notion/{TRANSCRIPT_DATABASE_ID}/process", json=params)
 
-    transcripts = await resp.json()
-
-    assert transcripts == {}
+    _ = await resp.json()

@@ -315,7 +315,7 @@ def _adjust_duration(events: Sequence[Event]) -> Sequence[Event]:
         for event, speech_rate in zip(events, speech_rates)
     ]
 
-    logger.warning(f"durations = {durations}")
+    logger.debug(f"durations = {durations}")
 
     adjusted_events = [
         replace(event, duration_ms=duration)
