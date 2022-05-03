@@ -176,17 +176,38 @@ def download(
     yt = pytube.YouTube(url)
 
     filtered = yt.streams.filter(only_audio=True, audio_codec="opus")
-    audio, *_ = filtered.order_by("abr")
+    *_, audio = filtered.order_by("abr")
+
     video = yt.streams.get_highest_resolution()
+    video_streams = list(yt.streams.filter(resolution="720p", mime_type="video/mp4"))
+
+    if not video_streams:
+        video_streams = list(
+            yt.streams.filter(resolution="360p", mime_type="video/mp4")
+        )
+        logger.warning(f"No 720p strams available for {url}")
+        logger.warning(f"360p streams available: {video_streams}")
 
     logger.info(f"Downloading {audio} and {video}")
 
     audio_stream = download_stream(
         stream=audio, output_dir=output_dir, max_retries=max_retries
     )
-    video_stream = download_stream(
-        stream=video, output_dir=output_dir, max_retries=max_retries
-    )
+
+    video_stream = None
+    for stream in video_streams:
+        try:
+            video_stream = download_stream(
+                stream=stream, output_dir=output_dir, max_retries=max_retries
+            )
+        except http.client.IncompleteRead as e:
+            # Some streams won't download.
+            logger.warning(f"Incoplete read for stream {stream} of {url}: {str(e)}")
+
+    if not video_stream:
+        raise RuntimeError(
+            f"Unable to download video stream for {url}. Candidates: {video_streams}"
+        )
 
     info = Meta(title=yt.title, description=yt.description, tags=yt.keywords)
     captions = [(caption.code, caption.xml_captions) for caption in yt.captions]

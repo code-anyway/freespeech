@@ -20,6 +20,24 @@ VIDEO_URL = "https://youtu.be/bhRaND9jiOA"
 PRESIDENT_UA_DAY_55 = "https://www.youtube.com/watch?v=PRLIlthRIwA"
 LEX_ZUCK = "https://www.youtube.com/watch?v=5zOHSysMmH0"
 
+BROKEN_DOWNLOAD_VIDEO = "https://www.youtube.com/watch?v=8xKCecfR-z8"
+
+
+def test_broken_download(tmp_path):
+    # The default video stream for this video won't download due to
+    # http.client.IncompleteRead.
+    audio_file, video_file, _, _ = youtube.download(BROKEN_DOWNLOAD_VIDEO, tmp_path)
+    AUDIO_HASH = (
+        "fc38b308bd03da71f0a3a27d41dd37281d24ed2a828c0f81a6f43b02b0679b9d",
+        "9a9c1ed4484fa7242543b7bc34fe2bf60b6b0ae0f30a9fc4cccd5b6767f3b337",
+    )
+    VIDEO_HASH = (
+        "6c7caedf0541d16c3d382fec41355b1226dd1d9121b81cf2e8bbc85aa904a3b6",
+        "4caf22ef5eef77cdef4337abd60d36d7476502f6b37893bc0ecc53878d7989bc",
+    )
+    assert hash.file(audio_file) in AUDIO_HASH
+    assert hash.file(video_file) in VIDEO_HASH
+
 
 def test_download_local(tmp_path):
     audio_file, video_file, info, captions = youtube.download(VIDEO_URL, tmp_path)
@@ -38,9 +56,9 @@ def test_download_local(tmp_path):
         hash.file(audio_file)
         == "7b0dfb36784281f06c09011d631289f34aed8ba1cf0411b49d60c1d2594f7fe9"
     )
-    assert (
-        hash.file(video_file)
-        == "ebc0b0ecf95a540a47696626e60e4ce4bd47582fd6b866ce72e762e531b03297"
+    assert hash.file(video_file) in (
+        "ebc0b0ecf95a540a47696626e60e4ce4bd47582fd6b866ce72e762e531b03297",
+        "1a3f37fff7e3115f0cf5aad47d270b73af656ca52a54fb179d378360d6ce4656",
     )
 
 

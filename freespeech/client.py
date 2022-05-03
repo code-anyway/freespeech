@@ -5,8 +5,6 @@ import aiohttp.client
 
 from freespeech.types import Audio, Character, Clip, Event, Language, Meta
 
-TIMEOUT = aiohttp.ClientTimeout(total=3600)
-
 
 async def upload(http_client: aiohttp.ClientSession, video_url: str, lang: str) -> Clip:
     params = {
