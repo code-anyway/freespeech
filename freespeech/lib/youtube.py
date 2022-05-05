@@ -202,7 +202,10 @@ def download(
             )
         except http.client.IncompleteRead as e:
             # Some streams won't download.
-            logger.warning(f"Incoplete read for stream {stream} of {url}: {str(e)}")
+            logger.warning(f"Incomplete read for stream {stream} of {url}: {str(e)}")
+        except KeyError as e:
+            # Some have content-length missing.
+            logger.warning(f"Missing key for {stream} of {url}: {str(e)}")
 
     if not video_stream:
         raise RuntimeError(

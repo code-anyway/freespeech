@@ -38,6 +38,11 @@ def test_broken_download(tmp_path):
     assert hash.file(audio_file) in AUDIO_HASH
     assert hash.file(video_file) in VIDEO_HASH
 
+    # some videos have streams with 'content-length' missing which causes
+    # pytube to crash
+    missing_content_length = "https://youtu.be/BoGEAwsHmr0"
+    _, _, _, _ = youtube.download(missing_content_length, tmp_path)
+
 
 def test_download_local(tmp_path):
     audio_file, video_file, info, captions = youtube.download(VIDEO_URL, tmp_path)
