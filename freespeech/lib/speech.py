@@ -21,6 +21,9 @@ MAX_CHUNK_LENGTH = 1000  # Google Speech API Limit
 
 # Let's give voices real names and map them to API-specific names
 VOICES = {
+    "Ada Lovelace": {
+        "en-US": "en-US-Wavenet-F",
+    },
     "Grace Hopper": {
         "en-US": "en-US-Wavenet-C",
         "ru-RU": "ru-RU-Wavenet-C",
