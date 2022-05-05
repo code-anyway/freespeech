@@ -238,6 +238,8 @@ def _language_tag(lang: str) -> str | None:
             return "pt-PT"
         case "de":
             return "de-DE"
+        case "es":
+            return "es-US"
         case unsupported_language:
             logger.warning(f"Unsupported caption language: {unsupported_language}")
             return None
