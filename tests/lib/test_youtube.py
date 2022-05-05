@@ -79,3 +79,16 @@ def test_convert_captions():
 
     assert expected_en_US == t["en-US"]
     assert expected_ru_RU == t["ru-RU"]
+
+
+def test_convert_captiions_with_no_duration(tmp_path):
+    with open("tests/lib/data/youtube/captions_missing_duration_en.xml") as fd:
+        en = "\n".join(fd.readlines())
+    t = youtube.convert_captions([("en", en)])
+    expected = {
+        "en-US": [
+            Event(time_ms=10, duration_ms=3000, chunks=["Every human"], voice=None),
+            Event(time_ms=3010, duration_ms=1000, chunks=["Foo"], voice=None),
+        ]
+    }
+    assert t == expected

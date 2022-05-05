@@ -246,19 +246,35 @@ def parse(xml: str) -> Sequence[Event]:
     body = ET.fromstring(xml).find("body")
     assert body is not None
 
-    return [
-        Event(
-            time_ms=int(child.attrib["t"]),
-            duration_ms=int(child.attrib["d"]),
-            chunks=[html.unescape(child.text)],
+    raw_events = [
+        (
+            int(child.attrib["t"]),
+            int(duration)
+            if (duration := child.attrib.get("d", None)) is not None
+            else None,
+            [html.unescape(child.text)],
         )
         for child in body
         if child.text
     ]
 
+    return [
+        Event(
+            time_ms=time_ms,
+            duration_ms=duration_ms
+            if duration_ms is not None
+            else next_time_ms - time_ms,
+            chunks=chunks,
+        )
+        for (time_ms, duration_ms, chunks), (next_time_ms, _, _) in zip(
+            raw_events, raw_events[1:] + [(0, None, [])]
+        )
+    ]
+
 
 def convert_captions(captions: Sequence[Tuple[str, str]]) -> Dict[str, Sequence[Event]]:
     """Converts YouTube captions for each language into speech Events."""
+
     return {
         language_tag: parse(xml_captions)
         for code, xml_captions in captions
