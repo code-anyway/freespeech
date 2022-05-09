@@ -9,6 +9,7 @@ ANNOUNCERS_TEST_TRANSCRIPT_RU = [
     {
         "time_ms": 0,
         "duration_ms": 29000,
+        "voice": {"character": "Alonzo Church"},
         "chunks": [
             "Одна курица. Две утки. Три кричащих гуся. Четыре "
             "лимерик устрицы. Пять тучных дельфинов. Шесть пар "
@@ -52,4 +53,4 @@ async def test_create_dub(aiohttp_client):
 
     voices = [item["voice"] for item in clip_ru_ru["transcript"]]
     assert all(voice["pitch"] == 0.0 for voice in voices)
-    assert all(voice["character"] == "Alan Turing" for voice in voices)
+    assert all(voice["character"] == "Alonzo Church" for voice in voices)
