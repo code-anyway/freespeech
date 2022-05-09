@@ -24,6 +24,9 @@ VOICES = {
     "Ada Lovelace": {
         "en-US": "en-US-Wavenet-F",
         "ru-RU": "ru-RU-Wavenet-E",
+        "pt-PT": "pt-PT-Wavenet-D",
+        "de-DE": "de-DE-Wavenet-C",
+        "es-US": "es-US-Wavenet-A",
     },
     "Grace Hopper": {
         "en-US": "en-US-Wavenet-C",
@@ -39,6 +42,13 @@ VOICES = {
         "pt-PT": "pt-PT-Wavenet-C",
         "de-DE": "de-DE-Wavenet-B",
         "es-US": "es-US-Wavenet-B",
+    },
+    "Alonzo Church": {
+        "en-US": "en-US-Wavenet-D",
+        "ru-RU": "ru-RU-Wavenet-B",
+        "pt-PT": "pt-PT-Wavenet-B",
+        "de-DE": "de-DE-Wavenet-D",
+        "es-US": "es-US-Wavenet-C",
     },
 }
 

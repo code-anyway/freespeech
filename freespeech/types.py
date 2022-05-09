@@ -8,7 +8,9 @@ VideoEncoding = Literal["H264", "HEVC", "AV1"]
 
 
 Language = Literal["en-US", "uk-UA", "ru-RU", "pt-PT", "es-US", "de-DE"]
-Character = Literal["Alan Turing", "Grace Hopper", "Ada Lovelace", "Original"]
+Character = Literal[
+    "Alan Turing", "Grace Hopper", "Ada Lovelace", "Alonzo Church", "Original"
+]
 
 
 def is_language(val: str) -> TypeGuard[Language]:
@@ -16,7 +18,13 @@ def is_language(val: str) -> TypeGuard[Language]:
 
 
 def is_character(val: str) -> TypeGuard[Character]:
-    return val in ("Alan Turing", "Grace Hopper", "Ada Lovelace", "Original")
+    return val in (
+        "Alan Turing",
+        "Grace Hopper",
+        "Ada Lovelace",
+        "Alonzo Church",
+        "Original",
+    )
 
 
 url = str

@@ -1,5 +1,6 @@
 import logging
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, replace
 from datetime import datetime, time
 from typing import Any, Dict, List, Literal, Sequence, Tuple, TypeGuard
 from uuid import UUID
@@ -9,7 +10,7 @@ import aiohttp
 
 from freespeech import env, types
 from freespeech.lib import text
-from freespeech.types import Event, Language, Meta, Voice, assert_never, url
+from freespeech.types import Character, Event, Language, Meta, Voice, assert_never, url
 
 logger = logging.getLogger(__name__)
 
@@ -281,28 +282,34 @@ def render_text(t: str) -> Dict:
 
 
 def parse_events(blocks: List[Dict]) -> Sequence[Event]:
-    events: Dict[Tuple[int, int], List[str]] = dict()
+    events = []
 
     HEADINGS = ["heading_1", "heading_2", "heading_3"]
-
     for block in blocks:
         _type = block["type"]
         if _type in HEADINGS:
             value = _parse_value(block)
             assert isinstance(value, str)
-            key = parse_time_interval(value)
-            events[key] = events.get(key, [])
+            start_ms, duration_ms, character = parse_time_interval(value)
+            events += [
+                Event(
+                    start_ms,
+                    duration_ms,
+                    chunks=[],
+                    voice=Voice(character) if character else None,
+                )
+            ]
         elif _type == "paragraph":
-            value = _parse_value(block)
-            if not key:
-                logger.warning(f"Paragraph without timestamp: {value}")
-            assert isinstance(value, str)
-            events[key].append(value)
+            chunk = _parse_value(block)
+            if not events:
+                logger.warning(f"Paragraph without timestamp: {chunk}")
+            else:
+                assert isinstance(chunk, str)
+                events += [
+                    replace(event := events.pop(), chunks=event.chunks + [chunk])
+                ]
 
-    return [
-        Event(time_ms=time_ms, duration_ms=duration_ms, chunks=chunks)
-        for (time_ms, duration_ms), chunks in events.items()
-    ]
+    return events
 
 
 def parse_transcript(
@@ -411,15 +418,15 @@ async def put_transcript(
     )
 
 
-def parse_time_interval(interval: str) -> Tuple[int, int]:
-    """Parses HH:MM:SS.fff/HH:MM:SS.fff into (start_ms, duration_ms).
+def parse_time_interval(interval: str) -> Tuple[int, int, Character | None]:
+    """Parses HH:MM:SS.fff/HH:MM:SS.fff (Character) into (start_ms, duration_ms, Character).
 
     Args:
         interval: start and finish encoded as
             two ISO 8601 formatted timestamps separated by "/"
 
     Returns:
-        Event start time and duration in milliseconds.
+        Event start time and duration in milliseconds and optional character.
     """
 
     # TODO (astaff): couldn't find a sane way to do that
@@ -433,24 +440,40 @@ def parse_time_interval(interval: str) -> Tuple[int, int]:
             + t.microsecond // 1_000
         )
 
-    start, duration = [s.strip() for s in interval.split("/")]
+    parser = re.compile(r"([\d\:\.]+)\s*\/\s*([\d\:\.]+)(\s+\((.+)\))?")
+    match = parser.search(interval)
+
+    if not match:
+        raise ValueError(f"Invalid string: {interval}")
+
+    start = match.group(1)
+    finish = match.group(2)
+    character_str = match.group(4)
+
+    if types.is_character(character_str):
+        character = character_str
+    else:
+        character = None
 
     start_ms = _to_milliseconds(time.fromisoformat(start))
-    finish_ms = _to_milliseconds(time.fromisoformat(duration))
+    finish_ms = _to_milliseconds(time.fromisoformat(finish))
 
-    return start_ms, finish_ms - start_ms
+    return start_ms, finish_ms - start_ms, character
 
 
-def unparse_time_interval(time_ms: int, duration_ms: int) -> str:
-    """Generates HH:MM:SS.fff/HH:MM:SS.fff representation for a time interval.
+def unparse_time_interval(time_ms: int, duration_ms: int, voice: Voice | None) -> str:
+    """Generates HH:MM:SS.fff/HH:MM:SS.fff (Character)?
+    representation for a time interval and voice.
 
     Args:
         time_ms: interval start time in milliseconds.
         duration_ms: interval duration in milliseconds.
+        voice: voice info.
 
     Returns:
        Interval start and finish encoded as
-       two ISO 8601 formatted timespamps separated by "/".
+       two ISO 8601 formatted timespamps separated by "/" with optional
+       voice info added.
     """
     start_ms = time_ms
     finish_ms = time_ms + duration_ms
@@ -459,7 +482,12 @@ def unparse_time_interval(time_ms: int, duration_ms: int) -> str:
         t = datetime.fromtimestamp(ms / 1000.0).time()
         return t.isoformat()
 
-    return f"{_ms_to_iso_time(start_ms)}/{_ms_to_iso_time(finish_ms)}"
+    res = f"{_ms_to_iso_time(start_ms)}/{_ms_to_iso_time(finish_ms)}"
+
+    if voice:
+        res = f"{res} ({voice.character})"
+
+    return res
 
 
 def render_event(event: Event) -> List[Dict]:
@@ -467,7 +495,11 @@ def render_event(event: Event) -> List[Dict]:
     HEADER = "heading_3"
     text = {
         "type": "text",
-        "text": {"content": unparse_time_interval(event.time_ms, event.duration_ms)},
+        "text": {
+            "content": unparse_time_interval(
+                event.time_ms, event.duration_ms, event.voice
+            )
+        },
     }
     header = {
         "object": "block",
