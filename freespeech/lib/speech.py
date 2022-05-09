@@ -195,8 +195,9 @@ async def synthesize_text(
         if retries < 0:
             raise RuntimeError(
                 (
-                    "Unable to converge while adjusting speaking_rate "
+                    "Unable to converge while adjusting speaking rate "
                     f"after {SYNTHESIS_RETRIES} attempts."
+                    f"text={text} duration={duration_ms}"
                 )
             )
 
@@ -258,9 +259,9 @@ async def synthesize_events(
         clip, voice_info = await synthesize_text(
             text=" ".join(event.chunks),
             duration_ms=event.duration_ms,
-            voice=voice,
+            voice=voice if event.voice is None else event.voice.character,
             lang=lang,
-            pitch=pitch,
+            pitch=pitch if event.voice is None else event.voice.pitch,
             output_dir=output_dir,
         )
         (audio, *_), _ = media.probe(clip)

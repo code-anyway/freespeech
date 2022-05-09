@@ -4,7 +4,7 @@ import pytest
 
 from freespeech.lib import media, speech
 from freespeech.lib.storage import obj
-from freespeech.types import Event
+from freespeech.types import Event, Voice
 
 AUDIO_EN_LOCAL = "tests/lib/data/media/en-US-mono.wav"
 AUDIO_EN_GS = "gs://freespeech-tests/test_speech/en-US-mono.wav"
@@ -53,7 +53,12 @@ async def test_synthesize_text(tmp_path):
 async def test_synthesize_events(tmp_path):
     events = [
         Event(time_ms=1_000, duration_ms=2_000, chunks=["One hen.", "Two ducks."]),
-        Event(time_ms=5_000, duration_ms=2_000, chunks=["Three squawking geese."]),
+        Event(
+            time_ms=5_000,
+            duration_ms=2_000,
+            chunks=["Three squawking geese."],
+            voice=Voice("Grace Hopper"),
+        ),
     ]
 
     output, voices = await speech.synthesize_events(
@@ -70,7 +75,7 @@ async def test_synthesize_events(tmp_path):
 
     assert t_en == [
         Event(time_ms=0, duration_ms=3270, chunks=["One, hen two ducks."]),
-        Event(time_ms=3270, duration_ms=3650, chunks=[" Three, squawking geese."]),
+        Event(time_ms=3270, duration_ms=3720, chunks=[" Three, squawking geese."]),
     ]
 
     voice_1, voice_2 = voices
@@ -79,8 +84,8 @@ async def test_synthesize_events(tmp_path):
     assert voice_1.character == "Alan Turing"
     assert voice_1.pitch == 0.0
 
-    assert voice_2.speech_rate == 0.7235
-    assert voice_2.character == "Alan Turing"
+    assert voice_2.speech_rate == 0.7655
+    assert voice_2.character == "Grace Hopper"
     assert voice_2.pitch == 0.0
 
 
