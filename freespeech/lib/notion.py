@@ -198,14 +198,29 @@ def _parse_value(
 
 
 async def get_child_blocks(page_id: str) -> List[Dict]:
-    result = await _make_api_call(verb="GET", url=f"/v1/blocks/{page_id}/children")
-    return result["results"]
+    blocks = []
+    payload: Dict[str, Any] = {}
+
+    while True:
+        data = await _make_api_call(
+            verb="GET", url=f"/v1/blocks/{page_id}/children", payload=payload
+        )
+
+        blocks += data["results"]
+
+        if data["has_more"]:
+            payload["start_cursor"] = data["next_cursor"]
+        else:
+            break
+
+    return blocks
 
 
 async def append_child_blocks(page_id: str, blocks: List[Dict]) -> List[Dict]:
     result = await _make_api_call(
         verb="PATCH", url=f"/v1/blocks/{page_id}/children", payload={"children": blocks}
     )
+
     return result["results"]
 
 
@@ -543,7 +558,7 @@ async def _make_api_call(verb: HTTPVerb, url: url, payload: Dict | None = None) 
     ) as session:
         match verb:
             case "GET":
-                async with session.get(url) as response:
+                async with session.get(url, params=payload) as response:
                     return await _parse_api_response(response)
             case "POST":
                 async with session.post(url, json=payload) as response:
