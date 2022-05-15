@@ -228,11 +228,11 @@ def get_captions(url: str, lang: Language) -> Sequence[Event]:
 
 def _language_tag(lang: str) -> str | None:
     match lang:
-        case "en" | "en-US":
+        case "en" | "en-US" | "a.en":
             return "en-US"
         case "uk":
             return "uk-UA"
-        case "ru":
+        case "ru" | "a.ru":
             return "ru-RU"
         case "pt":
             return "pt-PT"
