@@ -86,7 +86,7 @@ def test_convert_captions():
     assert expected_ru_RU == t["ru-RU"]
 
 
-def test_convert_captiions_with_no_duration(tmp_path):
+def test_convert_captiions_with_no_duration():
     with open("tests/lib/data/youtube/captions_missing_duration_en.xml") as fd:
         en = "\n".join(fd.readlines())
     t = youtube.convert_captions([("en", en)])

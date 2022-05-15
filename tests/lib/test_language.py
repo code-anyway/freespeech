@@ -23,3 +23,13 @@ def test_translate_events():
 
     assert language.translate_events(events_ru, "ru-RU", "en-US") == events_en
     assert language.translate_events(events_en, "en-US", "ru-RU") == events_ru
+
+
+def test_translate_with_empty_chunks():
+    events_ru = [Event(time_ms=0, duration_ms=1_000, chunks=["", "два"])]
+    events_en = [Event(time_ms=0, duration_ms=1_000, chunks=["two"])]
+    assert language.translate_events(events_ru, "ru-RU", "en-US") == events_en
+
+    events_ru = [Event(time_ms=0, duration_ms=1_000, chunks=[])]
+    events_en = [Event(time_ms=0, duration_ms=1_000, chunks=[])]
+    assert language.translate_events(events_ru, "ru-RU", "en-US") == events_en

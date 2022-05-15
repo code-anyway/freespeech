@@ -15,6 +15,9 @@ def _translate_chunks(
     if source == target:
         return chunks
 
+    if not chunks:
+        return chunks
+
     client = translate_api.TranslationServiceClient()
     parent = f"projects/{env.get_project_id()}/locations/global"
 
@@ -23,7 +26,7 @@ def _translate_chunks(
     response = client.translate_text(
         request={
             "parent": parent,
-            "contents": chunks,
+            "contents": [chunk for chunk in chunks if chunk],
             "mime_type": "text/plain",  # or text/html
             "source_language_code": source,
             "target_language_code": target,
