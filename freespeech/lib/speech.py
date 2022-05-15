@@ -232,6 +232,9 @@ async def synthesize_text(
         if abs(audio.duration_ms - duration_ms) < SYNTHESIS_ERROR_MS:
             return Path(audio_file), rate
         else:
+            logger.warning(
+                f"retrying delta={audio.duration_ms - duration_ms} rate={rate}"
+            )
             rate *= audio.duration_ms / duration_ms
             return await _synthesize_step(rate, retries - 1)
 

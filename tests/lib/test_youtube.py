@@ -54,8 +54,10 @@ def test_download_local(tmp_path):
     assert audio_file.suffix == ".webm"
     assert video_file.suffix == ".mp4"
 
-    # TODO (astaff): add captions to test video or create a new one with captions.
-    assert captions == {}
+    assert captions["en-US"][0] == Event(
+        time_ms=480,
+        duration_ms=6399,
+        chunks=['one hand two ducks three squawking geese'])
 
     assert (
         hash.file(audio_file)
@@ -97,3 +99,26 @@ def test_convert_captiions_with_no_duration():
         ]
     }
     assert t == expected
+
+
+def test_auto_captions():
+    with open("tests/lib/data/youtube/captions_en.xml") as fd:
+        en = "\n".join(fd.readlines())
+
+    with open("tests/lib/data/youtube/auto-captions.xml") as fd:
+        a_en = "\n".join(fd.readlines())
+
+    with open("tests/lib/data/youtube/transcript_en_US.json", encoding="utf-8") as fd:
+        expected_en_US = [Event(**item) for item in json.load(fd)]
+
+    with open("tests/lib/data/youtube/auto-captions.json", encoding="utf-8") as fd:
+        expected_a_en_US = [Event(**item) for item in json.load(fd)]
+
+    t = youtube.convert_captions([("a.en", a_en)])
+    assert t["en-US"] == expected_a_en_US
+
+    t = youtube.convert_captions([("en", en), ("a.en", a_en)])
+    assert t["en-US"] == expected_en_US, "regular captions should override automatic"
+
+    t = youtube.convert_captions([("a.en", a_en), ("en", en)])
+    assert t["en-US"] == expected_en_US, "regular captions should override automatic"

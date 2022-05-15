@@ -228,11 +228,11 @@ def get_captions(url: str, lang: Language) -> Sequence[Event]:
 
 def _language_tag(lang: str) -> str | None:
     match lang:
-        case "en" | "en-US":
+        case "en" | "en-US" | "a.en":
             return "en-US"
         case "uk":
             return "uk-UA"
-        case "ru":
+        case "ru" | "a.ru":
             return "ru-RU"
         case "pt":
             return "pt-PT"
@@ -248,6 +248,10 @@ def _language_tag(lang: str) -> str | None:
 def parse(xml: str) -> Sequence[Event]:
     """Parses YouTube XML captions and generates a sequence of speech Events."""
 
+    def _extract_text(element):
+        inner = "".join([s.text for s in element.findall("s") or []])
+        return inner or element.text or ""
+
     body = ET.fromstring(xml).find("body")
     assert body is not None
 
@@ -257,10 +261,9 @@ def parse(xml: str) -> Sequence[Event]:
             int(duration)
             if (duration := child.attrib.get("d", None)) is not None
             else None,
-            [html.unescape(child.text)],
+            [html.unescape(_extract_text(child))],
         )
-        for child in body
-        if child.text
+        for child in body.findall("p") or []
     ]
 
     return [
@@ -280,8 +283,13 @@ def parse(xml: str) -> Sequence[Event]:
 def convert_captions(captions: Sequence[Tuple[str, str]]) -> Dict[str, Sequence[Event]]:
     """Converts YouTube captions for each language into speech Events."""
 
+    auto_captions = [(lang, xml) for lang, xml in captions if lang.startswith("a.")]
+    normal_captions = [
+        (lang, xml) for lang, xml in captions if not lang.startswith("a.")
+    ]
+
     return {
         language_tag: parse(xml_captions)
-        for code, xml_captions in captions
+        for code, xml_captions in auto_captions + normal_captions
         if (language_tag := _language_tag(code))
     }
