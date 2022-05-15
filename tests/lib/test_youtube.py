@@ -97,3 +97,14 @@ def test_convert_captiions_with_no_duration():
         ]
     }
     assert t == expected
+
+
+def test_auto_captions():
+    with open("tests/lib/data/youtube/auto-captions.xml") as fd:
+        en = "\n".join(fd.readlines())
+    t = youtube.convert_captions([("en", en)])
+
+    with open("tests/lib/data/youtube/auto-captions.json", encoding="utf-8") as fd:
+        expected_en_US = [Event(**item) for item in json.load(fd)]
+
+    assert t["en-US"][:10] == expected_en_US[:10]
