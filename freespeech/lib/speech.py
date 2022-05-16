@@ -323,10 +323,17 @@ def normalize_speech(
 
 
 def _adjust_duration(events: Sequence[Event]) -> Sequence[Event]:
+    if not events:
+        return events
+
     speech_rates = [_speech_rate(e) for e in events]
 
-    sigma = statistics.stdev(speech_rates)
-    mean = statistics.mean(speech_rates)
+    if len(speech_rates) > 1:
+        sigma = statistics.stdev(speech_rates)
+        mean = statistics.mean(speech_rates)
+    else:
+        sigma = 0
+        mean = speech_rates[0]
 
     durations = [
         event.duration_ms * (speech_rate / mean)
