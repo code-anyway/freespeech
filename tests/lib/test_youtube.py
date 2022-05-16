@@ -57,7 +57,8 @@ def test_download_local(tmp_path):
     assert captions["en-US"][0] == Event(
         time_ms=480,
         duration_ms=6399,
-        chunks=['one hand two ducks three squawking geese'])
+        chunks=["one hand two ducks three squawking geese"],
+    )
 
     assert (
         hash.file(audio_file)
