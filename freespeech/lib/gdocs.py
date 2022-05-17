@@ -20,7 +20,7 @@ def _read_paragraph_element(element):
     return text_run.get("content")
 
 
-def _read_structural_elements(elements):
+def _read_structural_elements(elements) -> str:
     """Recurses through a list of Structural Elements to read a document's text.
 
     Text may be in nested elements.

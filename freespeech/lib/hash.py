@@ -1,8 +1,7 @@
 import hashlib
-from os import PathLike
 
 
-def file(filename: PathLike | str) -> str:
+def file(filename: str) -> str:
     """Get SHA256 hash of a file contents as a hex digest."""
     sha256_hash = hashlib.sha256()
 

@@ -11,7 +11,7 @@ YOUTUBE_SCOPES = [
 # - https://github.com/tokland/youtube-upload/blob/master/youtube_upload/auth/__init__.py  # noqa: 501
 # - https://developers.google.com/youtube/v3/guides/auth/server-side-web-apps#python  # noqa: 501
 # - https://google-auth-oauthlib.readthedocs.io/en/latest/reference/google_auth_oauthlib.flow.html  # noqa: 501
-def authorize(secret_file, credentials_file):
+def authorize(secret_file: str, credentials_file: str) -> None:
     flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
         secret_file,
         scopes=YOUTUBE_SCOPES,

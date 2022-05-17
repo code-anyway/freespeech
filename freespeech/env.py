@@ -32,7 +32,7 @@ def get_project_id() -> str:
         return response.text
     else:
         with open(file) as fd:
-            return json.load(fd)["project_id"]
+            return str(json.load(fd)["project_id"])
 
 
 @functools.cache

@@ -1,6 +1,6 @@
-from typing import Dict, List, Literal, Tuple
+from typing import Any, Dict, List, Literal, Tuple
 
-from google.cloud import firestore
+from google.cloud import firestore  # type: ignore
 
 from freespeech import env
 
@@ -17,13 +17,17 @@ def google_firestore_client() -> firestore.AsyncClient:
     return client
 
 
-async def get(client: firestore.AsyncClient, coll: str, key: str) -> Dict:
+async def get(client: firestore.AsyncClient, coll: str, key: str) -> Dict[str, Any]:
     doc = client.collection(coll).document(key)
     value = await doc.get()
+    res = value.to_dict()
+    assert isinstance(res, Dict)
     return value.to_dict()
 
 
-async def put(client: firestore.AsyncClient, coll: str, key: str, value: Dict):
+async def put(
+    client: firestore.AsyncClient, coll: str, key: str, value: Dict[Any, Any]
+) -> None:
     doc = client.collection(coll).document(key)
     await doc.set(value)
 
@@ -36,7 +40,7 @@ async def query(
     value: str,
     order: Tuple[field, QueryOrder] | None = None,
     limit: int | None = None,
-) -> List[Dict]:
+) -> List[Dict[str, Any]]:
     query = client.collection(coll).where(attr, op, value)
 
     # https://github.com/astaff/freespeech/issues/1 will resolve this

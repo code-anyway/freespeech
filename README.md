@@ -23,6 +23,7 @@ docker build -t freespeech .
 docker run -it \
     -e GOOGLE_APPLICATION_CREDENTIALS="/root/id/test-service-credentials.json" \
     -e NOTION_TOKEN="Notion-integration-token" \
+    -e FREESPEECH_STORAGE_BUCKET="freespeech-tests" \
     -v $(pwd)/id:/root/id \
 freespeech --help
 ```
@@ -33,7 +34,10 @@ freespeech --help
 
 It is recommended to use VSCode's Dev Container extension and get a shell into container as a part of your development environment.
 
-You are expected to set `GOOGLE_APPLICATION_CREDENTIALS` and `NOTION_TOKEN`.
+You are expected to set:
+* `GOOGLE_APPLICATION_CREDENTIALS`
+* `NOTION_TOKEN`
+* `FREESPEECH_STORAGE_BUCKET`
 
 For example:
 ```shell
@@ -47,6 +51,7 @@ If your preferred workflow is different, you can get shell access into a contain
 docker run -it \
     -e GOOGLE_APPLICATION_CREDENTIALS="/workspace/freespeech/id/test-service-credentials.json" \
     -e NOTION_TOKEN="Notion-integration-token" \
+    -e FREESPEECH_STORAGE_BUCKET="freespeech-tests" \
     -v $(pwd):/workspace/freespeech \
     --workdir="/workspace/freespeech" \
     --entrypoint /bin/bash freespeech

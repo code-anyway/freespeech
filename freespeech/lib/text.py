@@ -1,8 +1,8 @@
 import re
-from typing import List
+from typing import Iterator, Sequence
 
 
-def chunk(text: str, max_chars: int) -> List[str]:
+def chunk(text: str, max_chars: int) -> Sequence[str]:
     """Split text into chunks.
 
     Args:
@@ -18,7 +18,7 @@ def chunk(text: str, max_chars: int) -> List[str]:
     # are also returned as part of the resulting list.
     sentences = (s for s in re.split(r"(\!|\?|\.)", text))
 
-    def chunk_sentences():
+    def chunk_sentences() -> Iterator[str]:
         res = ""
         for s in sentences:
             if len(res) + len(s) > max_chars:
@@ -32,7 +32,7 @@ def chunk(text: str, max_chars: int) -> List[str]:
     return list(chunk_sentences())
 
 
-def chunk_raw(s: str, length: int) -> List[str]:
+def chunk_raw(s: str, length: int) -> Sequence[str]:
     assert length > 0
     remainder = len(s) % length
     args = [iter(s)] * length
@@ -44,6 +44,6 @@ def chunk_raw(s: str, length: int) -> List[str]:
         return res
 
 
-def remove_symbols(s, symbols):
+def remove_symbols(s: str, symbols: str) -> str:
     t = str.maketrans(s, s, symbols)
     return str.translate(s, t)
