@@ -7,7 +7,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from google.api_core import exceptions as google_api_exceptions
-from google.cloud import storage
+from google.cloud import storage  # type: ignore
 
 from freespeech.lib import concurrency
 from freespeech.types import url

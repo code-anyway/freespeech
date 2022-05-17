@@ -10,6 +10,8 @@ from typing import Dict, Sequence, Tuple
 from google.api_core import exceptions as google_api_exceptions
 from google.cloud import speech as speech_api
 from google.cloud import texttospeech
+from google.cloud.speech_v1.types.cloud_speech import LongRunningRecognizeResponse
+from google.cloud.texttospeech_v1.types import SynthesizeSpeechResponse
 
 from freespeech.lib import concurrency, media
 from freespeech.lib.text import chunk, remove_symbols
@@ -58,7 +60,10 @@ GOOGLE_CLOUD_ENCODINGS = {
 }
 
 # When synthesizing speech to match duration, this is the maximum delta.
-SYNTHESIS_ERROR_MS = 100
+SYNTHESIS_ERROR_MS = 200
+
+SPEECH_RATE_MINIMUM = 0.7
+SPEECH_RATE_MAXIMUM = 1.3
 
 # Number of retries when iteratively adjusting speaking rate.
 SYNTHESIS_RETRIES = 10
@@ -116,7 +121,7 @@ async def transcribe(
 
     try:
 
-        def _api_call():
+        def _api_call() -> LongRunningRecognizeResponse:
             operation = client.long_running_recognize(
                 config=speech_api.RecognitionConfig(
                     audio_channel_count=audio.num_channels,
@@ -134,7 +139,12 @@ async def transcribe(
                 ),
                 audio=speech_api.RecognitionAudio(uri=uri),
             )
-            return operation.result(timeout=TRANSCRIBE_TIMEOUT_SEC)
+            result = operation.result(timeout=TRANSCRIBE_TIMEOUT_SEC)  # type: ignore
+            assert isinstance(
+                result, LongRunningRecognizeResponse
+            ), f"type(result)={type(result)}"
+
+            return result
 
         response = await concurrency.run_in_thread_pool(_api_call)
     except google_api_exceptions.NotFound:
@@ -191,8 +201,8 @@ async def synthesize_text(
             )
         )
 
-    async def _synthesize_step(rate, retries) -> Tuple[Path, float]:
-        if retries < 0:
+    async def _synthesize_step(rate: float, retries: int | None) -> Tuple[Path, float]:
+        if retries is not None and retries < 0:
             raise RuntimeError(
                 (
                     "Unable to converge while adjusting speaking rate "
@@ -201,7 +211,13 @@ async def synthesize_text(
                 )
             )
 
-        def _api_call(phrase):
+        if rate < SPEECH_RATE_MINIMUM:
+            return await _synthesize_step(SPEECH_RATE_MINIMUM, retries=None)
+
+        if rate > SPEECH_RATE_MAXIMUM:
+            return await _synthesize_step(SPEECH_RATE_MAXIMUM, retries=None)
+
+        def _api_call(phrase: str) -> SynthesizeSpeechResponse:
             client = texttospeech.TextToSpeechClient()
             return client.synthesize_speech(
                 input=texttospeech.SynthesisInput(text=phrase),
@@ -229,7 +245,7 @@ async def synthesize_text(
         (audio, *_), _ = media.probe(audio_file)
         assert isinstance(audio, Audio)
 
-        if abs(audio.duration_ms - duration_ms) < SYNTHESIS_ERROR_MS:
+        if retries is None or abs(audio.duration_ms - duration_ms) < SYNTHESIS_ERROR_MS:
             return Path(audio_file), rate
         else:
             logger.warning(

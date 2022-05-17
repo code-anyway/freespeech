@@ -13,7 +13,7 @@ TEST_OUTPUT_GS = "gs://freespeech-tests/test_speech/output/"
 
 
 @pytest.mark.asyncio
-async def test_transcribe():
+async def test_transcribe() -> None:
     await obj.put(AUDIO_EN_LOCAL, AUDIO_EN_GS)
     (audio, *_), _ = media.probe(AUDIO_EN_LOCAL)
     assert not _
@@ -25,7 +25,7 @@ async def test_transcribe():
 
 
 @pytest.mark.asyncio
-async def test_synthesize_text(tmp_path):
+async def test_synthesize_text(tmp_path) -> None:
     output, voice = await speech.synthesize_text(
         text="One. Two. Three.",
         duration_ms=4_000,
@@ -37,20 +37,20 @@ async def test_synthesize_text(tmp_path):
     (audio, *_), _ = media.probe(output)
 
     eps = 100
-    assert abs(audio.duration_ms - 4_000) < eps
-
-    output_gs = await obj.put(output, f"{TEST_OUTPUT_GS}{output.name}")
-
-    (t_en, *tail) = await speech.transcribe(output_gs, audio, "en-US", model="default")
-    assert not tail, f"Extra events returned from transcribe: {tail}"
-    assert t_en.chunks == ["1, 2 3."]
-    assert voice.speech_rate == 0.45375
+    # Audio duration is shorter than requested because of minimum speech rate cut-off
+    assert abs(audio.duration_ms - 2_567) < eps
+    assert voice.speech_rate == 0.7  # 0.7 is a lower boundary for speech rate
     assert voice.character == "Grace Hopper"
     assert voice.pitch == 0.0
 
+    output_gs = await obj.put(output, f"{TEST_OUTPUT_GS}{output.name}")
+    (t_en, *tail) = await speech.transcribe(output_gs, audio, "en-US", model="default")
+    assert not tail, f"Extra events returned from transcribe: {tail}"
+    assert t_en.chunks == ["1, 2 3."]
+
 
 @pytest.mark.asyncio
-async def test_synthesize_events(tmp_path):
+async def test_synthesize_events(tmp_path) -> None:
     events = [
         Event(time_ms=1_000, duration_ms=2_000, chunks=["One hen.", "Two ducks."]),
         Event(
@@ -90,10 +90,10 @@ async def test_synthesize_events(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_synthesize_long_event(tmp_path):
+async def test_synthesize_long_event(tmp_path) -> None:
     event_en_us = Event(
         time_ms=205649,
-        duration_ms=79029.04040786673,
+        duration_ms=79029,
         chunks=[
             "in this Plan are implemented, Russia will lose the opportunity "
             "to finance the military machine. In particular, the Plan "
@@ -131,7 +131,7 @@ async def test_synthesize_long_event(tmp_path):
     assert voice.speech_rate == pytest.approx(0.762, rel=1e-3)
 
 
-def test_normalize_speech():
+def test_normalize_speech() -> None:
     # Two events with 0ms in between, followed by another event in 1sec
     events = [
         Event(time_ms=100, duration_ms=400, chunks=["one"]),
@@ -146,7 +146,7 @@ def test_normalize_speech():
     ]
 
 
-def test_normalize_speech_long():
+def test_normalize_speech_long() -> None:
     with open("tests/lib/data/youtube/transcript_ru_RU.json", encoding="utf-8") as fd:
         events_dict = json.load(fd)
         _ = [Event(**item) for item in events_dict]
