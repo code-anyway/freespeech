@@ -9,5 +9,7 @@ filterwarnings = [
     'ignore:the imp module is deprecated:DeprecationWarning', 
     'ignore:ssl.PROTOCOL_TLS is deprecated:DeprecationWarning',
     'ignore:The distutils package is deprecated and slated for removal in Python 3.12:DeprecationWarning',
+    'ignore:unclosed transport <_SelectorSocketTransport:ResourceWarning',
+    'ignore:unclosed <socket.socket:ResourceWarning',
 ]
 asyncio_mode = "strict"
