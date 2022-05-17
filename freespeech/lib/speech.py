@@ -21,18 +21,34 @@ MAX_CHUNK_LENGTH = 1000  # Google Speech API Limit
 
 # Let's give voices real names and map them to API-specific names
 VOICES = {
+    "Ada Lovelace": {
+        "en-US": "en-US-Wavenet-F",
+        "ru-RU": "ru-RU-Wavenet-E",
+        "pt-PT": "pt-PT-Wavenet-D",
+        "de-DE": "de-DE-Wavenet-C",
+        "es-US": "es-US-Wavenet-A",
+    },
     "Grace Hopper": {
         "en-US": "en-US-Wavenet-C",
         "ru-RU": "ru-RU-Wavenet-C",
         "pt-PT": "pt-PT-Wavenet-A",
         "de-DE": "de-DE-Wavenet-F",
         "uk-UA": "uk-UA-Wavenet-A",
+        "es-US": "es-US-Wavenet-A",
     },
     "Alan Turing": {
         "en-US": "en-US-Wavenet-I",
         "ru-RU": "ru-RU-Wavenet-D",
         "pt-PT": "pt-PT-Wavenet-C",
         "de-DE": "de-DE-Wavenet-B",
+        "es-US": "es-US-Wavenet-B",
+    },
+    "Alonzo Church": {
+        "en-US": "en-US-Wavenet-D",
+        "ru-RU": "ru-RU-Wavenet-B",
+        "pt-PT": "pt-PT-Wavenet-B",
+        "de-DE": "de-DE-Wavenet-D",
+        "es-US": "es-US-Wavenet-C",
     },
 }
 
@@ -179,8 +195,9 @@ async def synthesize_text(
         if retries < 0:
             raise RuntimeError(
                 (
-                    "Unable to converge while adjusting speaking_rate "
+                    "Unable to converge while adjusting speaking rate "
                     f"after {SYNTHESIS_RETRIES} attempts."
+                    f"text={text} duration={duration_ms}"
                 )
             )
 
@@ -215,6 +232,9 @@ async def synthesize_text(
         if abs(audio.duration_ms - duration_ms) < SYNTHESIS_ERROR_MS:
             return Path(audio_file), rate
         else:
+            logger.warning(
+                f"retrying delta={audio.duration_ms - duration_ms} rate={rate}"
+            )
             rate *= audio.duration_ms / duration_ms
             return await _synthesize_step(rate, retries - 1)
 
@@ -242,9 +262,9 @@ async def synthesize_events(
         clip, voice_info = await synthesize_text(
             text=" ".join(event.chunks),
             duration_ms=event.duration_ms,
-            voice=voice,
+            voice=voice if event.voice is None else event.voice.character,
             lang=lang,
-            pitch=pitch,
+            pitch=pitch if event.voice is None else event.voice.pitch,
             output_dir=output_dir,
         )
         (audio, *_), _ = media.probe(clip)
@@ -315,7 +335,7 @@ def _adjust_duration(events: Sequence[Event]) -> Sequence[Event]:
         for event, speech_rate in zip(events, speech_rates)
     ]
 
-    logger.warning(f"durations = {durations}")
+    logger.debug(f"durations = {durations}")
 
     adjusted_events = [
         replace(event, duration_ms=duration)

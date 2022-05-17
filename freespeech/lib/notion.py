@@ -1,5 +1,6 @@
 import logging
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, replace
 from datetime import datetime, time
 from typing import Any, Dict, List, Literal, Sequence, Tuple, TypeGuard
 from uuid import UUID
@@ -9,7 +10,7 @@ import aiohttp
 
 from freespeech import env, types
 from freespeech.lib import text
-from freespeech.types import Event, Language, Meta, Voice, assert_never, url
+from freespeech.types import Character, Event, Language, Meta, Voice, assert_never, url
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ NOTION_RICH_TEXT_CONTENT_LIMIT = 200
 PROPERTY_NAME_PAGE_TITLE = "Name"
 PROPERTY_NAME_ORIGIN = "Origin"
 PROPERTY_NAME_LANG = "Language"
-PROPERTY_NAME_SOURCE = "Transcript Source"
+PROPERTY_NAME_SOURCE = "Text From"
 PROPERTY_NAME_CHARACTER = "Voice"
 PROPERTY_NAME_PITCH = "Pitch"
 PROPERTY_NAME_WEIGHTS = "Weights"
@@ -28,7 +29,7 @@ PROPERTY_NAME_TAGS = "Tags"
 PROPERTY_NAME_DUB_TIMESTAMP = "Dub timestamp"
 PROPERTY_NAME_DUB_URL = "Dub URL"
 PROPERTY_NAME_CLIP_ID = "Clip ID"
-PROPERTY_NAME_TRANSLATED_FROM = "Translated From"
+PROPERTY_NAME_TRANSLATED_FROM = "Translate"
 
 Source = Literal["Machine", "Subtitles", "Translate"]
 HTTPVerb = Literal["GET", "PATCH", "DELETE", "POST"]
@@ -72,9 +73,15 @@ async def query(
 
     # How filtering in Notion API works:
     # https://developers.notion.com/reference/post-database-query-filter#rollup-filter-condition  # noqa E501
+    key = "property" if property_type != "timestamp" else "timestamp"
     payload: Dict[str, Dict | int] = (
         {
-            "filter": {"property": property_name, property_type: {operator: value}},
+            "filter": {
+                key: property_name,
+                property_type
+                if property_type != "timestamp"
+                else property_name: {operator: value},
+            },
         }
         if property_name
         else {}
@@ -139,8 +146,8 @@ async def get_transcripts(
     if timestamp:
         pages = await query(
             database_id=database_id,
-            property_name="last_updated",
-            property_type="date",
+            property_name="last_edited_time",
+            property_type="timestamp",
             operator="after",
             value=timestamp.isoformat(),
         )
@@ -191,14 +198,29 @@ def _parse_value(
 
 
 async def get_child_blocks(page_id: str) -> List[Dict]:
-    result = await _make_api_call(verb="GET", url=f"/v1/blocks/{page_id}/children")
-    return result["results"]
+    blocks = []
+    payload: Dict[str, Any] = {}
+
+    while True:
+        data = await _make_api_call(
+            verb="GET", url=f"/v1/blocks/{page_id}/children", payload=payload
+        )
+
+        blocks += data["results"]
+
+        if data["has_more"]:
+            payload["start_cursor"] = data["next_cursor"]
+        else:
+            break
+
+    return blocks
 
 
 async def append_child_blocks(page_id: str, blocks: List[Dict]) -> List[Dict]:
     result = await _make_api_call(
         verb="PATCH", url=f"/v1/blocks/{page_id}/children", payload={"children": blocks}
     )
+
     return result["results"]
 
 
@@ -275,28 +297,34 @@ def render_text(t: str) -> Dict:
 
 
 def parse_events(blocks: List[Dict]) -> Sequence[Event]:
-    events: Dict[Tuple[int, int], List[str]] = dict()
+    events = []
 
     HEADINGS = ["heading_1", "heading_2", "heading_3"]
-
     for block in blocks:
         _type = block["type"]
         if _type in HEADINGS:
             value = _parse_value(block)
             assert isinstance(value, str)
-            key = parse_time_interval(value)
-            events[key] = events.get(key, [])
+            start_ms, duration_ms, character = parse_time_interval(value)
+            events += [
+                Event(
+                    start_ms,
+                    duration_ms,
+                    chunks=[],
+                    voice=Voice(character) if character else None,
+                )
+            ]
         elif _type == "paragraph":
-            value = _parse_value(block)
-            if not key:
-                logger.warning(f"Paragraph without timestamp: {value}")
-            assert isinstance(value, str)
-            events[key].append(value)
+            chunk = _parse_value(block)
+            if not events:
+                logger.warning(f"Paragraph without timestamp: {chunk}")
+            else:
+                assert isinstance(chunk, str)
+                events += [
+                    replace(event := events.pop(), chunks=event.chunks + [chunk])
+                ]
 
-    return [
-        Event(time_ms=time_ms, duration_ms=duration_ms, chunks=chunks)
-        for (time_ms, duration_ms), chunks in events.items()
-    ]
+    return events
 
 
 def parse_transcript(
@@ -363,13 +391,13 @@ async def replace_blocks(page_id: str, blocks: List[Dict]) -> List[Dict]:
 
 
 async def create_page(database_id: str, properties: Dict, blocks: List[Dict]) -> Dict:
-    payload = {
+    payload: Dict[str, Dict | List] = {
         "parent": {"type": "database_id", "database_id": database_id},
         "properties": properties,
     }
 
     if blocks:
-        payload["children"] = blocks
+        payload = {**payload, "children": blocks}
 
     result = await _make_api_call(verb="POST", url="/v1/pages", payload=payload)
 
@@ -405,15 +433,15 @@ async def put_transcript(
     )
 
 
-def parse_time_interval(interval: str) -> Tuple[int, int]:
-    """Parses HH:MM:SS.fff/HH:MM:SS.fff into (start_ms, duration_ms).
+def parse_time_interval(interval: str) -> Tuple[int, int, Character | None]:
+    """Parses HH:MM:SS.fff/HH:MM:SS.fff (Character) into (start_ms, duration_ms, Character).
 
     Args:
         interval: start and finish encoded as
             two ISO 8601 formatted timestamps separated by "/"
 
     Returns:
-        Event start time and duration in milliseconds.
+        Event start time and duration in milliseconds and optional character.
     """
 
     # TODO (astaff): couldn't find a sane way to do that
@@ -427,24 +455,40 @@ def parse_time_interval(interval: str) -> Tuple[int, int]:
             + t.microsecond // 1_000
         )
 
-    start, duration = [s.strip() for s in interval.split("/")]
+    parser = re.compile(r"([\d\:\.]+)\s*\/\s*([\d\:\.]+)(\s+\((.+)\))?")
+    match = parser.search(interval)
+
+    if not match:
+        raise ValueError(f"Invalid string: {interval}")
+
+    start = match.group(1)
+    finish = match.group(2)
+    character_str = match.group(4)
+
+    if types.is_character(character_str):
+        character = character_str
+    else:
+        character = None
 
     start_ms = _to_milliseconds(time.fromisoformat(start))
-    finish_ms = _to_milliseconds(time.fromisoformat(duration))
+    finish_ms = _to_milliseconds(time.fromisoformat(finish))
 
-    return start_ms, finish_ms - start_ms
+    return start_ms, finish_ms - start_ms, character
 
 
-def unparse_time_interval(time_ms: int, duration_ms: int) -> str:
-    """Generates HH:MM:SS.fff/HH:MM:SS.fff representation for a time interval.
+def unparse_time_interval(time_ms: int, duration_ms: int, voice: Voice | None) -> str:
+    """Generates HH:MM:SS.fff/HH:MM:SS.fff (Character)?
+    representation for a time interval and voice.
 
     Args:
         time_ms: interval start time in milliseconds.
         duration_ms: interval duration in milliseconds.
+        voice: voice info.
 
     Returns:
        Interval start and finish encoded as
-       two ISO 8601 formatted timespamps separated by "/".
+       two ISO 8601 formatted timespamps separated by "/" with optional
+       voice info added.
     """
     start_ms = time_ms
     finish_ms = time_ms + duration_ms
@@ -453,7 +497,12 @@ def unparse_time_interval(time_ms: int, duration_ms: int) -> str:
         t = datetime.fromtimestamp(ms / 1000.0).time()
         return t.isoformat()
 
-    return f"{_ms_to_iso_time(start_ms)}/{_ms_to_iso_time(finish_ms)}"
+    res = f"{_ms_to_iso_time(start_ms)}/{_ms_to_iso_time(finish_ms)}"
+
+    if voice:
+        res = f"{res} ({voice.character})"
+
+    return res
 
 
 def render_event(event: Event) -> List[Dict]:
@@ -461,7 +510,11 @@ def render_event(event: Event) -> List[Dict]:
     HEADER = "heading_3"
     text = {
         "type": "text",
-        "text": {"content": unparse_time_interval(event.time_ms, event.duration_ms)},
+        "text": {
+            "content": unparse_time_interval(
+                event.time_ms, event.duration_ms, event.voice
+            )
+        },
     }
     header = {
         "object": "block",
@@ -505,7 +558,7 @@ async def _make_api_call(verb: HTTPVerb, url: url, payload: Dict | None = None) 
     ) as session:
         match verb:
             case "GET":
-                async with session.get(url) as response:
+                async with session.get(url, params=payload) as response:
                     return await _parse_api_response(response)
             case "POST":
                 async with session.post(url, json=payload) as response:

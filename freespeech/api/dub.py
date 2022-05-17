@@ -18,7 +18,15 @@ async def create_dub(request):
     params = await request.json()
 
     voice = Voice(character=params["characters"]["default"], pitch=params["pitch"])
-    events = [Event(**event) for event in params["transcript"]]
+    events = [
+        Event(
+            time_ms=event["time_ms"],
+            duration_ms=event["duration_ms"],
+            chunks=event["chunks"],
+            voice=Voice(**value) if (value := event.get("voice", None)) else None,
+        )
+        for event in params["transcript"]
+    ]
 
     db = doc.google_firestore_client()
     clip = await doc.get(db, "clips", clip_id)

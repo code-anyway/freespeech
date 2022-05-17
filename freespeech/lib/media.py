@@ -32,6 +32,8 @@ def ffprobe_to_video_encoding(encoding: str) -> VideoEncoding:
             return "H264"
         case "hevc":
             return "HEVC"
+        case "av1":
+            return "AV1"
         case invalid_encoding:
             raise ValueError(f"Invalid encoding: {invalid_encoding}")
 

@@ -4,19 +4,27 @@ from datetime import datetime, timezone
 from typing import List, Literal, NoReturn, Sequence, Tuple, TypeGuard
 
 AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC"]
-VideoEncoding = Literal["H264", "HEVC"]
+VideoEncoding = Literal["H264", "HEVC", "AV1"]
 
 
-Language = Literal["en-US", "uk-UA", "ru-RU", "pt-PT", "es-MX", "de-DE"]
-Character = Literal["Alan Turing", "Grace Hopper", "Original"]
+Language = Literal["en-US", "uk-UA", "ru-RU", "pt-PT", "es-US", "de-DE"]
+Character = Literal[
+    "Alan Turing", "Grace Hopper", "Ada Lovelace", "Alonzo Church", "Original"
+]
 
 
 def is_language(val: str) -> TypeGuard[Language]:
-    return val in ("en-US", "uk-UA", "ru-RU", "pt-PT", "es-MX", "de-DE")
+    return val in ("en-US", "uk-UA", "ru-RU", "pt-PT", "es-US", "de-DE")
 
 
 def is_character(val: str) -> TypeGuard[Character]:
-    return val in ("Alan Turing", "Grace Hopper", "Original")
+    return val in (
+        "Alan Turing",
+        "Grace Hopper",
+        "Ada Lovelace",
+        "Alonzo Church",
+        "Original",
+    )
 
 
 url = str

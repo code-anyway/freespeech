@@ -11,26 +11,33 @@ TRANSCRIPT_DATABASE_ID = "da8013c44f6f4809b3e7ed53dfbfb461"
 
 SHORT_EVENT_1_EN = Event(time_ms=1001, duration_ms=1000, chunks=["One hen. Two ducks."])
 LONG_EVENT_1_EN = Event(
-    time_ms=4001, duration_ms=2000, chunks=["Three squawking geese. " * 100]
+    time_ms=4001,
+    duration_ms=2000,
+    chunks=["Three squawking geese. " * 100] + ["Bah"],
+    voice=Voice(character="Alonzo Church"),
 )
 
 SHORT_EVENT_1_RU = Event(
     time_ms=1001, duration_ms=1000, chunks=["Одна курица. Две утки."]
 )
 LONG_EVENT_1_RU = Event(
-    time_ms=4001, duration_ms=2000, chunks=["Два кричащих гуся." * 150]
+    time_ms=4001,
+    duration_ms=2000,
+    chunks=["Два кричащих гуся." * 150] + ["Bah"],
+    voice=Voice(character="Alonzo Church"),
 )
 
 
 def test_parse_event():
     parse = notion.parse_time_interval
 
-    assert parse("00:00:00.000/00:00:00.000") == (0, 0)
-    assert parse(" 00:00:00.000 / 00:00:00.000 ") == (0, 0)
-    assert parse("00:00:00.001/00:00:00.120") == (1, 119)
-    assert parse("00:00:01.001/00:00:02.120") == (1001, 1119)
-    assert parse("00:01:02.001/00:01:20.123") == (62001, 18122)
-    assert parse("01:01:01.123/01:01:01.123") == (3661123, 0)
+    assert parse("00:00:00.000/00:00:00.000") == (0, 0, None)
+    assert parse(" 00:00:00.000 / 00:00:00.000 ") == (0, 0, None)
+    assert parse("00:00:00.001/00:00:00.120") == (1, 119, None)
+    assert parse("00:00:01.001/00:00:02.120") == (1001, 1119, None)
+    assert parse("00:01:02.001/00:01:20.123") == (62001, 18122, None)
+    assert parse("01:01:01.123/01:01:01.123") == (3661123, 0, None)
+    assert parse("00:00:00.000/00:00:00.000 (Alonzo Church)") == (0, 0, "Alonzo Church")
 
 
 @pytest.mark.asyncio

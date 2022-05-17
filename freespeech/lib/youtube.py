@@ -176,17 +176,41 @@ def download(
     yt = pytube.YouTube(url)
 
     filtered = yt.streams.filter(only_audio=True, audio_codec="opus")
-    audio, *_ = filtered.order_by("abr")
+    *_, audio = filtered.order_by("abr")
+
     video = yt.streams.get_highest_resolution()
+    video_streams = list(yt.streams.filter(resolution="720p", mime_type="video/mp4"))
+
+    if not video_streams:
+        video_streams = list(
+            yt.streams.filter(resolution="360p", mime_type="video/mp4")
+        )
+        logger.warning(f"No 720p strams available for {url}")
+        logger.warning(f"360p streams available: {video_streams}")
 
     logger.info(f"Downloading {audio} and {video}")
 
     audio_stream = download_stream(
         stream=audio, output_dir=output_dir, max_retries=max_retries
     )
-    video_stream = download_stream(
-        stream=video, output_dir=output_dir, max_retries=max_retries
-    )
+
+    video_stream = None
+    for stream in video_streams:
+        try:
+            video_stream = download_stream(
+                stream=stream, output_dir=output_dir, max_retries=max_retries
+            )
+        except http.client.IncompleteRead as e:
+            # Some streams won't download.
+            logger.warning(f"Incomplete read for stream {stream} of {url}: {str(e)}")
+        except KeyError as e:
+            # Some have content-length missing.
+            logger.warning(f"Missing key for {stream} of {url}: {str(e)}")
+
+    if not video_stream:
+        raise RuntimeError(
+            f"Unable to download video stream for {url}. Candidates: {video_streams}"
+        )
 
     info = Meta(title=yt.title, description=yt.description, tags=yt.keywords)
     captions = [(caption.code, caption.xml_captions) for caption in yt.captions]
@@ -204,16 +228,18 @@ def get_captions(url: str, lang: Language) -> Sequence[Event]:
 
 def _language_tag(lang: str) -> str | None:
     match lang:
-        case "en" | "en-US":
+        case "en" | "en-US" | "a.en":
             return "en-US"
         case "uk":
             return "uk-UA"
-        case "ru":
+        case "ru" | "a.ru":
             return "ru-RU"
         case "pt":
             return "pt-PT"
         case "de":
             return "de-DE"
+        case "es":
+            return "es-US"
         case unsupported_language:
             logger.warning(f"Unsupported caption language: {unsupported_language}")
             return None
@@ -222,24 +248,48 @@ def _language_tag(lang: str) -> str | None:
 def parse(xml: str) -> Sequence[Event]:
     """Parses YouTube XML captions and generates a sequence of speech Events."""
 
+    def _extract_text(element):
+        inner = "".join([s.text for s in element.findall("s") or []])
+        return inner or element.text or ""
+
     body = ET.fromstring(xml).find("body")
     assert body is not None
 
+    raw_events = [
+        (
+            int(child.attrib["t"]),
+            int(duration)
+            if (duration := child.attrib.get("d", None)) is not None
+            else None,
+            [html.unescape(_extract_text(child))],
+        )
+        for child in body.findall("p") or []
+    ]
+
     return [
         Event(
-            time_ms=int(child.attrib["t"]),
-            duration_ms=int(child.attrib["d"]),
-            chunks=[html.unescape(child.text)],
+            time_ms=time_ms,
+            duration_ms=duration_ms
+            if duration_ms is not None
+            else next_time_ms - time_ms,
+            chunks=chunks,
         )
-        for child in body
-        if child.text
+        for (time_ms, duration_ms, chunks), (next_time_ms, _, _) in zip(
+            raw_events, raw_events[1:] + [(0, None, [])]
+        )
     ]
 
 
 def convert_captions(captions: Sequence[Tuple[str, str]]) -> Dict[str, Sequence[Event]]:
     """Converts YouTube captions for each language into speech Events."""
+
+    auto_captions = [(lang, xml) for lang, xml in captions if lang.startswith("a.")]
+    normal_captions = [
+        (lang, xml) for lang, xml in captions if not lang.startswith("a.")
+    ]
+
     return {
         language_tag: parse(xml_captions)
-        for code, xml_captions in captions
+        for code, xml_captions in auto_captions + normal_captions
         if (language_tag := _language_tag(code))
     }
