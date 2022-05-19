@@ -29,6 +29,7 @@ VOICES = {
         "pt-PT": "pt-PT-Wavenet-D",
         "de-DE": "de-DE-Wavenet-C",
         "es-US": "es-US-Wavenet-A",
+        "bn-IN": "bn-IN-Wavenet-A",
     },
     "Grace Hopper": {
         "en-US": "en-US-Wavenet-C",
@@ -44,6 +45,7 @@ VOICES = {
         "pt-PT": "pt-PT-Wavenet-C",
         "de-DE": "de-DE-Wavenet-B",
         "es-US": "es-US-Wavenet-B",
+        "bn-IN": "bn-IN-Wavenet-B",
     },
     "Alonzo Church": {
         "en-US": "en-US-Wavenet-D",

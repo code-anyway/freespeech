@@ -14,7 +14,7 @@ Character = Literal[
 
 
 def is_language(val: str) -> TypeGuard[Language]:
-    return val in ("en-US", "uk-UA", "ru-RU", "pt-PT", "es-US", "de-DE")
+    return val in ("en-US", "uk-UA", "ru-RU", "pt-PT", "es-US", "de-DE", "bn-IN")
 
 
 def is_character(val: str) -> TypeGuard[Character]:
