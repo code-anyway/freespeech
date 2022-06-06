@@ -31,7 +31,7 @@ PROPERTY_NAME_DUB_URL = "Dub URL"
 PROPERTY_NAME_CLIP_ID = "Clip ID"
 PROPERTY_NAME_TRANSLATED_FROM = "Translate"
 
-Source = Literal["Machine", "Subtitles", "Translate"]
+Source = Literal["Machine", "Machine A", "Machine B", "Subtitles", "Translate"]
 HTTPVerb = Literal["GET", "PATCH", "DELETE", "POST"]
 
 
