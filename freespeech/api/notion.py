@@ -2,7 +2,7 @@ import logging
 from dataclasses import asdict, replace
 from datetime import datetime, timezone
 from tempfile import TemporaryDirectory
-from typing import Dict, List, Literal
+from typing import Dict, List
 from uuid import UUID
 
 import aiohttp
@@ -167,7 +167,6 @@ async def _upload(database_id: str, transcript: notion.Transcript) -> notion.Tra
             video_url=transcript.origin,
             lang=transcript.lang,
         )
-
     updated_transcript = await notion.put_transcript(
         database_id=database_id,
         transcript=replace(
