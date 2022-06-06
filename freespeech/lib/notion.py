@@ -36,7 +36,7 @@ HTTPVerb = Literal["GET", "PATCH", "DELETE", "POST"]
 
 
 def is_source(val: str) -> TypeGuard[Source]:
-    return val in ("Machine", "Subtitles", "Translate")
+    return val in ("Machine", "Machine A", "Machine B", "Subtitles", "Translate")
 
 
 @dataclass(frozen=True)
