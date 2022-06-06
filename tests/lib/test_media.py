@@ -63,3 +63,30 @@ async def test_dub(tmp_path):
 
     t_ru = await speech.transcribe(uri, audio, "ru-RU")
     assert t_ru == [Event(time_ms=0, duration_ms=3180, chunks=["123"])]
+
+
+@pytest.mark.asyncio
+async def test_cut(tmp_path):
+    # Audio-only
+    (audio, *_), _ = media.probe(AUDIO_EN)
+    assert audio.duration_ms == 3264
+
+    output = await media.cut(
+        AUDIO_EN, start="00:00:01", finish="00:00:02", output_dir=tmp_path
+    )
+
+    (audio, *_), _ = media.probe(output)
+    assert audio.duration_ms == 2_005
+
+    # Video with audio track
+    (audio, *_), (video, *_) = media.probe(VIDEO_EN)
+    assert audio.duration_ms == 3277
+    assert video.duration_ms == 3298
+
+    output = await media.cut(
+        VIDEO_EN, start="00:00:01", finish="00:00:02", output_dir=tmp_path
+    )
+
+    (audio, *_), (video, *_) = media.probe(output)
+    assert audio.duration_ms == 2_000
+    assert video.duration_ms == 2_032

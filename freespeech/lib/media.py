@@ -211,6 +211,20 @@ async def dub(
     return output_file
 
 
+async def cut(
+    media_file: str | PathLike, start: str, finish: str, output_dir: str | PathLike
+) -> Path:
+    _input = ffmpeg.input(media_file, ss=start)
+    media_file = Path(media_file)
+
+    output_file = Path(f"{new_file(output_dir)}{media_file.suffix}")
+    pipeline = ffmpeg.output(_input, to=finish, c="copy", filename=output_file)
+
+    await _run(pipeline)
+
+    return output_file
+
+
 async def _run(pipeline):
     try:
 
