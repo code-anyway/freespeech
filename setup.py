@@ -40,6 +40,7 @@ setup(
     install_requires=[
         "aiohttp",
         "click",
+        "deepgram-sdk",
         "ffmpeg-python",
         # TODO (astaff): update/remove after https://github.com/pytube/pytube/pull/1282
         # is merged/released,

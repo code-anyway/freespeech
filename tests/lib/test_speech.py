@@ -18,6 +18,13 @@ async def test_transcribe() -> None:
     (audio, *_), _ = media.probe(AUDIO_EN_LOCAL)
     assert not _
 
+    t_en = await speech.transcribe(
+        AUDIO_EN_GS, audio, "en-US", model="default", provider="Deepgram"
+    )
+
+    event = Event(time_ms=971, duration_ms=2006, chunks=["one, two three,"], voice=None)
+    assert t_en == [event]
+
     t_en = await speech.transcribe(AUDIO_EN_GS, audio, "en-US", model="default")
 
     event = Event(time_ms=0, duration_ms=3230, chunks=["1, 2 3."])

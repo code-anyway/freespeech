@@ -5,7 +5,8 @@ from typing import List, Literal, NoReturn, Sequence, Tuple, TypeGuard
 
 AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC"]
 VideoEncoding = Literal["H264", "HEVC", "AV1"]
-
+ServiceProvider = Literal["Google", "Deepgram", "Azure"]
+TranscriptionModel = Literal["default", "latest_long", "general"]
 
 Language = Literal["en-US", "uk-UA", "ru-RU", "pt-PT", "es-US", "de-DE"]
 Character = Literal[

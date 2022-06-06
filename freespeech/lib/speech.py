@@ -7,15 +7,27 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Dict, Sequence, Tuple
 
+from deepgram import Deepgram
 from google.api_core import exceptions as google_api_exceptions
 from google.cloud import speech as speech_api
 from google.cloud import texttospeech
 from google.cloud.speech_v1.types.cloud_speech import LongRunningRecognizeResponse
 from google.cloud.texttospeech_v1.types import SynthesizeSpeechResponse
 
+from freespeech import env
 from freespeech.lib import concurrency, media
+from freespeech.lib.storage import obj
 from freespeech.lib.text import chunk, remove_symbols
-from freespeech.types import Audio, Character, Event, Voice
+from freespeech.types import (
+    Audio,
+    Character,
+    Event,
+    Language,
+    ServiceProvider,
+    TranscriptionModel,
+    Voice,
+    url,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +95,11 @@ def supported_voices() -> Dict[str, Sequence[str]]:
 
 
 async def transcribe(
-    uri: str, audio: Audio, lang: str, model: str = "default"
+    uri: str,
+    audio: Audio,
+    lang: Language,
+    model: TranscriptionModel = "default",
+    provider: ServiceProvider = "Google",
 ) -> Sequence[Event]:
     """Transcribe audio.
 
@@ -99,22 +115,76 @@ async def transcribe(
         Transcript containing timed phrases as `List[Event]`.
     """
 
-    if lang is None:
+    if audio.num_channels != 1:
         raise ValueError(
-            "Unable to determine language: audio.lang and lang are not set."
+            ("Audio should be mono for best results. " "Set audio.num_channels to 1.")
         )
 
+    match provider:
+        case "Google":
+            return await _transcribe_google(uri, audio, lang, model)
+        case "Deepgram":
+            return await _transcribe_deepgram(uri, audio, lang, model)
+        case "Azure":
+            raise NotImplementedError()
+        case _:
+            raise ValueError(f"Unsupported provider: {provider}")
+
+
+async def _transcribe_deepgram(
+    uri: url, audio: Audio, lang: Language, model: TranscriptionModel
+):
+    if model in ("default", "latest_long"):
+        model = "general"
+
+    if audio.encoding == "LINEAR16":
+        mime_type = "audio/wav"
+    else:
+        raise ValueError(f"Unsupported audio encoding: {audio.encoding}")
+
+    deepgram = Deepgram(env.get_deepgram_token())
+
+    with TemporaryDirectory() as tmp_dir:
+        file_path = await obj.get(uri, tmp_dir)
+
+        with open(file_path, "rb") as buffer:
+            source = {"buffer": buffer, "mimetype": mime_type}
+            response = await deepgram.transcription.prerecorded(
+                source,
+                {
+                    "punctuate": True,
+                    "language": lang,
+                    "model": model,
+                    "profanity_filter": False,
+                    "diarize": True,
+                    "utterances": True,
+                    "utt_split": 0.8,
+                },
+            )
+
+    events = [
+        Event(
+            time_ms=round(float(utterance["start"]) * 1000),
+            duration_ms=round(
+                float(utterance["end"] - float(utterance["start"])) * 1000
+            ),
+            chunks=[utterance["transcript"]],
+        )
+        for utterance in response["results"]["utterances"]
+    ]
+
+    return events
+
+
+async def _transcribe_google(
+    uri: url, audio: Audio, lang: Language, model: TranscriptionModel
+) -> Sequence[Event]:
     if audio.encoding not in GOOGLE_CLOUD_ENCODINGS:
         raise ValueError(
             (
                 f"Invalid audio encoding: {audio.encoding} "
                 f"Expected values {','.join(GOOGLE_CLOUD_ENCODINGS)}."
             )
-        )
-
-    if audio.num_channels != 1:
-        raise ValueError(
-            ("Audio should be mono for best results. " "Set audio.num_channels to 1.")
         )
 
     client = speech_api.SpeechClient()
@@ -162,7 +232,6 @@ async def transcribe(
         )
         current_time_ms = end_time_ms
         events += [event]
-
     return events
 
 

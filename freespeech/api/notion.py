@@ -11,7 +11,7 @@ from aiohttp import web
 from freespeech import client, env
 from freespeech.lib import language, media, notion, speech
 from freespeech.lib.storage import obj
-from freespeech.types import assert_never
+from freespeech.types import ServiceProvider, assert_never
 
 DUB_CLIENT_TIMEOUT = 3600
 CRUD_CLIENT_TIMEOUT = 3600
@@ -60,7 +60,7 @@ async def _process_transcript(
 
     if not transcript.events:
         match transcript.source:
-            case "Machine":
+            case "Machine" | "Machine A" | "Machine B":
                 transcript = await _transcribe(database_id, transcript)
             case "Subtitles":
                 transcript = await _from_subtitles(database_id, transcript)
@@ -132,11 +132,24 @@ async def _transcribe(
 
         await obj.put(mono_file, output_url)
 
+    provider: ServiceProvider
+
+    match transcript.source:
+        case "Machine" | "Machine A":
+            provider = "Google"
+        case "Machine B":
+            provider = "Deepgram"
+        case "Machine C":
+            provider = "Azure"
+        case _:
+            raise ValueError(f"Unsupported transcription source: {transcript.source}")
+
     events = await speech.transcribe(
         uri=output_url,
         audio=audio_info,
         lang=transcript.lang,
         model="latest_long",
+        provider=provider,
     )
     updated_transcript = replace(transcript, events=events)
 
@@ -154,7 +167,6 @@ async def _upload(database_id: str, transcript: notion.Transcript) -> notion.Tra
             video_url=transcript.origin,
             lang=transcript.lang,
         )
-
     updated_transcript = await notion.put_transcript(
         database_id=database_id,
         transcript=replace(

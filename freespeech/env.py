@@ -56,6 +56,16 @@ def get_notion_token() -> str:
 
 
 @functools.cache
+def get_deepgram_token() -> str:
+    token = os.environ.get("DEEPGRAM_TOKEN", None)
+
+    if not token:
+        raise RuntimeError("Environment variable 'DEEPGRAM_TOKEN' is not set.")
+
+    return token
+
+
+@functools.cache
 def get_crud_service_url() -> str:
     url = os.environ.get("FREESPEECH_CRUD_SERVICE_URL", None)
 
