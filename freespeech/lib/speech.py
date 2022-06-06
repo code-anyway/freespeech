@@ -15,7 +15,7 @@ from google.cloud.texttospeech_v1.types import SynthesizeSpeechResponse
 
 from freespeech.lib import concurrency, media
 from freespeech.lib.text import chunk, remove_symbols
-from freespeech.types import Audio, Character, Event, Voice
+from freespeech.types import Audio, Character, Event, ServiceProvider, Voice
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,11 @@ def supported_voices() -> Dict[str, Sequence[str]]:
 
 
 async def transcribe(
-    uri: str, audio: Audio, lang: str, model: str = "default"
+    uri: str,
+    audio: Audio,
+    lang: str,
+    model: str = "default",
+    provider: ServiceProvider = "Google",
 ) -> Sequence[Event]:
     """Transcribe audio.
 
@@ -117,6 +121,18 @@ async def transcribe(
             ("Audio should be mono for best results. " "Set audio.num_channels to 1.")
         )
 
+    match provider:
+        case "Google":
+            return await _transcribe_google(uri, audio, lang, model)
+        case "Deepgram":
+            raise NotImplementedError()
+        case "Azure":
+            raise NotImplementedError()
+        case _:
+            raise ValueError(f"Unsupported provider: {provider}")
+
+
+async def _transcribe_google(uri, audio, lang, model):
     client = speech_api.SpeechClient()
 
     try:
@@ -162,7 +178,6 @@ async def transcribe(
         )
         current_time_ms = end_time_ms
         events += [event]
-
     return events
 
 
