@@ -115,19 +115,6 @@ async def transcribe(
         Transcript containing timed phrases as `List[Event]`.
     """
 
-    if lang is None:
-        raise ValueError(
-            "Unable to determine language: audio.lang and lang are not set."
-        )
-
-    if audio.encoding not in GOOGLE_CLOUD_ENCODINGS:
-        raise ValueError(
-            (
-                f"Invalid audio encoding: {audio.encoding} "
-                f"Expected values {','.join(GOOGLE_CLOUD_ENCODINGS)}."
-            )
-        )
-
     if audio.num_channels != 1:
         raise ValueError(
             ("Audio should be mono for best results. " "Set audio.num_channels to 1.")
@@ -192,6 +179,14 @@ async def _transcribe_deepgram(
 async def _transcribe_google(
     uri: url, audio: Audio, lang: Language, model: TranscriptionModel
 ) -> Sequence[Event]:
+    if audio.encoding not in GOOGLE_CLOUD_ENCODINGS:
+        raise ValueError(
+            (
+                f"Invalid audio encoding: {audio.encoding} "
+                f"Expected values {','.join(GOOGLE_CLOUD_ENCODINGS)}."
+            )
+        )
+
     client = speech_api.SpeechClient()
 
     try:
