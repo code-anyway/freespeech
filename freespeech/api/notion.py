@@ -149,7 +149,7 @@ async def _transcribe(
         audio=audio_info,
         lang=transcript.lang,
         model="latest_long",
-        provider=provider
+        provider=provider,
     )
     updated_transcript = replace(transcript, events=events)
 
