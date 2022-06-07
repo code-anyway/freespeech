@@ -1,6 +1,8 @@
 import asyncio
 import logging
+import re
 import statistics
+import xml.etree.ElementTree as ET
 from dataclasses import replace
 from functools import cache
 from pathlib import Path
@@ -235,6 +237,28 @@ async def _transcribe_google(
     return events
 
 
+def is_valid_ssml(text: str) -> bool:
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError:
+        return False
+
+    return root.tag == "speak"
+
+
+def text_to_ssml_chunks(text: str, chunk_length: int) -> Sequence[str]:
+    inner = re.sub(r"#(\d+(\.\d+)?)#", r'<break time="\1s" />', text)
+
+    def wrap(text: str) -> str:
+        result = f"<speak>{text}</speak>"
+        assert is_valid_ssml(result), f"text={text} result={result}"
+        return result
+
+    overhead = len(wrap(""))
+
+    return [wrap(c) for c in chunk(text=inner, max_chars=chunk_length - overhead)]
+
+
 async def synthesize_text(
     text: str,
     duration_ms: int,
@@ -243,7 +267,7 @@ async def synthesize_text(
     pitch: float,
     output_dir: Path | str,
 ) -> Tuple[Path, Voice]:
-    chunks = chunk(text, MAX_CHUNK_LENGTH)
+    chunks = text_to_ssml_chunks(text, chunk_length=MAX_CHUNK_LENGTH)
 
     if voice not in VOICES:
         raise ValueError(
@@ -289,7 +313,7 @@ async def synthesize_text(
         def _api_call(phrase: str) -> SynthesizeSpeechResponse:
             client = texttospeech.TextToSpeechClient()
             return client.synthesize_speech(
-                input=texttospeech.SynthesisInput(text=phrase),
+                input=texttospeech.SynthesisInput(ssml=phrase),
                 voice=texttospeech.VoiceSelectionParams(
                     language_code=lang, name=google_voice
                 ),

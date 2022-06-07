@@ -12,6 +12,25 @@ AUDIO_EN_GS = "gs://freespeech-tests/test_speech/en-US-mono.wav"
 TEST_OUTPUT_GS = "gs://freespeech-tests/test_speech/output/"
 
 
+def test_text_to_ssml_chunks():
+    f = speech.text_to_ssml_chunks
+    assert f("", 16) == ["<speak></speak>"]
+    assert f("Hello#1.0#world!", 100) == [
+        '<speak>Hello<break time="1.0s" />world!</speak>'
+    ]
+    assert f("Hello#1#world!", 100) == ['<speak>Hello<break time="1s" />world!</speak>']
+    assert f("Hello#1#dear #2# world!", 100) == [
+        '<speak>Hello<break time="1s" />dear <break time="2s" /> world!</speak>'
+    ]
+    assert f("Hello#1#dear #2# world! How are you?", 100) == [
+        '<speak>Hello<break time="1s" />dear <break time="2s" /> world! How are you?</speak>'  # noqa E501
+    ]
+    assert f("Hello#1#dear #2# world! How are you?", 70) == [
+        '<speak>Hello<break time="1s" />dear <break time="2s" /> world!</speak>',
+        "<speak>How are you?</speak>",
+    ]
+
+
 @pytest.mark.asyncio
 async def test_transcribe() -> None:
     await obj.put(AUDIO_EN_LOCAL, AUDIO_EN_GS)
@@ -34,7 +53,7 @@ async def test_transcribe() -> None:
 @pytest.mark.asyncio
 async def test_synthesize_text(tmp_path) -> None:
     output, voice = await speech.synthesize_text(
-        text="One. Two. Three.",
+        text="One. Two. #2# Three.",
         duration_ms=4_000,
         voice="Grace Hopper",
         lang="en-US",
@@ -44,16 +63,19 @@ async def test_synthesize_text(tmp_path) -> None:
     (audio, *_), _ = media.probe(output)
 
     eps = 100
-    # Audio duration is shorter than requested because of minimum speech rate cut-off
-    assert abs(audio.duration_ms - 2_567) < eps
-    assert voice.speech_rate == 0.7  # 0.7 is a lower boundary for speech rate
+    assert abs(audio.duration_ms - 4_000) < eps
+    # Although text is short, speech break helps us achieve reasonable speech rate
+    assert voice.speech_rate == 0.90425
     assert voice.character == "Grace Hopper"
     assert voice.pitch == 0.0
 
     output_gs = await obj.put(output, f"{TEST_OUTPUT_GS}{output.name}")
-    (t_en, *tail) = await speech.transcribe(output_gs, audio, "en-US", model="default")
-    assert not tail, f"Extra events returned from transcribe: {tail}"
-    assert t_en.chunks == ["1, 2 3."]
+    (first, second) = await speech.transcribe(
+        output_gs, audio, "en-US", model="default"
+    )
+
+    assert first.chunks == ["One, two."]
+    assert second.chunks == [" 3."]
 
 
 @pytest.mark.asyncio
