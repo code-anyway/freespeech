@@ -1,3 +1,4 @@
+import re
 from dataclasses import replace
 from typing import Sequence
 
@@ -29,7 +30,10 @@ def translate_text(text: str, source: str, target: str) -> str:
         }
     )
 
-    return "\n".join([t.translated_text for t in response.translations])
+    result = "\n".join([t.translated_text for t in response.translations])
+
+    # Some translations turn "#1#" into "# 1 #", so this should undo that.
+    return re.sub(r"#\s*(\d+(\.\d+)?)\s*#", r"#\1#", result)
 
 
 def translate_events(
