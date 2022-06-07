@@ -54,7 +54,7 @@ EXPECTED_TRANSCRIPT = notion.Transcript(
     dub_url=None,
     clip_id="",
     _id="4738b64bf29f4c98bfad98e8c2a6690a",
-    voice=Voice(character="Alan Turing", pitch=1.0, speech_rate=None),
+    voice=Voice(character="Alan Turing", pitch=0.0, speech_rate=None),
     weights=(2, 10),
 )
 

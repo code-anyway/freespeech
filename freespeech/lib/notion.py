@@ -352,7 +352,7 @@ def parse_transcript(
     if pitch is not None:
         pitch = float(pitch)
     else:
-        pitch = 1.0
+        pitch = 0.0
 
     if character is not None:
         voice = Voice(character=character, pitch=pitch)
