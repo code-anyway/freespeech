@@ -2,6 +2,7 @@ from freespeech.lib import text
 
 
 def test_chunk() -> None:
+    assert text.chunk("", max_chars=10) == [""]
     assert text.chunk("Hello. World.", max_chars=7) == ["Hello.", "World."]
     assert text.chunk("Hello. World.", max_chars=13) == ["Hello. World."]
     assert text.chunk("Hello.", max_chars=6) == ["Hello."]

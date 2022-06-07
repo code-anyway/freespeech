@@ -10,9 +10,12 @@ def chunk(text: str, max_chars: int) -> Sequence[str]:
         max_chars: Character limit for each chunk.
 
     Returns:
-        Chunks of tests containing one or more sentences, each chunk
+        Chunks of text containing one or more sentences, each chunk
         will be less than `max_chars`.
     """
+    if not text:
+        return [text]
+
     # If capturing parentheses are used in pattern,
     # then the text of all groups in the pattern
     # are also returned as part of the resulting list.
