@@ -15,7 +15,7 @@ from freespeech.types import Character, Event, Language, Meta, Voice, assert_nev
 logger = logging.getLogger(__name__)
 
 NOTION_RICH_TEXT_CONTENT_LIMIT = 200
-TIMECODE_REGEX = r"([\d\:\.]+)\s*([/#@])\s*([\d\:\.]+)(\s+\((.+)\))?"
+timecode_parser = re.compile(r"([\d\:\.]+)\s*([/#@])\s*([\d\:\.]+)(\s+\((.+)\))?")
 
 PROPERTY_NAME_PAGE_TITLE = "Name"
 PROPERTY_NAME_ORIGIN = "Origin"
@@ -307,10 +307,8 @@ def parse_events(blocks: List[Dict]) -> Sequence[Event]:
         if block["type"] in ALLOWED_BLOCK_TYPES
     ]
 
-    timecode = re.compile(TIMECODE_REGEX)
-
     for line in lines:
-        if timecode.fullmatch(line):
+        if timecode_parser.fullmatch(line):
             start_ms, duration_ms, character = parse_time_interval(line)
             events += [
                 Event(
@@ -353,6 +351,8 @@ def parse_transcript(
     pitch = properties[PROPERTY_NAME_PITCH]
     if pitch is not None:
         pitch = float(pitch)
+    else:
+        pitch = 1.0
 
     if character is not None:
         voice = Voice(character=character, pitch=pitch)
@@ -457,8 +457,7 @@ def parse_time_interval(interval: str) -> Tuple[int, int, Character | None]:
             + t.microsecond // 1_000
         )
 
-    parser = re.compile(TIMECODE_REGEX)
-    match = parser.search(interval)
+    match = timecode_parser.search(interval)
 
     if not match:
         raise ValueError(f"Invalid string: {interval}")
