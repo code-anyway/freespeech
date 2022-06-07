@@ -153,7 +153,7 @@ async def _transcribe_deepgram(
                 source,
                 {
                     "punctuate": True,
-                    "language": lang,
+                    "language": "uk" if lang == "uk-UA" else lang,
                     "model": model,
                     "profanity_filter": False,
                     "diarize": True,
