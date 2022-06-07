@@ -158,7 +158,7 @@ async def _transcribe_deepgram(
                     "profanity_filter": False,
                     "diarize": True,
                     "utterances": True,
-                    "utt_split": 0.8,
+                    "utt_split": 1.4,
                 },
             )
 
