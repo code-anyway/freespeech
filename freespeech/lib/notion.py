@@ -15,6 +15,7 @@ from freespeech.types import Character, Event, Language, Meta, Voice, assert_nev
 logger = logging.getLogger(__name__)
 
 NOTION_RICH_TEXT_CONTENT_LIMIT = 200
+TIMECODE_REGEX = r"([\d\:\.]+)\s*([/#@])\s*([\d\:\.]+)(\s+\((.+)\))?"
 
 PROPERTY_NAME_PAGE_TITLE = "Name"
 PROPERTY_NAME_ORIGIN = "Origin"
@@ -299,13 +300,18 @@ def render_text(t: str) -> Dict:
 def parse_events(blocks: List[Dict]) -> Sequence[Event]:
     events = []
 
-    HEADINGS = ["heading_1", "heading_2", "heading_3"]
-    for block in blocks:
-        _type = block["type"]
-        if _type in HEADINGS:
-            value = _parse_value(block)
-            assert isinstance(value, str)
-            start_ms, duration_ms, character = parse_time_interval(value)
+    ALLOWED_BLOCK_TYPES = ["heading_1", "heading_2", "heading_3", "paragraph"]
+    lines = [
+        str(_parse_value(block))
+        for block in blocks
+        if block["type"] in ALLOWED_BLOCK_TYPES
+    ]
+
+    timecode = re.compile(TIMECODE_REGEX)
+
+    for line in lines:
+        if timecode.fullmatch(line):
+            start_ms, duration_ms, character = parse_time_interval(line)
             events += [
                 Event(
                     start_ms,
@@ -314,15 +320,11 @@ def parse_events(blocks: List[Dict]) -> Sequence[Event]:
                     voice=Voice(character) if character else None,
                 )
             ]
-        elif _type == "paragraph":
-            chunk = _parse_value(block)
+        else:
             if not events:
-                logger.warning(f"Paragraph without timestamp: {chunk}")
+                logger.warning(f"Paragraph without timestamp: {line}")
             else:
-                assert isinstance(chunk, str)
-                events += [
-                    replace(event := events.pop(), chunks=event.chunks + [chunk])
-                ]
+                events += [replace(event := events.pop(), chunks=event.chunks + [line])]
 
     return events
 
@@ -455,15 +457,16 @@ def parse_time_interval(interval: str) -> Tuple[int, int, Character | None]:
             + t.microsecond // 1_000
         )
 
-    parser = re.compile(r"([\d\:\.]+)\s*\/\s*([\d\:\.]+)(\s+\((.+)\))?")
+    parser = re.compile(TIMECODE_REGEX)
     match = parser.search(interval)
 
     if not match:
         raise ValueError(f"Invalid string: {interval}")
 
     start = match.group(1)
-    finish = match.group(2)
-    character_str = match.group(4)
+    qualifier = match.group(2)
+    value = match.group(3)
+    character_str = match.group(5)
 
     if types.is_character(character_str):
         character = character_str
@@ -471,9 +474,13 @@ def parse_time_interval(interval: str) -> Tuple[int, int, Character | None]:
         character = None
 
     start_ms = _to_milliseconds(time.fromisoformat(start))
-    finish_ms = _to_milliseconds(time.fromisoformat(finish))
+    if qualifier == "/":
+        finish_ms = _to_milliseconds(time.fromisoformat(value))
+        duration_ms = finish_ms - start_ms
+    elif qualifier == "#":
+        duration_ms = round(float(value) * 1000)
 
-    return start_ms, finish_ms - start_ms, character
+    return start_ms, duration_ms, character
 
 
 def unparse_time_interval(time_ms: int, duration_ms: int, voice: Voice | None) -> str:
