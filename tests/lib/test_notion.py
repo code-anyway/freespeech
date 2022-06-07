@@ -27,6 +27,37 @@ LONG_EVENT_1_RU = Event(
     voice=Voice(character="Alonzo Church"),
 )
 
+EXPECTED_TRANSCRIPT = notion.Transcript(
+    title="[DO NOT DELETE] test_read_transcript()",
+    origin="https://youtube",
+    lang="en-US",
+    source="Subtitles",
+    events=[
+        Event(
+            time_ms=1001, duration_ms=1000, chunks=["One hen. Two ducks."], voice=None
+        ),
+        Event(
+            time_ms=3000,
+            duration_ms=2000,
+            chunks=["Blah"],
+            voice=Voice(character="Alonzo Church", pitch=0.0, speech_rate=None),
+        ),
+        Event(
+            time_ms=6001,
+            duration_ms=1000,
+            chunks=["Blah Blah"],
+            voice=Voice(character="Alonzo Church", pitch=0.0, speech_rate=None),
+        ),
+    ],
+    meta=Meta(title="", description="", tags=[]),
+    dub_timestamp="",
+    dub_url=None,
+    clip_id="",
+    _id="4738b64bf29f4c98bfad98e8c2a6690a",
+    voice=Voice(character="Alan Turing", pitch=1.0, speech_rate=None),
+    weights=(2, 10),
+)
+
 
 def test_parse_event():
     parse = notion.parse_time_interval
@@ -38,6 +69,17 @@ def test_parse_event():
     assert parse("00:01:02.001/00:01:20.123") == (62001, 18122, None)
     assert parse("01:01:01.123/01:01:01.123") == (3661123, 0, None)
     assert parse("00:00:00.000/00:00:00.000 (Alonzo Church)") == (0, 0, "Alonzo Church")
+    assert parse("00:00:00.000#0 (Alonzo Church)") == (0, 0, "Alonzo Church")
+    assert parse("00:00:00.000#0.0 (Alonzo Church)") == (0, 0, "Alonzo Church")
+    assert parse("00:00:00.001#0.1") == (1, 100, None)
+
+
+@pytest.mark.asyncio
+async def test_read_transcript():
+    PAGE_ID = "4738b64bf29f4c98bfad98e8c2a6690a"
+    transcript = await notion.get_transcript(PAGE_ID)
+
+    assert transcript == EXPECTED_TRANSCRIPT
 
 
 @pytest.mark.asyncio
