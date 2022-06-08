@@ -163,6 +163,8 @@ async def _transcribe_deepgram(
                 },
             )
 
+    characters = ("Alan Turing", "Alonzo Church")
+
     events = [
         Event(
             time_ms=round(float(utterance["start"]) * 1000),
@@ -170,6 +172,9 @@ async def _transcribe_deepgram(
                 float(utterance["end"] - float(utterance["start"])) * 1000
             ),
             chunks=[utterance["transcript"]],
+            voice=Voice(
+                character=characters[int(utterance["speaker"]) % len(characters)]
+            ),
         )
         for utterance in response["results"]["utterances"]
     ]
@@ -416,7 +421,7 @@ def normalize_speech(
             chunks=[
                 f"{' '.join(e1.chunks)} #{gap_sec:.2f}# {' '.join(e2.chunks)}"  # noqa: E501
             ],
-            voice=e2.voice
+            voice=e2.voice,
         )
 
     first_event, *events = scrubbed_events
