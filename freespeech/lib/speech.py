@@ -28,6 +28,7 @@ from freespeech.types import (
     TranscriptionModel,
     Voice,
     url,
+    is_character
 )
 
 logger = logging.getLogger(__name__)
@@ -163,16 +164,22 @@ async def _transcribe_deepgram(
                 },
             )
 
-    events = [
-        Event(
+    characters = ("Alan Turing", "Alonzo Church")
+
+    events = []
+    for utterance in response["results"]["utterances"]:
+        character = characters[int(utterance["speaker"]) % len(characters)]
+        assert is_character(character)
+
+        event = Event(
             time_ms=round(float(utterance["start"]) * 1000),
             duration_ms=round(
                 float(utterance["end"] - float(utterance["start"])) * 1000
             ),
             chunks=[utterance["transcript"]],
+            voice=Voice(character=character),
         )
-        for utterance in response["results"]["utterances"]
-    ]
+        events += [event]
 
     return events
 
@@ -416,7 +423,7 @@ def normalize_speech(
             chunks=[
                 f"{' '.join(e1.chunks)} #{gap_sec:.2f}# {' '.join(e2.chunks)}"  # noqa: E501
             ],
-            voice=e2.voice
+            voice=e2.voice,
         )
 
     first_event, *events = scrubbed_events

@@ -97,6 +97,8 @@ async def _translate(
         database_id=database_id, transcript=replace(transcript, events=events)
     )
 
+    logger.warning(f"Translated: {updated_transcript}")
+
     return updated_transcript
 
 
