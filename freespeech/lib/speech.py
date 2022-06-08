@@ -136,6 +136,13 @@ async def transcribe(
 async def _transcribe_deepgram(
     uri: url, audio: Audio, lang: Language, model: TranscriptionModel
 ):
+    LANGUAGE_OVERRIDE = {
+        "uk-UA": "uk",
+        "ru-RU": "ru"
+    }
+
+    lang = LANGUAGE_OVERRIDE.get(lang, None) or lang
+
     if model in ("default", "latest_long"):
         model = "general"
 
@@ -155,7 +162,7 @@ async def _transcribe_deepgram(
                 source,
                 {
                     "punctuate": True,
-                    "language": "uk" if lang == "uk-UA" else lang,
+                    "language": lang,
                     "model": model,
                     "profanity_filter": False,
                     "diarize": True,
