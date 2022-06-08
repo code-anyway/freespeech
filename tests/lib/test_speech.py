@@ -163,15 +163,54 @@ async def test_synthesize_long_event(tmp_path) -> None:
 def test_normalize_speech() -> None:
     # Two events with 0ms in between, followed by another event in 1sec
     events = [
-        Event(time_ms=100, duration_ms=400, chunks=["one"]),
-        Event(time_ms=500, duration_ms=400, chunks=["two"]),
+        Event(time_ms=100, duration_ms=300, chunks=["one"]),  # gap: 100ms
+        Event(time_ms=500, duration_ms=400, chunks=["two."]),  # gap: 1200ms
         Event(time_ms=2_100, duration_ms=500, chunks=["three"]),
     ]
 
-    normalized = speech.normalize_speech(events)
+    normalized = speech.normalize_speech(events, gap_ms=2000, length=100)
     assert normalized == [
-        Event(time_ms=100, duration_ms=800, chunks=["one two"]),
-        Event(time_ms=2_100, duration_ms=500, chunks=["three"]),
+        Event(time_ms=100, duration_ms=2500, chunks=["one #0.10# two. #1.20# three"]),
+    ]
+
+    normalized = speech.normalize_speech(events, gap_ms=1000, length=100)
+    assert normalized == [
+        Event(time_ms=100, duration_ms=800, chunks=["one #0.10# two."]),
+        Event(time_ms=2100, duration_ms=500, chunks=["three"]),
+    ]
+
+    normalized = speech.normalize_speech(events, gap_ms=2000, length=5)
+    assert normalized == [
+        Event(time_ms=100, duration_ms=800, chunks=["one #0.10# two."]),
+        Event(time_ms=2100, duration_ms=500, chunks=["three"]),
+    ]
+
+    events += [
+        Event(
+            time_ms=2700,
+            duration_ms=100,
+            chunks=["four"],
+            voice=Voice(character="Alonzo Church"),
+        )
+    ]
+    events += [
+        Event(
+            time_ms=2900,
+            duration_ms=100,
+            chunks=["five"],
+            voice=Voice(character="Alonzo Church"),
+        )
+    ]
+    normalized = speech.normalize_speech(events, gap_ms=2000, length=5)
+    assert normalized == [
+        Event(time_ms=100, duration_ms=800, chunks=["one #0.10# two."]),
+        Event(time_ms=2100, duration_ms=500, chunks=["three"]),
+        Event(
+            time_ms=2700,
+            duration_ms=300,
+            chunks=["four #0.10# five"],
+            voice=Voice(character="Alonzo Church"),
+        ),
     ]
 
 

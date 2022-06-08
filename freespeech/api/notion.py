@@ -16,6 +16,12 @@ from freespeech.types import ServiceProvider, assert_never
 DUB_CLIENT_TIMEOUT = 3600
 CRUD_CLIENT_TIMEOUT = 3600
 
+# Events with the gap greater than GAP_MS won't be contatenated.
+GAP_MS = 1400
+
+# Won't attempt concatenating events if one is longer than LENGTH.
+PHRASE_LENGTH = 600
+
 
 logger = logging.getLogger(__name__)
 routes = web.RouteTableDef()
@@ -106,7 +112,9 @@ async def _from_subtitles(
         database_id=database_id,
         transcript=replace(
             transcript,
-            events=speech.normalize_speech(clip.transcript),
+            events=speech.normalize_speech(
+                clip.transcript, gap_ms=GAP_MS, length=PHRASE_LENGTH
+            ),
         ),
     )
 
@@ -151,7 +159,10 @@ async def _transcribe(
         model="latest_long",
         provider=provider,
     )
-    updated_transcript = replace(transcript, events=events)
+    updated_transcript = replace(
+        transcript,
+        events=speech.normalize_speech(events, gap_ms=GAP_MS, length=PHRASE_LENGTH),
+    )
 
     logger.warning(f"Trabscribed: {updated_transcript}")
 
