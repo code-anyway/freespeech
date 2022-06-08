@@ -8,7 +8,6 @@ from aiohttp import web
 from aiohttp.pytest_plugin import AiohttpClient
 
 from freespeech.api import crud
-from tests import commons
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +21,10 @@ async def client(aiohttp_client) -> Generator[AiohttpClient, None, None]:
 
 
 @pytest.mark.asyncio
-async def test_clip_upload_and_get(client):
+async def test_clip_upload_and_get(const, client):
     params = {
-        "url": commons.ANNOUNCERS_TEST_VIDEO_URL,
-        "lang": commons.ANNOUNCERS_TEST_VIDEO_LANGUAGE,
+        "url": const.ANNOUNCERS_TEST_VIDEO_URL,
+        "lang": const.ANNOUNCERS_TEST_VIDEO_LANGUAGE,
     }
 
     resp = await client.post("/clips/upload", json=params)
@@ -34,15 +33,15 @@ async def test_clip_upload_and_get(client):
     resp = await client.get(f"/clips/{clip['_id']}")
     assert clip == await resp.json()
 
-    url = quote_plus(commons.ANNOUNCERS_TEST_VIDEO_URL)
+    url = quote_plus(const.ANNOUNCERS_TEST_VIDEO_URL)
     resp = await client.get(f"/clips/latest/{url}/en-US")
     latest = await resp.json()
     assert clip == latest
 
 
 @pytest.mark.asyncio
-async def test_clip_latest_and_update(client):
-    url = quote_plus(commons.ANNOUNCERS_TEST_VIDEO_URL)
+async def test_clip_latest_and_update(const, client):
+    url = quote_plus(const.ANNOUNCERS_TEST_VIDEO_URL)
     resp = await client.get(f"/clips/latest/{url}")
     clips = await resp.json()
 
@@ -66,8 +65,8 @@ async def test_clip_latest_and_update(client):
 
 
 @pytest.mark.asyncio
-async def test_get_video(client):
-    url = quote_plus(commons.ANNOUNCERS_TEST_VIDEO_URL)
+async def test_get_video(const, client):
+    url = quote_plus(const.ANNOUNCERS_TEST_VIDEO_URL)
     resp = await client.get(f"/clips/latest/{url}/en-US")
     clip_en_us = await resp.json()
 

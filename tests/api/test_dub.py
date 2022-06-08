@@ -8,7 +8,6 @@ from google.cloud import firestore  # type: ignore
 
 from freespeech import env
 from freespeech.api import crud, dub
-from tests import commons
 
 ANNOUNCERS_TEST_TRANSCRIPT_RU = [
     {
@@ -39,12 +38,12 @@ async def client(aiohttp_client) -> Generator[AiohttpClient, None, None]:
 
 
 @pytest_asyncio.fixture
-async def ensure_clip_id(client) -> str:
+async def ensure_clip_id(const, client) -> str:
     firestore_client = firestore.AsyncClient(project=env.get_project_id())
     docs = (
         firestore_client.collection("clips")
-        .where("origin", "==", commons.ANNOUNCERS_TEST_VIDEO_URL)
-        .where("lang", "==", commons.ANNOUNCERS_TEST_VIDEO_LANGUAGE)
+        .where("origin", "==", const.ANNOUNCERS_TEST_VIDEO_URL)
+        .where("lang", "==", const.ANNOUNCERS_TEST_VIDEO_LANGUAGE)
         .select("_id")
         .limit(1)
         .stream()
@@ -53,7 +52,7 @@ async def ensure_clip_id(client) -> str:
         return doc.id
 
     # upload clip with CRUD api and return its id
-    params = {"url": commons.ANNOUNCERS_TEST_VIDEO_URL, "lang": "en-US"}
+    params = {"url": const.ANNOUNCERS_TEST_VIDEO_URL, "lang": "en-US"}
     resp = await client.post("/clips/upload", json=params)
     clip = await resp.json()
     return clip["_id"]
