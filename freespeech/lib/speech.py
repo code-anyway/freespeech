@@ -27,6 +27,7 @@ from freespeech.types import (
     ServiceProvider,
     TranscriptionModel,
     Voice,
+    is_language,
     url,
     is_character
 )
@@ -136,12 +137,14 @@ async def transcribe(
 async def _transcribe_deepgram(
     uri: url, audio: Audio, lang: Language, model: TranscriptionModel
 ):
+    # For more info see language section of
+    # https://developers.deepgram.com/api-reference/#transcription-prerecorded
     LANGUAGE_OVERRIDE = {
         "uk-UA": "uk",
         "ru-RU": "ru"
     }
 
-    lang = LANGUAGE_OVERRIDE.get(lang, None) or lang
+    deepgram_lang = LANGUAGE_OVERRIDE.get(lang, None) or lang
 
     if model in ("default", "latest_long"):
         model = "general"
@@ -162,7 +165,7 @@ async def _transcribe_deepgram(
                 source,
                 {
                     "punctuate": True,
-                    "language": lang,
+                    "language": deepgram_lang,
                     "model": model,
                     "profanity_filter": False,
                     "diarize": True,
