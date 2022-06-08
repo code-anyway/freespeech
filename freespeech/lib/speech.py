@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import re
-import statistics
 import xml.etree.ElementTree as ET
 from dataclasses import replace
 from functools import cache
@@ -389,12 +388,8 @@ async def synthesize_events(
     return output_file, voices
 
 
-def _speech_rate(event: Event) -> float:
-    return len(" ".join(event.chunks)) / event.duration_ms
-
-
 def normalize_speech(
-    events: Sequence[Event], gap_threshold: float = 300
+    events: Sequence[Event], gap_ms: int, length: int
 ) -> Sequence[Event]:
     """Transforms speech events into a fewer and longer ones
     representing continuous speech."""
@@ -405,50 +400,43 @@ def normalize_speech(
         replace(e, chunks=[remove_symbols(" ".join(e.chunks), REMOVE_SYMBOLS)])
         for e in events
     ]
-    adjusted_events = _adjust_duration(scrubbed_events)
+
     gaps = [
         e2.time_ms - e1.time_ms - e1.duration_ms
-        for e1, e2 in zip(adjusted_events[:-1], adjusted_events[1:])
+        for e1, e2 in zip(scrubbed_events[:-1], scrubbed_events[1:])
     ]
 
     def _concat_events(e1: Event, e2: Event) -> Event:
+        shift_ms = e2.time_ms - e1.time_ms
+        gap_sec = (shift_ms - e1.duration_ms) / 1000.0
+
         return Event(
             time_ms=e1.time_ms,
-            duration_ms=e2.time_ms - e1.time_ms + e2.duration_ms,
-            chunks=[" ".join(e1.chunks + e2.chunks)],
+            duration_ms=shift_ms + e2.duration_ms,
+            chunks=[
+                f"{' '.join(e1.chunks)} #{gap_sec:.2f}# {' '.join(e2.chunks)}"  # noqa: E501
+            ],
+            voice=e2.voice
         )
 
-    first_event, *events = adjusted_events
+    first_event, *events = scrubbed_events
     acc = [first_event]
 
     for event, gap in zip(events, gaps):
         last_event = acc.pop()
-        if gap > gap_threshold:
+        last_text = (" ".join(last_event.chunks)).strip()
+
+        if gap > gap_ms:
+            acc += [last_event, event]
+        elif len(last_text) > length and (
+            last_text.endswith(".")
+            or last_text.endswith("!")
+            or last_text.endswith("?")
+        ):
+            acc += [last_event, event]
+        elif last_event.voice != event.voice:
             acc += [last_event, event]
         else:
             acc += [_concat_events(last_event, event)]
 
     return acc
-
-
-def _adjust_duration(events: Sequence[Event]) -> Sequence[Event]:
-    speech_rates = [_speech_rate(e) for e in events]
-
-    sigma = statistics.stdev(speech_rates)
-    mean = statistics.mean(speech_rates)
-
-    durations = [
-        event.duration_ms * (speech_rate / mean)
-        if speech_rate < mean - sigma
-        else event.duration_ms
-        for event, speech_rate in zip(events, speech_rates)
-    ]
-
-    logger.debug(f"durations = {durations}")
-
-    adjusted_events = [
-        replace(event, duration_ms=duration)
-        for duration, event in zip(durations, events)
-    ]
-
-    return adjusted_events
