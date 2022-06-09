@@ -11,8 +11,11 @@ def chunk(text: str, max_chars: int) -> Sequence[str]:
 
     Returns:
         Chunks of tests containing one or more sentences, each chunk
-        will be less than `max_chars`.
+        will be less than `max_chars`. Text is broken down on sentence border.
     """
+    # replace dot within break marker like #1.5# so it does not make a sentence border.
+    text = re.sub(r"(#(\d*)(\.)(\d*)#)", r"#\2*\4#", text)
+
     # If capturing parentheses are used in pattern,
     # then the text of all groups in the pattern
     # are also returned as part of the resulting list.
@@ -27,9 +30,11 @@ def chunk(text: str, max_chars: int) -> Sequence[str]:
             else:
                 res += s
         if res:
-            yield res.strip()
+            text = res.strip()
+            yield text
 
-    return list(chunk_sentences())
+    # return the dot back to time marker
+    return [re.sub(r"(#(\d*)(\*)(\d*)#)", r"#\2.\4#", s) for s in chunk_sentences()]
 
 
 def chunk_raw(s: str, length: int) -> Sequence[str]:
