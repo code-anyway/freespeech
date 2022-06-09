@@ -11,7 +11,7 @@ def chunk(text: str, max_chars: int) -> Sequence[str]:
 
     Returns:
         Chunks of text containing one or more sentences, each chunk
-        will be less than `max_chars`.
+        will be less than `max_chars`. Text is broken down on sentence border.
     """
     if not text:
         return [text]
@@ -19,7 +19,7 @@ def chunk(text: str, max_chars: int) -> Sequence[str]:
     # If capturing parentheses are used in pattern,
     # then the text of all groups in the pattern
     # are also returned as part of the resulting list.
-    sentences = (s for s in re.split(r"(\!|\?|\.)", text))
+    sentences = (s for s in re.split(r"(\!|\?|\.\s+)", text))
 
     def chunk_sentences() -> Iterator[str]:
         res = ""
@@ -32,6 +32,7 @@ def chunk(text: str, max_chars: int) -> Sequence[str]:
         if res:
             yield res.strip()
 
+    # return the dot back to time marker
     return list(chunk_sentences())
 
 
