@@ -16,13 +16,10 @@ def chunk(text: str, max_chars: int) -> Sequence[str]:
     if not text:
         return [text]
 
-    # replace dot within break marker like #1.5# so it does not make a sentence border.
-    text = re.sub(r"(#(\d*)(\.)(\d*)#)", r"#\2*\4#", text)
-
     # If capturing parentheses are used in pattern,
     # then the text of all groups in the pattern
     # are also returned as part of the resulting list.
-    sentences = (s for s in re.split(r"(\!|\?|\.)", text))
+    sentences = (s for s in re.split(r"(\!|\?|\.\s+)", text))
 
     def chunk_sentences() -> Iterator[str]:
         res = ""
@@ -36,7 +33,7 @@ def chunk(text: str, max_chars: int) -> Sequence[str]:
             yield res.strip()
 
     # return the dot back to time marker
-    return [re.sub(r"(#(\d*)(\*)(\d*)#)", r"#\2.\4#", s) for s in chunk_sentences()]
+    return list(chunk_sentences())
 
 
 def chunk_raw(s: str, length: int) -> Sequence[str]:

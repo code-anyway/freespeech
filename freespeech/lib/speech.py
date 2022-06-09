@@ -27,8 +27,8 @@ from freespeech.types import (
     ServiceProvider,
     TranscriptionModel,
     Voice,
+    is_character,
     url,
-    is_character
 )
 
 logger = logging.getLogger(__name__)
@@ -136,10 +136,7 @@ async def transcribe(
 async def _transcribe_deepgram(
     uri: url, audio: Audio, lang: Language, model: TranscriptionModel
 ):
-    LANGUAGE_OVERRIDE = {
-        "uk-UA": "uk",
-        "ru-RU": "ru"
-    }
+    LANGUAGE_OVERRIDE = {"uk-UA": "uk", "ru-RU": "ru"}
 
     lang = LANGUAGE_OVERRIDE.get(lang, None) or lang
 
