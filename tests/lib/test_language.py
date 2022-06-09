@@ -3,9 +3,9 @@ from freespeech.types import Event
 
 
 def test_translate_text():
-    text_ru = "Привет, мир"
-    text_en = "Hello world"
-    text_uk = "Привіт світ"
+    text_ru = "Привет #2# мир. #3# Как дела?"
+    text_en = "Hello #2# world. #3# How are you?"
+    text_uk = "Привіт #2# світ. #3# Як справи?"
 
     assert language.translate_text(text_en, "en-US", "ru-RU") == text_ru
     assert language.translate_text(text_ru, "ru-RU", "uk-UK") == text_uk

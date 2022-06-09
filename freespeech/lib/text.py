@@ -10,9 +10,12 @@ def chunk(text: str, max_chars: int) -> Sequence[str]:
         max_chars: Character limit for each chunk.
 
     Returns:
-        Chunks of tests containing one or more sentences, each chunk
+        Chunks of text containing one or more sentences, each chunk
         will be less than `max_chars`. Text is broken down on sentence border.
     """
+    if not text:
+        return [text]
+
     # replace dot within break marker like #1.5# so it does not make a sentence border.
     text = re.sub(r"(#(\d*)(\.)(\d*)#)", r"#\2*\4#", text)
 
@@ -30,8 +33,7 @@ def chunk(text: str, max_chars: int) -> Sequence[str]:
             else:
                 res += s
         if res:
-            text = res.strip()
-            yield text
+            yield res.strip()
 
     # return the dot back to time marker
     return [re.sub(r"(#(\d*)(\*)(\d*)#)", r"#\2.\4#", s) for s in chunk_sentences()]

@@ -1,6 +1,7 @@
 import asyncio
 import logging
-import statistics
+import re
+import xml.etree.ElementTree as ET
 from dataclasses import replace
 from functools import cache
 from pathlib import Path
@@ -27,6 +28,7 @@ from freespeech.types import (
     TranscriptionModel,
     Voice,
     url,
+    is_character
 )
 
 logger = logging.getLogger(__name__)
@@ -134,6 +136,13 @@ async def transcribe(
 async def _transcribe_deepgram(
     uri: url, audio: Audio, lang: Language, model: TranscriptionModel
 ):
+    LANGUAGE_OVERRIDE = {
+        "uk-UA": "uk",
+        "ru-RU": "ru"
+    }
+
+    lang = LANGUAGE_OVERRIDE.get(lang, None) or lang
+
     if model in ("default", "latest_long"):
         model = "general"
 
@@ -153,7 +162,7 @@ async def _transcribe_deepgram(
                 source,
                 {
                     "punctuate": True,
-                    "language": "uk" if lang == "uk-UA" else lang,
+                    "language": lang,
                     "model": model,
                     "profanity_filter": False,
                     "diarize": True,
@@ -162,16 +171,22 @@ async def _transcribe_deepgram(
                 },
             )
 
-    events = [
-        Event(
+    characters = ("Alan Turing", "Alonzo Church")
+
+    events = []
+    for utterance in response["results"]["utterances"]:
+        character = characters[int(utterance["speaker"]) % len(characters)]
+        assert is_character(character)
+
+        event = Event(
             time_ms=round(float(utterance["start"]) * 1000),
             duration_ms=round(
                 float(utterance["end"] - float(utterance["start"])) * 1000
             ),
             chunks=[utterance["transcript"]],
+            voice=Voice(character=character),
         )
-        for utterance in response["results"]["utterances"]
-    ]
+        events += [event]
 
     return events
 
@@ -235,6 +250,28 @@ async def _transcribe_google(
     return events
 
 
+def is_valid_ssml(text: str) -> bool:
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError:
+        return False
+
+    return root.tag == "speak"
+
+
+def text_to_ssml_chunks(text: str, chunk_length: int) -> Sequence[str]:
+    inner = re.sub(r"#(\d+(\.\d+)?)#", r'<break time="\1s" />', text)
+
+    def wrap(text: str) -> str:
+        result = f"<speak>{text}</speak>"
+        assert is_valid_ssml(result), f"text={text} result={result}"
+        return result
+
+    overhead = len(wrap(""))
+
+    return [wrap(c) for c in chunk(text=inner, max_chars=chunk_length - overhead)]
+
+
 async def synthesize_text(
     text: str,
     duration_ms: int,
@@ -243,7 +280,7 @@ async def synthesize_text(
     pitch: float,
     output_dir: Path | str,
 ) -> Tuple[Path, Voice]:
-    chunks = chunk(text, MAX_CHUNK_LENGTH)
+    chunks = text_to_ssml_chunks(text, chunk_length=MAX_CHUNK_LENGTH)
 
     if voice not in VOICES:
         raise ValueError(
@@ -289,7 +326,7 @@ async def synthesize_text(
         def _api_call(phrase: str) -> SynthesizeSpeechResponse:
             client = texttospeech.TextToSpeechClient()
             return client.synthesize_speech(
-                input=texttospeech.SynthesisInput(text=phrase),
+                input=texttospeech.SynthesisInput(ssml=phrase),
                 voice=texttospeech.VoiceSelectionParams(
                     language_code=lang, name=google_voice
                 ),
@@ -365,12 +402,8 @@ async def synthesize_events(
     return output_file, voices
 
 
-def _speech_rate(event: Event) -> float:
-    return len(" ".join(event.chunks)) / event.duration_ms
-
-
 def normalize_speech(
-    events: Sequence[Event], gap_threshold: float = 300
+    events: Sequence[Event], gap_ms: int, length: int
 ) -> Sequence[Event]:
     """Transforms speech events into a fewer and longer ones
     representing continuous speech."""
@@ -381,50 +414,43 @@ def normalize_speech(
         replace(e, chunks=[remove_symbols(" ".join(e.chunks), REMOVE_SYMBOLS)])
         for e in events
     ]
-    adjusted_events = _adjust_duration(scrubbed_events)
+
     gaps = [
         e2.time_ms - e1.time_ms - e1.duration_ms
-        for e1, e2 in zip(adjusted_events[:-1], adjusted_events[1:])
+        for e1, e2 in zip(scrubbed_events[:-1], scrubbed_events[1:])
     ]
 
     def _concat_events(e1: Event, e2: Event) -> Event:
+        shift_ms = e2.time_ms - e1.time_ms
+        gap_sec = (shift_ms - e1.duration_ms) / 1000.0
+
         return Event(
             time_ms=e1.time_ms,
-            duration_ms=e2.time_ms - e1.time_ms + e2.duration_ms,
-            chunks=[" ".join(e1.chunks + e2.chunks)],
+            duration_ms=shift_ms + e2.duration_ms,
+            chunks=[
+                f"{' '.join(e1.chunks)} #{gap_sec:.2f}# {' '.join(e2.chunks)}"  # noqa: E501
+            ],
+            voice=e2.voice,
         )
 
-    first_event, *events = adjusted_events
+    first_event, *events = scrubbed_events
     acc = [first_event]
 
     for event, gap in zip(events, gaps):
         last_event = acc.pop()
-        if gap > gap_threshold:
+        last_text = (" ".join(last_event.chunks)).strip()
+
+        if gap > gap_ms:
+            acc += [last_event, event]
+        elif len(last_text) > length and (
+            last_text.endswith(".")
+            or last_text.endswith("!")
+            or last_text.endswith("?")
+        ):
+            acc += [last_event, event]
+        elif last_event.voice != event.voice:
             acc += [last_event, event]
         else:
             acc += [_concat_events(last_event, event)]
 
     return acc
-
-
-def _adjust_duration(events: Sequence[Event]) -> Sequence[Event]:
-    speech_rates = [_speech_rate(e) for e in events]
-
-    sigma = statistics.stdev(speech_rates)
-    mean = statistics.mean(speech_rates)
-
-    durations = [
-        event.duration_ms * (speech_rate / mean)
-        if speech_rate < mean - sigma
-        else event.duration_ms
-        for event, speech_rate in zip(events, speech_rates)
-    ]
-
-    logger.debug(f"durations = {durations}")
-
-    adjusted_events = [
-        replace(event, duration_ms=duration)
-        for duration, event in zip(durations, events)
-    ]
-
-    return adjusted_events
