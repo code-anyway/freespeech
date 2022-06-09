@@ -129,3 +129,29 @@ async def test_create_update_get_transcript():
     # Avoid unclosed transport ResourceWarning.
     # details: https://docs.aiohttp.org/en/stable/client_advanced.html?highlight=graceful%20shutdown#graceful-shutdown  # noqa E501
     await asyncio.sleep(0.250)
+
+
+def test_parse_time_interval():
+    correct_intervals = [
+        "00:13:00.50000/00:13:00.50000",
+        "00:13:00.500/00:13:00.500",
+        "  00:13:00.500000  / 00:13:00.500000   ",
+        "00:13:00.5/00:13:00.5",
+        "00:13:00.50/00:13:00.50",
+        "00:13:00.500/00:13:00.500",
+        "00:13:00.5000/00:13:00.5000",
+        "00:13:00.50000/00:13:00.50000",
+        "00:13:00.500000/00:13:00.500000",
+        "00:13:00.500000/00:13:00.5000000000000",
+        "00:13:00.5000/00:13:00.5000",
+    ]
+    correct_parsed = (13 * 60 * 1000 + 500, 0, None)
+
+    for sample in correct_intervals:
+        assert notion.parse_time_interval(sample) == correct_parsed
+
+    # case for no dots
+    assert notion.parse_time_interval("00:13:00/00:13:00") == (13 * 60 * 1000, 0, None)
+
+    # case for single digit
+    assert notion.parse_time_interval("00:1:00/00:1:00") == (1 * 60 * 1000, 0, None)
