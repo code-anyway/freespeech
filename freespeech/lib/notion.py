@@ -1,8 +1,8 @@
 import logging
 import re
 from dataclasses import dataclass, replace
-from datetime import datetime, time
-from typing import Any, Dict, List, Literal, Sequence, Tuple, TypeGuard, Optional
+from datetime import datetime
+from typing import Any, Dict, List, Literal, Sequence, Tuple, TypeGuard
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -62,11 +62,11 @@ NOTION_API_MAX_PAGE_SIZE = 100
 
 
 async def query(
-        database_id: str,
-        property_name: str | None = None,
-        property_type: str | None = None,
-        operator: QueryOperator | None = None,
-        value: str | Dict | None = None,
+    database_id: str,
+    property_name: str | None = None,
+    property_type: str | None = None,
+    operator: QueryOperator | None = None,
+    value: str | Dict | None = None,
 ) -> List[Dict[str, Any]]:
     """Get all pages where property matches the expression."""
     pages = []
@@ -141,7 +141,7 @@ async def get_transcript(page_id: str) -> Transcript:
 
 
 async def get_transcripts(
-        database_id: str, timestamp: datetime | None
+    database_id: str, timestamp: datetime | None
 ) -> List[Transcript]:
     if timestamp:
         pages = await query(
@@ -169,7 +169,7 @@ def parse_properties(page: Dict) -> Dict[str, Any]:
 
 
 def _parse_value(
-        value: Dict, value_type: str | None = None
+    value: Dict, value_type: str | None = None
 ) -> str | List[str] | List[Dict] | None:
     # Sometimes Notion response doesn't have "type" key
     # and the caller will need to give a hint.
@@ -327,7 +327,7 @@ def parse_events(blocks: List[Dict]) -> Sequence[Event]:
 
 
 def parse_transcript(
-        _id: str, properties: Dict[str, Any], blocks: List[Dict]
+    _id: str, properties: Dict[str, Any], blocks: List[Dict]
 ) -> Transcript:
     properties = parse_properties(properties)
     source = properties[PROPERTY_NAME_SOURCE]
@@ -413,7 +413,7 @@ async def update_page_properties(page_id: str, properties: Dict) -> Dict:
 
 
 async def put_transcript(
-        database_id: str, transcript: Transcript, only_props: bool = False
+    database_id: str, transcript: Transcript, only_props: bool = False
 ) -> Transcript:
     properties, blocks = render_transcript(transcript)
 
@@ -457,11 +457,11 @@ def parse_time_interval(interval: str) -> Tuple[int, int, Character | None]:
         t = datetime.strptime(timestamp, "%H:%M:%S")
         extra_micros = int(after_dot[:6].ljust(6, "0"))
         return (
-                t.hour * 60 * 60 * 1_000
-                + t.minute * 60 * 1_000
-                + t.second * 1_000
-                + t.microsecond // 1_000
-                + extra_micros // 1_000
+            t.hour * 60 * 60 * 1_000
+            + t.minute * 60 * 1_000
+            + t.second * 1_000
+            + t.microsecond // 1_000
+            + extra_micros // 1_000
         )
 
     match = timecode_parser.search(interval)
@@ -567,7 +567,7 @@ async def _make_api_call(verb: HTTPVerb, url: url, payload: Dict | None = None) 
     NOTION_API_BASE_URL = "https://api.notion.com"
 
     async with aiohttp.ClientSession(
-            base_url=NOTION_API_BASE_URL, headers=NOTION_API_HEADERS
+        base_url=NOTION_API_BASE_URL, headers=NOTION_API_HEADERS
     ) as session:
         match verb:
             case "GET":
