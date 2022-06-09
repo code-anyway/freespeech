@@ -1,7 +1,7 @@
 import logging
 import re
 from dataclasses import dataclass, replace
-from datetime import datetime, time
+from datetime import datetime
 from typing import Any, Dict, List, Literal, Sequence, Tuple, TypeGuard
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -57,7 +57,6 @@ class Transcript:
 
 
 QueryOperator = Literal["greater_than", "equals", "after", "any"]
-
 
 NOTION_API_MAX_PAGE_SIZE = 100
 
@@ -449,12 +448,20 @@ def parse_time_interval(interval: str) -> Tuple[int, int, Character | None]:
     # TODO (astaff): couldn't find a sane way to do that
     # other than parsing it as datetime from a custom
     # ISO format that ingores date. Hence this.
-    def _to_milliseconds(t: time):
+    def _to_milliseconds(s: str):
+        if s.find(".") == -1:
+            timestamp, after_dot = (s.replace(" ", ""), "0")
+        else:
+            timestamp, after_dot = s.replace(" ", "").split(".", 1)
+
+        t = datetime.strptime(timestamp, "%H:%M:%S")
+        extra_micros = int(after_dot[:6].ljust(6, "0"))
         return (
             t.hour * 60 * 60 * 1_000
             + t.minute * 60 * 1_000
             + t.second * 1_000
             + t.microsecond // 1_000
+            + extra_micros // 1_000
         )
 
     match = timecode_parser.search(interval)
@@ -472,9 +479,9 @@ def parse_time_interval(interval: str) -> Tuple[int, int, Character | None]:
     else:
         character = None
 
-    start_ms = _to_milliseconds(time.fromisoformat(start))
+    start_ms = _to_milliseconds(start)
     if qualifier == "/":
-        finish_ms = _to_milliseconds(time.fromisoformat(value))
+        finish_ms = _to_milliseconds(value)
         duration_ms = finish_ms - start_ms
     elif qualifier == "#":
         duration_ms = round(float(value) * 1000)
