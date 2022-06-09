@@ -155,3 +155,6 @@ def test_parse_time_interval():
 
     # case for single digit
     assert notion.parse_time_interval("00:1:00/00:1:00") == (1 * 60 * 1000, 0, None)
+
+    # case for real duraiton
+    assert notion.parse_time_interval("00:00:00/00:03:30") == (0, 3.5 * 60 * 1000, None)

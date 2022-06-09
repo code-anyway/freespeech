@@ -450,9 +450,9 @@ def parse_time_interval(interval: str) -> Tuple[int, int, Character | None]:
     # ISO format that ingores date. Hence this.
     def _to_milliseconds(s: str):
         if s.find(".") == -1:
-            timestamp, after_dot = (start.replace(" ", ""), "0")
+            timestamp, after_dot = (s.replace(" ", ""), "0")
         else:
-            timestamp, after_dot = start.replace(" ", "").split(".", 1)
+            timestamp, after_dot = s.replace(" ", "").split(".", 1)
 
         t = datetime.strptime(timestamp, "%H:%M:%S")
         extra_micros = int(after_dot[:6].ljust(6, "0"))
