@@ -41,7 +41,10 @@ async def test_transcribe() -> None:
         AUDIO_EN_GS, audio, "en-US", model="default", provider="Deepgram"
     )
 
-    event = Event(time_ms=971, duration_ms=2006, chunks=["one, two three,"], voice=None)
+    voice = Voice(character="Alan Turing", pitch=0.0, speech_rate=None)
+    event = Event(
+        time_ms=971, duration_ms=2006, chunks=["one, two three,"], voice=voice
+    )
     assert t_en == [event]
 
     t_en = await speech.transcribe(AUDIO_EN_GS, audio, "en-US", model="default")
@@ -103,7 +106,7 @@ async def test_synthesize_events(tmp_path) -> None:
     t_en = await speech.transcribe(output_gs, audio, "en-US", model="default")
 
     assert t_en == [
-        Event(time_ms=0, duration_ms=3270, chunks=["One, hen two ducks."]),
+        Event(time_ms=0, duration_ms=3270, chunks=["One hen two ducks."]),
         Event(time_ms=3270, duration_ms=3720, chunks=[" Three, squawking geese."]),
     ]
 
@@ -170,18 +173,18 @@ def test_normalize_speech() -> None:
 
     normalized = speech.normalize_speech(events, gap_ms=2000, length=100)
     assert normalized == [
-        Event(time_ms=100, duration_ms=2500, chunks=["one #0.10# two. #1.20# three"]),
+        Event(time_ms=100, duration_ms=2500, chunks=["one. #0.10# Two. #1.20# Three"]),
     ]
 
     normalized = speech.normalize_speech(events, gap_ms=1000, length=100)
     assert normalized == [
-        Event(time_ms=100, duration_ms=800, chunks=["one #0.10# two."]),
+        Event(time_ms=100, duration_ms=800, chunks=["one. #0.10# Two."]),
         Event(time_ms=2100, duration_ms=500, chunks=["three"]),
     ]
 
     normalized = speech.normalize_speech(events, gap_ms=2000, length=5)
     assert normalized == [
-        Event(time_ms=100, duration_ms=800, chunks=["one #0.10# two."]),
+        Event(time_ms=100, duration_ms=800, chunks=["one. #0.10# Two."]),
         Event(time_ms=2100, duration_ms=500, chunks=["three"]),
     ]
 
@@ -203,12 +206,12 @@ def test_normalize_speech() -> None:
     ]
     normalized = speech.normalize_speech(events, gap_ms=2000, length=5)
     assert normalized == [
-        Event(time_ms=100, duration_ms=800, chunks=["one #0.10# two."]),
+        Event(time_ms=100, duration_ms=800, chunks=["one. #0.10# Two."]),
         Event(time_ms=2100, duration_ms=500, chunks=["three"]),
         Event(
             time_ms=2700,
             duration_ms=300,
-            chunks=["four #0.10# five"],
+            chunks=["four. #0.10# Five"],
             voice=Voice(character="Alonzo Church"),
         ),
     ]
