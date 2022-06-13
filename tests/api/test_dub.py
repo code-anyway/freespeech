@@ -38,7 +38,7 @@ async def client(aiohttp_client) -> Generator[AiohttpClient, None, None]:
 
 
 @pytest_asyncio.fixture
-async def ensure_clip_id(const, client) -> str:
+async def clip_id(const, client) -> str:
     firestore_client = firestore.AsyncClient(project=env.get_project_id())
     docs = (
         firestore_client.collection("clips")
@@ -59,7 +59,7 @@ async def ensure_clip_id(const, client) -> str:
 
 
 @pytest.mark.asyncio
-async def test_create_dub(client, ensure_clip_id):
+async def test_create_dub(client, clip_id):
     params = {
         "transcript": ANNOUNCERS_TEST_TRANSCRIPT_RU,
         "characters": {"default": "Alan Turing"},
@@ -68,7 +68,7 @@ async def test_create_dub(client, ensure_clip_id):
         "weights": [2, 10],
     }
 
-    _id = ensure_clip_id  # Announcer's test
+    _id = clip_id  # Announcer's test
     resp = await client.post(f"/clips/{_id}/dub", json=params)
     clip_ru_ru = await resp.json()
 

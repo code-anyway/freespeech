@@ -1,5 +1,6 @@
 import logging
 import logging.config
+from dataclasses import dataclass
 
 import pytest
 
@@ -29,6 +30,7 @@ LOGGING_CONFIG = {
 logging.config.dictConfig(LOGGING_CONFIG)
 
 
+@dataclass(frozen=True)
 class Const:
     ANNOUNCERS_TEST_VIDEO_URL = "https://youtu.be/bhRaND9jiOA"
     ANNOUNCERS_TEST_VIDEO_LANGUAGE = "en-US"
