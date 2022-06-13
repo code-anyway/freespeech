@@ -3,6 +3,9 @@ from typing import Iterator, Sequence
 
 
 def is_sentence(s: str) -> bool:
+    # TODO astaff: consider using text processing libraries like spacy
+    # as we keep introducing stuff like this.
+    s = s.strip()
     return s.endswith(".") or s.endswith("!") or s.endswith("?")
 
 
