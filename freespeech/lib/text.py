@@ -2,6 +2,20 @@ import re
 from typing import Iterator, Sequence
 
 
+def is_sentence(s: str) -> bool:
+    # TODO astaff: consider using text processing libraries like spacy
+    # as we keep introducing stuff like this.
+    s = s.strip()
+    return s.endswith(".") or s.endswith("!") or s.endswith("?")
+
+
+def make_sentence(s: str):
+    if is_sentence(s):
+        return s
+
+    return f"{s}."
+
+
 def chunk(text: str, max_chars: int) -> Sequence[str]:
     """Split text into chunks.
 

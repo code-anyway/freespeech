@@ -18,7 +18,7 @@ from google.cloud.texttospeech_v1.types import SynthesizeSpeechResponse
 from freespeech import env
 from freespeech.lib import concurrency, media
 from freespeech.lib.storage import obj
-from freespeech.lib.text import chunk, remove_symbols
+from freespeech.lib.text import chunk, is_sentence, make_sentence, remove_symbols
 from freespeech.types import (
     Audio,
     Character,
@@ -136,9 +136,13 @@ async def transcribe(
 async def _transcribe_deepgram(
     uri: url, audio: Audio, lang: Language, model: TranscriptionModel
 ):
-    LANGUAGE_OVERRIDE = {"uk-UA": "uk", "ru-RU": "ru"}
-
-    lang = LANGUAGE_OVERRIDE.get(lang, None) or lang
+    # For more info see language section of
+    # https://developers.deepgram.com/api-reference/#transcription-prerecorded
+    LANGUAGE_OVERRIDE = {
+        "uk-UA": "uk",
+        "ru-RU": "ru"
+    }
+    deepgram_lang = LANGUAGE_OVERRIDE.get(lang, None) or lang
 
     if model in ("default", "latest_long"):
         model = "general"
@@ -159,7 +163,7 @@ async def _transcribe_deepgram(
                 source,
                 {
                     "punctuate": True,
-                    "language": lang,
+                    "language": deepgram_lang,
                     "model": model,
                     "profanity_filter": False,
                     "diarize": True,
@@ -399,6 +403,21 @@ async def synthesize_events(
     return output_file, voices
 
 
+def concat_events(e1: Event, e2: Event) -> Event:
+    shift_ms = e2.time_ms - e1.time_ms
+    gap_sec = (shift_ms - e1.duration_ms) / 1000.0
+
+    first = make_sentence(" ".join(e1.chunks))
+    second = " ".join(e2.chunks).capitalize()
+
+    return Event(
+        time_ms=e1.time_ms,
+        duration_ms=shift_ms + e2.duration_ms,
+        chunks=[f"{first} #{gap_sec:.2f}# {second}"],
+        voice=e2.voice,
+    )
+
+
 def normalize_speech(
     events: Sequence[Event], gap_ms: int, length: int
 ) -> Sequence[Event]:
@@ -417,19 +436,6 @@ def normalize_speech(
         for e1, e2 in zip(scrubbed_events[:-1], scrubbed_events[1:])
     ]
 
-    def _concat_events(e1: Event, e2: Event) -> Event:
-        shift_ms = e2.time_ms - e1.time_ms
-        gap_sec = (shift_ms - e1.duration_ms) / 1000.0
-
-        return Event(
-            time_ms=e1.time_ms,
-            duration_ms=shift_ms + e2.duration_ms,
-            chunks=[
-                f"{' '.join(e1.chunks)} #{gap_sec:.2f}# {' '.join(e2.chunks)}"  # noqa: E501
-            ],
-            voice=e2.voice,
-        )
-
     first_event, *events = scrubbed_events
     acc = [first_event]
 
@@ -439,15 +445,11 @@ def normalize_speech(
 
         if gap > gap_ms:
             acc += [last_event, event]
-        elif len(last_text) > length and (
-            last_text.endswith(".")
-            or last_text.endswith("!")
-            or last_text.endswith("?")
-        ):
+        elif len(last_text) > length and is_sentence(last_text):
             acc += [last_event, event]
         elif last_event.voice != event.voice:
             acc += [last_event, event]
         else:
-            acc += [_concat_events(last_event, event)]
+            acc += [concat_events(last_event, event)]
 
     return acc
