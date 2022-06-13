@@ -1,9 +1,13 @@
+from typing import Generator
+
 import pytest
+import pytest_asyncio
 from aiohttp import web
+from aiohttp.pytest_plugin import AiohttpClient
+from google.cloud import firestore  # type: ignore
 
+from freespeech import env
 from freespeech.api import crud, dub
-
-ANNOUNCERS_TEST_VIDEO_URL = "https://youtu.be/bhRaND9jiOA"
 
 ANNOUNCERS_TEST_TRANSCRIPT_RU = [
     {
@@ -24,15 +28,38 @@ ANNOUNCERS_TEST_TRANSCRIPT_RU = [
 ]
 
 
-@pytest.mark.asyncio
-async def test_create_dub(aiohttp_client):
+@pytest_asyncio.fixture
+async def client(aiohttp_client) -> Generator[AiohttpClient, None, None]:
     app = web.Application()
     # fill route table
     app.add_routes(dub.routes)
     app.add_routes(crud.routes)
+    return await aiohttp_client(app)
 
-    client = await aiohttp_client(app)
 
+@pytest_asyncio.fixture
+async def clip_id(const, client) -> str:
+    firestore_client = firestore.AsyncClient(project=env.get_project_id())
+    docs = (
+        firestore_client.collection("clips")
+        .where("origin", "==", const.ANNOUNCERS_TEST_VIDEO_URL)
+        .where("lang", "==", const.ANNOUNCERS_TEST_VIDEO_LANGUAGE)
+        .select("_id")
+        .limit(1)
+        .stream()
+    )
+    async for doc in docs:
+        return doc.id
+
+    # upload clip with CRUD api and return its id
+    params = {"url": const.ANNOUNCERS_TEST_VIDEO_URL, "lang": "en-US"}
+    resp = await client.post("/clips/upload", json=params)
+    clip = await resp.json()
+    return clip["_id"]
+
+
+@pytest.mark.asyncio
+async def test_create_dub(client, clip_id):
     params = {
         "transcript": ANNOUNCERS_TEST_TRANSCRIPT_RU,
         "characters": {"default": "Alan Turing"},
@@ -41,7 +68,7 @@ async def test_create_dub(aiohttp_client):
         "weights": [2, 10],
     }
 
-    _id = "6ea2eef0-7fbe-4ebc-bf08-d413e0006d4d"  # Announcer's test
+    _id = clip_id  # Announcer's test
     resp = await client.post(f"/clips/{_id}/dub", json=params)
     clip_ru_ru = await resp.json()
 

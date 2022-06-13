@@ -32,6 +32,10 @@ url = str
 _last_updated = datetime.now(tz=timezone.utc).isoformat
 
 
+def _uuid_in_str():
+    return str(uuid.uuid4())
+
+
 @dataclass(frozen=True)
 class Voice:
     character: Character
@@ -82,8 +86,8 @@ class Clip:
     transcript: Sequence[Event]
     meta: Meta
     parent_id: str | None
-    _id: str = field(default=str(uuid.uuid4()))
-    last_updated: str = field(default=_last_updated())
+    _id: str = field(default_factory=_uuid_in_str)
+    last_updated: str = field(default_factory=_last_updated)
 
 
 @dataclass(frozen=True)

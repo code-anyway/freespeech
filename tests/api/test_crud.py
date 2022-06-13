@@ -1,21 +1,31 @@
+import logging
+from typing import Generator
 from urllib.parse import quote_plus
 
 import pytest
+import pytest_asyncio
 from aiohttp import web
+from aiohttp.pytest_plugin import AiohttpClient
 
 from freespeech.api import crud
 
-ANNOUNCERS_TEST_VIDEO_URL = "https://youtu.be/bhRaND9jiOA"
+logger = logging.getLogger(__name__)
 
 
-@pytest.mark.asyncio
-async def test_clip_upload_and_get(aiohttp_client):
+@pytest_asyncio.fixture
+async def client(aiohttp_client) -> Generator[AiohttpClient, None, None]:
     app = web.Application()
     # fill route table
     app.add_routes(crud.routes)
-    client = await aiohttp_client(app)
+    return await aiohttp_client(app)
 
-    params = {"url": ANNOUNCERS_TEST_VIDEO_URL, "lang": "en-US"}
+
+@pytest.mark.asyncio
+async def test_clip_upload_and_get(const, client):
+    params = {
+        "url": const.ANNOUNCERS_TEST_VIDEO_URL,
+        "lang": const.ANNOUNCERS_TEST_VIDEO_LANGUAGE,
+    }
 
     resp = await client.post("/clips/upload", json=params)
     clip = await resp.json()
@@ -23,20 +33,15 @@ async def test_clip_upload_and_get(aiohttp_client):
     resp = await client.get(f"/clips/{clip['_id']}")
     assert clip == await resp.json()
 
-    url = quote_plus(ANNOUNCERS_TEST_VIDEO_URL)
+    url = quote_plus(const.ANNOUNCERS_TEST_VIDEO_URL)
     resp = await client.get(f"/clips/latest/{url}/en-US")
     latest = await resp.json()
     assert clip == latest
 
 
 @pytest.mark.asyncio
-async def test_clip_latest_and_update(aiohttp_client):
-    app = web.Application()
-    # fill route table
-    app.add_routes(crud.routes)
-    client = await aiohttp_client(app)
-
-    url = quote_plus(ANNOUNCERS_TEST_VIDEO_URL)
+async def test_clip_latest_and_update(const, client):
+    url = quote_plus(const.ANNOUNCERS_TEST_VIDEO_URL)
     resp = await client.get(f"/clips/latest/{url}")
     clips = await resp.json()
 
@@ -60,13 +65,8 @@ async def test_clip_latest_and_update(aiohttp_client):
 
 
 @pytest.mark.asyncio
-async def test_get_video(aiohttp_client):
-    app = web.Application()
-    # fill route table
-    app.add_routes(crud.routes)
-    client = await aiohttp_client(app)
-
-    url = quote_plus(ANNOUNCERS_TEST_VIDEO_URL)
+async def test_get_video(const, client):
+    url = quote_plus(const.ANNOUNCERS_TEST_VIDEO_URL)
     resp = await client.get(f"/clips/latest/{url}/en-US")
     clip_en_us = await resp.json()
 
