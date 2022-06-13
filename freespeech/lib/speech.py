@@ -24,6 +24,7 @@ from freespeech.types import (
     Character,
     Event,
     Language,
+    Literal,
     ServiceProvider,
     TranscriptionModel,
     Voice,
@@ -32,6 +33,10 @@ from freespeech.types import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+Normalization = Literal["break_ends_sentence", "extract_breaks_from_sentence"]
+
 
 MAX_CHUNK_LENGTH = 1000  # Google Speech API Limit
 
@@ -404,12 +409,16 @@ async def synthesize_events(
     return output_file, voices
 
 
-def concat_events(e1: Event, e2: Event) -> Event:
+def concat_events(e1: Event, e2: Event, break_sentence: bool) -> Event:
     shift_ms = e2.time_ms - e1.time_ms
     gap_sec = (shift_ms - e1.duration_ms) / 1000.0
 
-    first = make_sentence(" ".join(e1.chunks))
-    second = " ".join(e2.chunks).capitalize()
+    if break_sentence:
+        first = make_sentence(" ".join(e1.chunks))
+        second = " ".join(e2.chunks).capitalize()
+    else:
+        first = " ".join(e1.chunks)
+        second = " ".join(e2.chunks)
 
     return Event(
         time_ms=e1.time_ms,
@@ -420,7 +429,7 @@ def concat_events(e1: Event, e2: Event) -> Event:
 
 
 def normalize_speech(
-    events: Sequence[Event], gap_ms: int, length: int
+    events: Sequence[Event], gap_ms: int, length: int, method: Normalization
 ) -> Sequence[Event]:
     """Transforms speech events into a fewer and longer ones
     representing continuous speech."""
@@ -451,6 +460,10 @@ def normalize_speech(
         elif last_event.voice != event.voice:
             acc += [last_event, event]
         else:
-            acc += [concat_events(last_event, event)]
+            match method:
+                case "break_ends_sentence":
+                    acc += [concat_events(last_event, event, break_sentence=True)]
+                case "extract_breaks_from_sentence":
+                    raise NotImplementedError()
 
     return acc
