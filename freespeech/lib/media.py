@@ -54,8 +54,8 @@ def probe(file: str | PathLike) -> Tuple[Sequence[Audio], Sequence[Video]]:
         raise RuntimeError(f"ffmpeg error: {e.stderr}")
 
     def parse_stream(stream: Dict, format: Dict) -> Audio | Video | None:
-        duration = stream.get("duration", None) or format.get("duration", None)
-        assert duration, "Couldn't infer duration from stream or format"
+        duration = stream.get("duration", None) or format.get("duration", None) or 0.0
+        assert duration is not None, "Couldn't infer duration from stream or format"
         duration_ms = int(float(duration) * 1000)
 
         match stream["codec_type"]:
