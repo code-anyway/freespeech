@@ -120,6 +120,20 @@ async def test_synthesize_events(tmp_path) -> None:
     assert voice_2.character == "Grace Hopper"
     assert voice_2.pitch == 0.0
 
+    events = [
+        Event(
+            time_ms=5_000,
+            duration_ms=0,
+            chunks=[""],
+            voice=Voice("Grace Hopper"),
+        ),
+    ]
+
+    output, voices = await speech.synthesize_events(
+        events=events, voice="Alan Turing", lang="en-US", pitch=0.0, output_dir=tmp_path
+    )
+    (audio, *_), _ = media.probe(output)
+
 
 @pytest.mark.asyncio
 async def test_synthesize_long_event(tmp_path) -> None:
