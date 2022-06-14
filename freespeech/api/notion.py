@@ -97,8 +97,8 @@ async def _translate(
         database_id=database_id,
         transcript=replace(
             transcript,
-            events=speech.normalize_speech(events, gap_ms=GAP_MS, length=PHRASE_LENGTH)
-        )
+            events=speech.normalize_speech(events, gap_ms=GAP_MS, length=PHRASE_LENGTH),
+        ),
     )
 
     logger.warning(f"Translated: {updated_transcript}")

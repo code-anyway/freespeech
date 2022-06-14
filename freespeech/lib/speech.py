@@ -140,7 +140,8 @@ async def _transcribe_deepgram(
     # https://developers.deepgram.com/api-reference/#transcription-prerecorded
     LANGUAGE_OVERRIDE = {
         "uk-UA": "uk",
-        "ru-RU": "ru"
+        "ru-RU": "ru",
+        "de-DE": "de",
     }
     deepgram_lang = LANGUAGE_OVERRIDE.get(lang, None) or lang
 
