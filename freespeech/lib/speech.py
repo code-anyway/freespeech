@@ -3,7 +3,7 @@ import logging
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import replace
-from functools import cache
+from functools import cache, reduce
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Dict, Sequence, Tuple
@@ -18,7 +18,13 @@ from google.cloud.texttospeech_v1.types import SynthesizeSpeechResponse
 from freespeech import env
 from freespeech.lib import concurrency, media
 from freespeech.lib.storage import obj
-from freespeech.lib.text import chunk, is_sentence, make_sentence, remove_symbols
+from freespeech.lib.text import (
+    chunk,
+    is_sentence,
+    make_sentence,
+    remove_symbols,
+    split_to_sentences,
+)
 from freespeech.types import (
     Audio,
     Character,
@@ -32,11 +38,11 @@ from freespeech.types import (
     url,
 )
 
+SPEECH_GAP_REGEX = r"#(\d+(\.\d+)?)#"
+
 logger = logging.getLogger(__name__)
 
-
 Normalization = Literal["break_ends_sentence", "extract_breaks_from_sentence"]
-
 
 MAX_CHUNK_LENGTH = 1000  # Google Speech API Limit
 
@@ -267,7 +273,7 @@ def is_valid_ssml(text: str) -> bool:
 
 
 def text_to_ssml_chunks(text: str, chunk_length: int) -> Sequence[str]:
-    inner = re.sub(r"#(\d+(\.\d+)?)#", r'<break time="\1s" />', text)
+    inner = re.sub(SPEECH_GAP_REGEX, r'<break time="\1s" />', text)
 
     def wrap(text: str) -> str:
         result = f"<speak>{text}</speak>"
@@ -428,6 +434,29 @@ def concat_events(e1: Event, e2: Event, break_sentence: bool) -> Event:
     )
 
 
+def _move_pauses_to_sentence_breaks(event: Event) -> Event:
+    result = []
+    chunks = event.chunks
+
+    for c in chunks:
+        sentences = split_to_sentences(c)
+
+        acc = []
+        for s in sentences:
+            gaps = re.findall(SPEECH_GAP_REGEX, s)
+            if not gaps:
+                acc.append(s)
+            else:
+                total_pause = reduce(
+                    lambda a, b: a + b, [float(gap[0]) for gap in gaps]
+                )
+                acc.append(f"#{total_pause:.2f}# " + re.sub(SPEECH_GAP_REGEX, "", s))
+
+        result.append("".join(acc))
+
+    return replace(event, chunks=result)
+
+
 def normalize_speech(
     events: Sequence[Event], gap_ms: int, length: int, method: Normalization
 ) -> Sequence[Event]:
@@ -460,10 +489,15 @@ def normalize_speech(
         elif last_event.voice != event.voice:
             acc += [last_event, event]
         else:
-            match method:
-                case "break_ends_sentence":
-                    acc += [concat_events(last_event, event, break_sentence=True)]
-                case "extract_breaks_from_sentence":
-                    raise NotImplementedError()
+            if method == "break_ends_sentence":
+                acc += [concat_events(last_event, event, break_sentence=True)]
+            elif method == "extract_breaks_from_sentence":
+                acc += [
+                    _move_pauses_to_sentence_breaks(
+                        concat_events(last_event, event, break_sentence=False)
+                    )
+                ]
+            else:
+                raise NotImplementedError(f"Unsupported normalization method {method}")
 
     return acc

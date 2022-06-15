@@ -23,7 +23,6 @@ GAP_MS = 1400
 # Won't attempt concatenating events if one is longer than LENGTH.
 PHRASE_LENGTH = 600
 
-
 logger = logging.getLogger(__name__)
 routes = web.RouteTableDef()
 
@@ -85,7 +84,7 @@ async def _process_transcript(
 def random_normalization_method() -> speech.Normalization:
     choices: List[speech.Normalization] = [
         "break_ends_sentence",
-        # "extract_breaks_from_sentence",
+        "extract_breaks_from_sentence",
     ]
     return random.choice(choices)
 
@@ -94,7 +93,7 @@ async def _translate(
     database_id: str, transcript: notion.Transcript
 ) -> notion.Transcript:
     method = random_normalization_method()
-    logger.info(f"id={transcript._id} Method: {method}")
+    logger.info(f"id={transcript._id} Speech break normalization method: {method}")
 
     logger.warning(f"Translating: {transcript}")
 

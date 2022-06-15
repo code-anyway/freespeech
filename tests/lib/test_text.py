@@ -46,9 +46,10 @@ SENTENCES = [
 def test_chunk() -> None:
     assert text.chunk("", max_chars=10) == [""]
     assert text.chunk("Hello. World.", max_chars=7) == ["Hello.", "World."]
-    assert text.chunk("Hello. World.", max_chars=13) == ["Hello. World."]
+    assert text.chunk("Hello. World.", max_chars=14) == ["Hello. World."]
     assert text.chunk("Hello.", max_chars=6) == ["Hello."]
-    assert text.chunk("Hello.", max_chars=1) == ["", "Hello."]
+    assert text.chunk("Hello.", max_chars=1) == ["Hello."]
+    assert text.chunk("Long sentence.", max_chars=5) == ["Long sentence."]
 
 
 def test_chunk_raw() -> None:
@@ -89,3 +90,11 @@ def test_chunk_supports_dots_within_pauses() -> None:
         "The newline is also a space char #2.1# after dot.",
         "This is a second sentence",
     ]
+
+
+def test_split_by_sentences() -> None:
+    assert ["One? ", "Two. "] == text.split_to_sentences("One? Two. ")
+    assert ["One. ", "Two. "] == text.split_to_sentences("One. Two. ")
+    assert ["One, Two. "] == text.split_to_sentences("One, Two. ")
+    assert ["One. ", "Two "] == text.split_to_sentences("One. Two ")
+    assert ["One! ", "Two. "] == text.split_to_sentences("One! Two. ")

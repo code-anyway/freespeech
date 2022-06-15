@@ -1,15 +1,28 @@
 import json
+import re
+from dataclasses import replace
+from typing import Sequence
 
 import pytest
 
+from freespeech import env
 from freespeech.lib import media, speech
 from freespeech.lib.storage import obj
 from freespeech.types import Event, Voice
 
 AUDIO_EN_LOCAL = "tests/lib/data/media/en-US-mono.wav"
-AUDIO_EN_GS = "gs://freespeech-tests/test_speech/en-US-mono.wav"
+AUDIO_EN_GS = f"{env.get_storage_url()}/test_speech/en-US-mono.wav"
 
-TEST_OUTPUT_GS = "gs://freespeech-tests/test_speech/output/"
+TEST_OUTPUT_GS = f"{env.get_storage_url()}/test_speech/output/"
+
+
+def _norm_spaces(obj: str | Sequence[Event]) -> str | Sequence[Event]:
+    if isinstance(obj, str):
+        return re.sub(r"\s+", " ", obj).strip()
+    if isinstance(obj, Sequence):
+        return [
+            replace(e, chunks=[_norm_spaces(c).strip() for c in e.chunks]) for e in obj
+        ]
 
 
 def test_text_to_ssml_chunks():
@@ -177,75 +190,188 @@ async def test_synthesize_long_event(tmp_path) -> None:
     assert voice.speech_rate == pytest.approx(0.762, rel=1e-3)
 
 
-def test_normalize_speech() -> None:
-    def test_pipeline(method: speech.Normalization):
-        # Two events with 0ms in between, followed by another event in 1sec
-        events = [
-            Event(time_ms=100, duration_ms=300, chunks=["one"]),  # gap: 100ms
-            Event(time_ms=500, duration_ms=400, chunks=["two."]),  # gap: 1200ms
-            Event(time_ms=2_100, duration_ms=500, chunks=["three"]),
-        ]
+def test_normalize_speech_break_sentences() -> None:
+    # Two events with 0ms in between, followed by another event in 1sec
+    events = [
+        Event(time_ms=100, duration_ms=300, chunks=["one"]),  # gap: 100ms
+        Event(time_ms=500, duration_ms=400, chunks=["two."]),  # gap: 1200ms
+        Event(time_ms=2_100, duration_ms=500, chunks=["three"]),
+    ]
 
-        normalized = speech.normalize_speech(
-            events, gap_ms=2000, length=100, method=method
+    normalized = speech.normalize_speech(
+        events, gap_ms=2000, length=100, method="break_ends_sentence"
+    )
+    assert normalized == [
+        Event(time_ms=100, duration_ms=2500, chunks=["one. #0.10# Two. #1.20# Three"]),
+    ]
+
+    normalized = speech.normalize_speech(
+        events, gap_ms=1000, length=100, method="break_ends_sentence"
+    )
+    assert normalized == [
+        Event(time_ms=100, duration_ms=800, chunks=["one. #0.10# Two."]),
+        Event(time_ms=2100, duration_ms=500, chunks=["three"]),
+    ]
+
+    normalized = speech.normalize_speech(
+        events, gap_ms=2000, length=5, method="break_ends_sentence"
+    )
+    assert normalized == [
+        Event(time_ms=100, duration_ms=800, chunks=["one. #0.10# Two."]),
+        Event(time_ms=2100, duration_ms=500, chunks=["three"]),
+    ]
+
+    events += [
+        Event(
+            time_ms=2700,
+            duration_ms=100,
+            chunks=["four"],
+            voice=Voice(character="Alonzo Church"),
         )
-        assert normalized == [
+    ]
+    events += [
+        Event(
+            time_ms=2900,
+            duration_ms=100,
+            chunks=["five"],
+            voice=Voice(character="Alonzo Church"),
+        )
+    ]
+    normalized = speech.normalize_speech(
+        events, gap_ms=2000, length=5, method="break_ends_sentence"
+    )
+    assert normalized == [
+        Event(time_ms=100, duration_ms=800, chunks=["one. #0.10# Two."]),
+        Event(time_ms=2100, duration_ms=500, chunks=["three"]),
+        Event(
+            time_ms=2700,
+            duration_ms=300,
+            chunks=["four. #0.10# Five"],
+            voice=Voice(character="Alonzo Church"),
+        ),
+    ]
+
+
+def test_normalize_speech_extract_breaks_from_sentence() -> None:
+    # Two events with 0ms in between, followed by another event in 1sec
+    events = [
+        Event(time_ms=100, duration_ms=300, chunks=["one"]),  # gap: 100ms
+        Event(time_ms=500, duration_ms=400, chunks=["two."]),  # gap: 1200ms
+        Event(time_ms=2_100, duration_ms=500, chunks=["three"]),
+    ]
+
+    normalized = speech.normalize_speech(
+        events, gap_ms=2000, length=100, method="extract_breaks_from_sentence"
+    )
+
+    # there is a pause between two detected events, which gets
+    # moved to the start of the sentence.
+    assert _norm_spaces(normalized) == _norm_spaces(
+        [
             Event(
-                time_ms=100, duration_ms=2500, chunks=["one. #0.10# Two. #1.20# Three"]
+                time_ms=100, duration_ms=2500, chunks=["#0.10# one two. #1.20# three"]
             ),
         ]
+    )
 
-        normalized = speech.normalize_speech(
-            events, gap_ms=1000, length=100, method=method
-        )
-        assert normalized == [
-            Event(time_ms=100, duration_ms=800, chunks=["one. #0.10# Two."]),
+    normalized = speech.normalize_speech(
+        events, gap_ms=1000, length=100, method="extract_breaks_from_sentence"
+    )
+    assert _norm_spaces(normalized) == _norm_spaces(
+        [
+            Event(time_ms=100, duration_ms=800, chunks=["#0.10# one two."]),
             Event(time_ms=2100, duration_ms=500, chunks=["three"]),
         ]
+    )
 
-        normalized = speech.normalize_speech(
-            events, gap_ms=2000, length=5, method=method
-        )
-        assert normalized == [
-            Event(time_ms=100, duration_ms=800, chunks=["one. #0.10# Two."]),
+    normalized = speech.normalize_speech(
+        events, gap_ms=2000, length=5, method="extract_breaks_from_sentence"
+    )
+    assert _norm_spaces(normalized) == _norm_spaces(
+        [
+            Event(time_ms=100, duration_ms=800, chunks=["#0.10# one two."]),
             Event(time_ms=2100, duration_ms=500, chunks=["three"]),
         ]
+    )
 
-        events += [
-            Event(
-                time_ms=2700,
-                duration_ms=100,
-                chunks=["four"],
-                voice=Voice(character="Alonzo Church"),
-            )
-        ]
-        events += [
-            Event(
-                time_ms=2900,
-                duration_ms=100,
-                chunks=["five"],
-                voice=Voice(character="Alonzo Church"),
-            )
-        ]
-        normalized = speech.normalize_speech(
-            events, gap_ms=2000, length=5, method=method
+    events += [
+        Event(
+            time_ms=2700,
+            duration_ms=100,
+            chunks=["four"],
+            voice=Voice(character="Alonzo Church"),
         )
-        assert normalized == [
-            Event(time_ms=100, duration_ms=800, chunks=["one. #0.10# Two."]),
+    ]
+    events += [
+        Event(
+            time_ms=2900,
+            duration_ms=100,
+            chunks=["five"],
+            voice=Voice(character="Alonzo Church"),
+        )
+    ]
+    normalized = speech.normalize_speech(
+        events, gap_ms=2000, length=5, method="extract_breaks_from_sentence"
+    )
+    assert _norm_spaces(normalized) == _norm_spaces(
+        [
+            Event(time_ms=100, duration_ms=800, chunks=["#0.10# one two."]),
             Event(time_ms=2100, duration_ms=500, chunks=["three"]),
             Event(
                 time_ms=2700,
                 duration_ms=300,
-                chunks=["four. #0.10# Five"],
+                chunks=["#0.10# four five"],
                 voice=Voice(character="Alonzo Church"),
             ),
         ]
-
-    test_pipeline("break_ends_sentence")
-    test_pipeline("extract_breaks_from_sentence")
+    )
 
 
 def test_normalize_speech_long() -> None:
     with open("tests/lib/data/youtube/transcript_ru_RU.json", encoding="utf-8") as fd:
         events_dict = json.load(fd)
         _ = [Event(**item) for item in events_dict]
+
+
+def test_extract_speech_breaks_from_sentences() -> None:
+    long_event = [
+        Event(
+            time_ms=100,
+            duration_ms=4000,
+            chunks=["This is a sentence. And this is a sentence too in which i would "],
+        ),
+        Event(
+            time_ms=4000 + 100 + 2000,
+            duration_ms=3000,
+            chunks=[" expect the break to be moved."],
+        ),
+    ]
+    normalized = speech.normalize_speech(
+        long_event, gap_ms=2000, length=5, method="extract_breaks_from_sentence"
+    )
+    assert _norm_spaces(normalized[0].chunks[0]) == _norm_spaces(
+        "This is a sentence. #2.00# And this is a sentence too in which i would  "
+        "expect the break to be moved. "
+    )
+
+    # Take #2 - with multiple pauses
+    long_event = (
+        Event(
+            time_ms=0,
+            duration_ms=1000,
+            chunks=["This is a sentence. And this is a sentence too in which i would"],
+        ),
+        # gap 2s
+        Event(time_ms=3000, duration_ms=1000, chunks=[" expect "]),
+        # gap 1.2s
+        Event(time_ms=4000 + 1200, duration_ms=1000, chunks=[" the break"]),
+        # gap 0.3s
+        Event(time_ms=6200 + 300, duration_ms=1000, chunks=[" to be moved."]),
+    )
+    normalized = speech.normalize_speech(
+        list(long_event), gap_ms=2000, length=5, method="extract_breaks_from_sentence"
+    )
+    assert _norm_spaces(normalized[0].chunks[0]) == _norm_spaces(
+        "This is a sentence. #3.50# And this is a sentence too in"
+        " which i would  expect the break to be moved. "
+    )
