@@ -1,4 +1,5 @@
 import logging
+import random
 from dataclasses import asdict, replace
 from datetime import datetime, timezone
 from tempfile import TemporaryDirectory
@@ -81,9 +82,20 @@ async def _process_transcript(
     return transcript
 
 
+def random_normalization_method() -> speech.Normalization:
+    choices: List[speech.Normalization] = [
+        "break_ends_sentence",
+        # "extract_breaks_from_sentence",
+    ]
+    return random.choice(choices)
+
+
 async def _translate(
     database_id: str, transcript: notion.Transcript
 ) -> notion.Transcript:
+    method = random_normalization_method()
+    logger.info(f"id={transcript._id} Method: {method}")
+
     logger.warning(f"Translating: {transcript}")
 
     transcript_from = await notion.get_transcript(str(transcript.source))
@@ -97,7 +109,9 @@ async def _translate(
         database_id=database_id,
         transcript=replace(
             transcript,
-            events=speech.normalize_speech(events, gap_ms=GAP_MS, length=PHRASE_LENGTH),
+            events=speech.normalize_speech(
+                events, gap_ms=GAP_MS, length=PHRASE_LENGTH, method=method
+            ),
         ),
     )
 
@@ -109,6 +123,9 @@ async def _translate(
 async def _from_subtitles(
     database_id: str, transcript: notion.Transcript
 ) -> notion.Transcript:
+    method = random_normalization_method()
+    logger.info(f"id={transcript._id} Method: {method}")
+
     logger.warning(f"Syncing Subtitles: {transcript}")
 
     async with get_crud_client() as _client:
@@ -119,7 +136,7 @@ async def _from_subtitles(
         transcript=replace(
             transcript,
             events=speech.normalize_speech(
-                clip.transcript, gap_ms=GAP_MS, length=PHRASE_LENGTH
+                clip.transcript, gap_ms=GAP_MS, length=PHRASE_LENGTH, method=method
             ),
         ),
     )
@@ -132,6 +149,9 @@ async def _from_subtitles(
 async def _transcribe(
     database_id: str, transcript: notion.Transcript
 ) -> notion.Transcript:
+    method = random_normalization_method()
+    logger.info(f"id={transcript._id} Method: {method}")
+
     logger.warning(f"Transcribing: {transcript}")
 
     async with get_crud_client() as _client:
@@ -167,7 +187,9 @@ async def _transcribe(
     )
     updated_transcript = replace(
         transcript,
-        events=speech.normalize_speech(events, gap_ms=GAP_MS, length=PHRASE_LENGTH),
+        events=speech.normalize_speech(
+            events, gap_ms=GAP_MS, length=PHRASE_LENGTH, method=method
+        ),
     )
 
     logger.warning(f"Trabscribed: {updated_transcript}")
