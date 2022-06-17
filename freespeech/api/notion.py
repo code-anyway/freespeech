@@ -252,6 +252,7 @@ async def _dub(database_id: str, transcript: notion.Transcript) -> notion.Transc
     return await notion.put_transcript(database_id, updated_transcript, only_props=True)
 
 
+# TODO (astaff): move outside of notion.py?
 def get_dub_client():
     return aiohttp.ClientSession(
         base_url=env.get_dub_service_url(),
