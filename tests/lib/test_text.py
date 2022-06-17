@@ -48,7 +48,7 @@ def test_chunk() -> None:
     assert text.chunk("Hello. World.", max_chars=7) == ["Hello.", "World."]
     assert text.chunk("Hello. World.", max_chars=13) == ["Hello. World."]
     assert text.chunk("Hello.", max_chars=6) == ["Hello."]
-    assert text.chunk("Hello.", max_chars=1) == ["", "Hello."]
+    assert text.chunk("Hello.", max_chars=1) == ["Hello."]
 
 
 def test_chunk_raw() -> None:
