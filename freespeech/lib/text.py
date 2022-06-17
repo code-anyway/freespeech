@@ -1,4 +1,5 @@
 import re
+from itertools import zip_longest
 from typing import Iterator, Sequence
 
 
@@ -33,13 +34,15 @@ def chunk(text: str, max_chars: int) -> Sequence[str]:
     # If capturing parentheses are used in pattern,
     # then the text of all groups in the pattern
     # are also returned as part of the resulting list.
-    sentences = (s for s in re.split(r"(\!|\?|\.\s+)", text))
+    split = re.split(r"(\!|\?|\.\s+)", text)
+    sentences = [a + b for a, b in zip_longest(split[0::2], split[1::2], fillvalue="") if a + b]
 
     def chunk_sentences() -> Iterator[str]:
         res = ""
         for s in sentences:
             if len(res) + len(s) > max_chars:
-                yield res.strip()
+                if res:
+                    yield res.strip()
                 res = s
             else:
                 res += s
