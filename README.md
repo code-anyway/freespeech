@@ -42,10 +42,13 @@ You are expected to set:
 * `NOTION_TOKEN`
 * `FREESPEECH_STORAGE_BUCKET`
 * `AZURE_REGION` and `AZURE_SUBSCRIPTION_KEY` to use Microsoft TTS service
+* `AZURE_CONVERSATIONS_TOKEN`
+* `DEEPGRAM_TOKEN`
 
 For example:
 
 ```shell
+# TODO: come up with an opinionated way of managing such configs locally
 export GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/id/test-service-credentials.json
 export NOTION_TOKEN="Notion-integration-token"
 export AZURE_REGION="CHANGE: region for example eastus,"

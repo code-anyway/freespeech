@@ -1,11 +1,16 @@
+import logging
 import re
 from dataclasses import replace
-from typing import Sequence
+from typing import Any, Dict, List, MutableMapping, Sequence, Tuple
 
+from azure.ai.language.conversations.aio import ConversationAnalysisClient
+from azure.core.credentials import AzureKeyCredential
 from google.cloud import translate as translate_api
 
 from freespeech import env
 from freespeech.types import Event
+
+logger = logging.getLogger(__name__)
 
 
 def translate_text(text: str, source: str, target: str) -> str:
@@ -46,3 +51,74 @@ def translate_events(
         )
         for event in events
     ]
+
+
+def parse_intent(
+    prediction: MutableMapping[str, Any],
+    intent_confidence: float,
+    entity_confidence: float,
+) -> Tuple[str, Dict[str, List]]:
+    intent, *_ = [
+        intent["category"]
+        for intent in prediction["intents"]
+        if intent["confidenceScore"] > intent_confidence
+    ]
+
+    if _:
+        logger.warn(
+            f"Multiple intents with confidence > {intent_confidence}: {intent + _}"
+        )
+
+    entities: Dict[str, List] = dict()
+    for entity in prediction["entities"]:
+        if entity["confidenceScore"] > entity_confidence:
+            category = entity["category"]
+            key = [
+                info["key"]
+                for info in entity.get("extraInformation", [])
+                if info["extraInformationKind"] == "ListKey"
+            ]
+            entities[category] = entities.get(category, []) + (key or [entity["text"]])
+
+    return intent, entities
+
+
+async def intent(
+    text: str, intent_confidence: float = 0.95, entity_confidence: float = 0.95
+) -> Tuple[str, Dict[str, List]]:
+    # Inspired by:
+    # https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/cognitivelanguage/azure-ai-language-conversations/samples/sample_analyze_conversation_app.py  # noqa: E501
+    token = env.get_azure_conversations_token()
+    url = "https://freespeech-chatbot.cognitiveservices.azure.com"
+    project_name = "chat-bot"
+    deployment_name = "prod"
+
+    client = ConversationAnalysisClient(url, AzureKeyCredential(token))
+    async with client:
+        result = await client.analyze_conversation(
+            task={
+                "kind": "Conversation",
+                "analysisInput": {
+                    "conversationItem": {
+                        "participantId": "1",
+                        "id": "1",
+                        "modality": "text",
+                        "language": "en",
+                        "text": text,
+                    },
+                    # TODO: verify it's OK to keep it True for PII and privacy reasons
+                    "isLoggingEnabled": True,
+                },
+                "parameters": {
+                    "projectName": project_name,
+                    "deploymentName": deployment_name,
+                    "verbose": True,
+                },
+            }
+        )
+
+    return parse_intent(
+        result["result"]["prediction"],
+        intent_confidence=intent_confidence,
+        entity_confidence=entity_confidence,
+    )
