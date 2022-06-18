@@ -51,13 +51,14 @@ def test_chunk() -> None:
     assert text.chunk("Hello.", max_chars=1) == ["Hello."]
     assert text.chunk("Now. Two sentences, no dot at end", max_chars=1) == [
         "Now.",
-        "Two sentences, no dot at end"]
+        "Two sentences, no dot at end",
+    ]
 
     # leading dot makes a sentence, but also get glued to the previous line if there
     # is enough max_chars. See next two tests; exactly 30 chars in text:
     assert text.chunk(". Leading dot makes a sentence", max_chars=29) == [
         ".",
-        "Leading dot makes a sentence"
+        "Leading dot makes a sentence",
     ]
     assert text.chunk(". Leading dot makes a sentence", max_chars=30) == [
         ". Leading dot makes a sentence"
