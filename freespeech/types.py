@@ -10,7 +10,13 @@ TranscriptionModel = Literal["default", "latest_long", "general"]
 
 Language = Literal["en-US", "uk-UA", "ru-RU", "pt-PT", "es-US", "de-DE"]
 Character = Literal[
-    "Alan Turing", "Grace Hopper", "Ada Lovelace", "Alonzo Church", "Original"
+    "Alan Turing",
+    "Grace Hopper",
+    "Ada Lovelace",
+    "Alonzo Church",
+    "Original",
+    "Bill",
+    "Melinda",
 ]
 
 
@@ -20,6 +26,8 @@ def is_language(val: str) -> TypeGuard[Language]:
 
 def is_character(val: str) -> TypeGuard[Character]:
     return val in (
+        "Bill",
+        "Melinda",
         "Alan Turing",
         "Grace Hopper",
         "Ada Lovelace",

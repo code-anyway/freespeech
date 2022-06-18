@@ -14,20 +14,50 @@ TEST_OUTPUT_GS = "gs://freespeech-tests/test_speech/output/"
 
 def test_text_to_ssml_chunks():
     f = speech.text_to_ssml_chunks
-    assert f("", 16) == ["<speak></speak>"]
-    assert f("Hello#1.0#world!", 100) == [
-        '<speak>Hello<break time="1.0s" />world!</speak>'
+    assert f("", 16, "Bill") == [
+        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
+        'xml:lang="en-US"><voice name="Bill"><prosody rate="1.0"></prosody>'
+        "</voice></speak>"
     ]
-    assert f("Hello#1#world!", 100) == ['<speak>Hello<break time="1s" />world!</speak>']
-    assert f("Hello#1#dear #2# world!", 100) == [
-        '<speak>Hello<break time="1s" />dear <break time="2s" /> world!</speak>'
+    assert f("Hello#1.0#world!", 100, "Bill") == [
+        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
+        'xml:lang="en-US">'
+        '<voice name="Bill"><prosody rate="1.0">Hello<break time="1.0s" />'
+        "world!</prosody>"
+        "</voice></speak>"
     ]
-    assert f("Hello#1#dear #2# world! How are you?", 100) == [
-        '<speak>Hello<break time="1s" />dear <break time="2s" /> world! How are you?</speak>'  # noqa E501
+    assert f("Hello#1#world!", 100, "Bill") == [
+        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
+        'xml:lang="en-US">'
+        '<voice name="Bill">'
+        '<prosody rate="1.0">Hello<break time="1s" />world!</prosody></voice></speak>'
     ]
-    assert f("Hello#1#dear #2# world! How are you?", 70) == [
-        '<speak>Hello<break time="1s" />dear <break time="2s" /> world!</speak>',
-        "<speak>How are you?</speak>",
+    assert f("Hello#1#dear #2# world!", 100, "Bill") == [
+        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
+        'xml:lang="en-US"><voice name="Bill">'
+        '<prosody rate="1.0">'
+        'Hello<break time="1s" />dear <break time="2s" /> world!'
+        "</prosody></voice></speak>"
+    ]
+    # given the big XML overhead, this one fits into the 300-char limit of chunk...
+    assert f("Hello#1#dear #2# world! How are you?", 300, "Bill") == [
+        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
+        'xml:lang="en-US"><voice name="Bill">'
+        '<prosody rate="1.0">'
+        'Hello<break time="1s" />dear <break time="2s" /> world! How are you?'
+        "</prosody></voice></speak>"  # noqa E501
+    ]
+    # but not into the 100-char limit
+    assert f("Hello#1#dear #2# world! How are you?", 100, "Bill") == [
+        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
+        'xml:lang="en-US"><voice name="Bill">'
+        '<prosody rate="1.0">'
+        'Hello<break time="1s" />dear <break time="2s" /> world!</prosody>'
+        "</voice></speak>",
+        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
+        'xml:lang="en-US"><voice name="Bill">'
+        '<prosody rate="1.0">How are you?</prosody>'
+        "</voice></speak>",
     ]
 
 
@@ -65,10 +95,10 @@ async def test_synthesize_text(tmp_path) -> None:
     )
     (audio, *_), _ = media.probe(output)
 
-    eps = 100
+    eps = speech.SYNTHESIS_ERROR_MS
     assert abs(audio.duration_ms - 4_000) < eps
     # Although text is short, speech break helps us achieve reasonable speech rate
-    assert voice.speech_rate == 0.90425
+    assert voice.speech_rate == pytest.approx(0.78, 1e-2)
     assert voice.character == "Grace Hopper"
     assert voice.pitch == 0.0
 
@@ -79,6 +109,26 @@ async def test_synthesize_text(tmp_path) -> None:
 
     assert first.chunks == ["One, two."]
     assert second.chunks == [" 3."]
+
+
+@pytest.mark.asyncio
+async def test_synthesize_azure_transcribe_google(tmp_path) -> None:
+    output, voice = await speech.synthesize_text(
+        text="Testing quite a long sentence. #2# Hello.",
+        duration_ms=5_000,
+        voice="Bill",
+        lang="en-US",
+        pitch=0.0,
+        output_dir=tmp_path,
+    )
+    (audio, *_), _ = media.probe(output)
+    output_gs = await obj.put(output, f"{TEST_OUTPUT_GS}{output.name}")
+    (first, second) = await speech.transcribe(
+        output_gs, audio, "en-US", model="default"
+    )
+
+    assert first.chunks == ["Testing quite a long sentence."]
+    assert second.chunks == [" Hello."]
 
 
 @pytest.mark.asyncio
@@ -249,3 +299,30 @@ def test_normalize_speech_long() -> None:
     with open("tests/lib/data/youtube/transcript_ru_RU.json", encoding="utf-8") as fd:
         events_dict = json.load(fd)
         _ = [Event(**item) for item in events_dict]
+
+
+def test_supported_azure_voices() -> None:
+    voices = speech.supported_azure_voices()
+    assert voices["uk-UA-PolinaNeural"] == "uk-UA"
+
+
+@pytest.mark.asyncio
+async def test_synthesize_azure(tmp_path) -> None:
+    event_en_us = Event(
+        time_ms=0,
+        duration_ms=5000,
+        chunks=["Hello this is Bill speaking #1# Nice to meet you."],
+        voice=None,
+    )
+
+    _, voices = await speech.synthesize_events(
+        events=[event_en_us],
+        voice="Bill",
+        lang="en-US",
+        pitch=0.0,
+        output_dir=tmp_path,
+    )
+
+    (voice,) = voices
+
+    assert voice.speech_rate == pytest.approx(0.87, rel=1e-2)

@@ -87,3 +87,16 @@ def get_dub_service_url() -> str:
         )
 
     return url
+
+
+@functools.cache
+def get_azure_config() -> dict[str, str]:
+    azure_key = os.environ.get("AZURE_SUBSCRIPTION_KEY", None)
+    azure_region = os.environ.get("AZURE_REGION", None)
+
+    if not azure_key or not azure_region:
+        raise RuntimeError(
+            "Both AZURE_SUBSCRIPTION_KEY and AZURE_REGION "
+            "env vars are required to work with Azure TTS"
+        )
+    return {"subscription": azure_key, "region": azure_region}
