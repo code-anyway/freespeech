@@ -1,11 +1,23 @@
 import re
 from contextlib import contextmanager
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Sequence, Tuple
 
 import googleapiclient.discovery
 from google.oauth2 import service_account
 
 from freespeech import env
+from freespeech.types import Character, Event, Language, Source
+
+
+@dataclass
+class Page:
+    origin: str
+    language: Language
+    voice: Character | None
+    clip_id: str
+    method: Source
+    video: str | None
 
 
 def _read_paragraph_element(element):
@@ -83,3 +95,7 @@ def extract(url: str) -> str:
         document = documents.get(documentId=document_id).execute()
 
     return _read_structural_elements(document.get("body").get("content"))
+
+
+def parse(text: str) -> Tuple[Page, Sequence[Event]]:
+    pass

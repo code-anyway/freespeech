@@ -8,14 +8,17 @@ VideoEncoding = Literal["H264", "HEVC", "AV1"]
 ServiceProvider = Literal["Google", "Deepgram", "Azure"]
 TranscriptionModel = Literal["default", "latest_long", "general"]
 
+
 Language = Literal["en-US", "uk-UA", "ru-RU", "pt-PT", "es-US", "de-DE"]
-Character = Literal[
-    "Alan Turing", "Grace Hopper", "Ada Lovelace", "Alonzo Church", "Original"
-]
 
 
 def is_language(val: str) -> TypeGuard[Language]:
     return val in ("en-US", "uk-UA", "ru-RU", "pt-PT", "es-US", "de-DE")
+
+
+Character = Literal[
+    "Alan Turing", "Grace Hopper", "Ada Lovelace", "Alonzo Church", "Original"
+]
 
 
 def is_character(val: str) -> TypeGuard[Character]:
@@ -26,6 +29,13 @@ def is_character(val: str) -> TypeGuard[Character]:
         "Alonzo Church",
         "Original",
     )
+
+
+Source = Literal["Machine", "Machine A", "Machine B", "Subtitles", "Translate"]
+
+
+def is_source(val: str) -> TypeGuard[Source]:
+    return val in ("Machine", "Machine A", "Machine B", "Subtitles", "Translate")
 
 
 url = str

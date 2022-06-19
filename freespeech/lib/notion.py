@@ -2,7 +2,7 @@ import logging
 import re
 from dataclasses import dataclass, replace
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Sequence, Tuple, TypeGuard
+from typing import Any, Dict, List, Literal, Sequence, Tuple
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -10,7 +10,17 @@ import aiohttp
 
 from freespeech import env, types
 from freespeech.lib import text
-from freespeech.types import Character, Event, Language, Meta, Voice, assert_never, url
+from freespeech.types import (
+    Character,
+    Event,
+    Language,
+    Meta,
+    Source,
+    Voice,
+    assert_never,
+    is_source,
+    url,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -32,12 +42,8 @@ PROPERTY_NAME_DUB_URL = "Dub URL"
 PROPERTY_NAME_CLIP_ID = "Clip ID"
 PROPERTY_NAME_TRANSLATED_FROM = "Translate"
 
-Source = Literal["Machine", "Machine A", "Machine B", "Subtitles", "Translate"]
+
 HTTPVerb = Literal["GET", "PATCH", "DELETE", "POST"]
-
-
-def is_source(val: str) -> TypeGuard[Source]:
-    return val in ("Machine", "Machine A", "Machine B", "Subtitles", "Translate")
 
 
 @dataclass(frozen=True)

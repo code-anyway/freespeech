@@ -3,6 +3,15 @@ from googleapiclient import errors
 
 from freespeech.lib import gdocs
 
+EXPECTED_PAGE = gdocs.Page(
+    origin="https://youtube.com/foo",
+    language="en-US",
+    voice="Alonzo Church",
+    method="Subtitles",
+    clip_id="deadbeef239",
+    video=None,
+)
+
 
 def test_extract():
     res = gdocs.extract(
@@ -15,3 +24,9 @@ def test_extract():
 
     with pytest.raises(ValueError, match=r"Invalid URL: .*"):
         gdocs.extract("https://docs.google.com/INVALID_GDOCS_URL")
+
+
+def test_read_transcript():
+    url = "https://docs.google.com/document/d/16E56VsclHUOapBhcfEf9BzmN2pZklXZE1V1Oik2vSkM/edit?usp=sharing"
+    page = gdocs.parse(gdocs.extract(url))
+    assert page == EXPECTED_PAGE
