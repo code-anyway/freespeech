@@ -37,9 +37,26 @@ def test_extract():
         gdocs.extract("https://docs.google.com/INVALID_GDOCS_URL")
 
 
+def test_parse():
+    parsed_page = gdocs.parse_properties(
+        """Origin: https://youtube.com/foo
+        Language: en-US
+        Voice: Alonzo Church
+        Clip ID: deadbeef239
+        Dub:
+        Method: Subtitles
+        Original Audio Level: 2
+        Video:
+        """
+    )
+    assert parsed_page == EXPECTED_PAGE
+    with pytest.raises(TypeError, match=".*(?=must be defined)"):
+        gdocs.parse_properties("") == EXPECTED_PAGE
+
+
 def test_extract_and_parse():
     url = "https://docs.google.com/document/d/16E56VsclHUOapBhcfEf9BzmN2pZklXZE1V1Oik2vSkM/edit?usp=sharing"
     page, events = gdocs.parse(gdocs.extract(url))
 
-    # assert page == EXPECTED_PAGE
+    assert page == EXPECTED_PAGE
     assert events == EXPECTED_EVENTS

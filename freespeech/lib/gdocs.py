@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class Page:
     origin: str
     language: Language
-    voice: Character | None
+    voice: Character
     clip_id: str
     method: Source
     original_audio_level: int
@@ -103,7 +103,32 @@ def extract(url: str) -> str:
 
 
 def parse_properties(text: str) -> Page:
-    pass
+    """Parses the properties of a transcript from the input string.
+
+    Args:
+        text: a tring containing the properties for a transcript.
+
+    Returns:
+        a Page object.
+    """
+
+    def find_property(attribute: str, text: str):
+        attribute_in_doc = attribute.replace("_", " ")
+        match_object = re.search(f"(?<={attribute_in_doc}: ).*", text, flags=re.I)
+
+        if not match_object:
+            if attribute != "video":
+                raise TypeError(f"{attribute_in_doc} must be defined")
+            return None
+        if attribute == "original_audio_level":
+            return int(match_object[0])
+
+        return match_object[0]
+
+    page_attributes = vars(Page)["__match_args__"]
+    properties = [find_property(attr, text) for attr, in zip(page_attributes)]
+
+    return Page(*properties)
 
 
 def parse(text: str) -> Tuple[Page, Sequence[Event]]:
