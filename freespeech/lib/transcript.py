@@ -8,7 +8,7 @@ from freespeech.types import Character, Event, Voice, is_character
 
 logger = logging.getLogger(__name__)
 
-timecode_parser = re.compile(r"([\d\:\.]+)\s*([/#@])\s*([\d\:\.]+)(\s+\((.+)\))?")
+timecode_parser = re.compile(r"(([\d\:\.]+)\s*([/#@])\s*([\d\:\.]+)(\s+\((.+)\))?)")
 
 
 def parse_time_interval(interval: str) -> Tuple[int, int, Character | None]:
@@ -46,10 +46,10 @@ def parse_time_interval(interval: str) -> Tuple[int, int, Character | None]:
     if not match:
         raise ValueError(f"Invalid string: {interval}")
 
-    start = match.group(1)
-    qualifier = match.group(2)
-    value = match.group(3)
-    character_str = match.group(5)
+    start = match.group(2)
+    qualifier = match.group(3)
+    value = match.group(4)
+    character_str = match.group(6)
 
     if is_character(character_str):
         character = character_str

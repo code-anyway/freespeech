@@ -9,6 +9,7 @@ EXPECTED_PAGE = gdocs.Page(
     voice="Alonzo Church",
     method="Subtitles",
     clip_id="deadbeef239",
+    original_audio_level=2,
     video=None,
 )
 

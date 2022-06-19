@@ -1,3 +1,4 @@
+import logging
 import re
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -7,7 +8,10 @@ import googleapiclient.discovery
 from google.oauth2 import service_account
 
 from freespeech import env
+from freespeech.lib import transcript
 from freespeech.types import Character, Event, Language, Source
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -17,6 +21,7 @@ class Page:
     voice: Character | None
     clip_id: str
     method: Source
+    original_audio_level: int
     video: str | None
 
 
@@ -97,5 +102,18 @@ def extract(url: str) -> str:
     return _read_structural_elements(document.get("body").get("content"))
 
 
-def parse(text: str) -> Tuple[Page, Sequence[Event]]:
+def parse_properties(text: str) -> Page:
     pass
+
+
+def parse(text: str) -> Tuple[Page, Sequence[Event]]:
+    blocks = transcript.timecode_parser.split(text)
+
+    head, *paragraphs = blocks[:: transcript.timecode_parser.groups + 1]
+    page = parse_properties(head)
+
+    timestamps = blocks[1 :: transcript.timecode_parser.groups + 1]
+    lines: Sequence[str] = sum([list(t) for t in zip(timestamps, paragraphs)], [])
+    events = transcript.parse_events(lines)
+
+    return page, events
