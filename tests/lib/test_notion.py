@@ -59,21 +59,6 @@ EXPECTED_TRANSCRIPT = notion.Transcript(
 )
 
 
-def test_parse_event():
-    parse = notion.parse_time_interval
-
-    assert parse("00:00:00.000/00:00:00.000") == (0, 0, None)
-    assert parse(" 00:00:00.000 / 00:00:00.000 ") == (0, 0, None)
-    assert parse("00:00:00.001/00:00:00.120") == (1, 119, None)
-    assert parse("00:00:01.001/00:00:02.120") == (1001, 1119, None)
-    assert parse("00:01:02.001/00:01:20.123") == (62001, 18122, None)
-    assert parse("01:01:01.123/01:01:01.123") == (3661123, 0, None)
-    assert parse("00:00:00.000/00:00:00.000 (Alonzo Church)") == (0, 0, "Alonzo Church")
-    assert parse("00:00:00.000#0 (Alonzo Church)") == (0, 0, "Alonzo Church")
-    assert parse("00:00:00.000#0.0 (Alonzo Church)") == (0, 0, "Alonzo Church")
-    assert parse("00:00:00.001#0.1") == (1, 100, None)
-
-
 @pytest.mark.asyncio
 async def test_read_transcript():
     PAGE_ID = "4738b64bf29f4c98bfad98e8c2a6690a"
@@ -129,32 +114,3 @@ async def test_create_update_get_transcript():
     # Avoid unclosed transport ResourceWarning.
     # details: https://docs.aiohttp.org/en/stable/client_advanced.html?highlight=graceful%20shutdown#graceful-shutdown  # noqa E501
     await asyncio.sleep(0.250)
-
-
-def test_parse_time_interval():
-    correct_intervals = [
-        "00:13:00.50000/00:13:00.50000",
-        "00:13:00.500/00:13:00.500",
-        "  00:13:00.500000  / 00:13:00.500000   ",
-        "00:13:00.5/00:13:00.5",
-        "00:13:00.50/00:13:00.50",
-        "00:13:00.500/00:13:00.500",
-        "00:13:00.5000/00:13:00.5000",
-        "00:13:00.50000/00:13:00.50000",
-        "00:13:00.500000/00:13:00.500000",
-        "00:13:00.500000/00:13:00.5000000000000",
-        "00:13:00.5000/00:13:00.5000",
-    ]
-    correct_parsed = (13 * 60 * 1000 + 500, 0, None)
-
-    for sample in correct_intervals:
-        assert notion.parse_time_interval(sample) == correct_parsed
-
-    # case for no dots
-    assert notion.parse_time_interval("00:13:00/00:13:00") == (13 * 60 * 1000, 0, None)
-
-    # case for single digit
-    assert notion.parse_time_interval("00:1:00/00:1:00") == (1 * 60 * 1000, 0, None)
-
-    # case for real duraiton
-    assert notion.parse_time_interval("00:00:00/00:03:30") == (0, 3.5 * 60 * 1000, None)
