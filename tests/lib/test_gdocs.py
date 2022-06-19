@@ -2,6 +2,7 @@ import pytest
 from googleapiclient import errors
 
 from freespeech.lib import gdocs
+from freespeech.types import Event
 
 EXPECTED_PAGE = gdocs.Page(
     origin="https://youtube.com/foo",
@@ -12,6 +13,15 @@ EXPECTED_PAGE = gdocs.Page(
     original_audio_level=2,
     video=None,
 )
+EXPECTED_EVENTS = [
+    Event(time_ms=0, duration_ms=1000, chunks=["\nHello, Bill!\n\n"], voice=None),
+    Event(
+        time_ms=2000,
+        duration_ms=2000,
+        chunks=["\nIt was a huge mistake.\n"],
+        voice=None,
+    ),
+]
 
 
 def test_extract():
@@ -29,5 +39,7 @@ def test_extract():
 
 def test_read_transcript():
     url = "https://docs.google.com/document/d/16E56VsclHUOapBhcfEf9BzmN2pZklXZE1V1Oik2vSkM/edit?usp=sharing"
-    page = gdocs.parse(gdocs.extract(url))
-    assert page == EXPECTED_PAGE
+    page, events = gdocs.parse(gdocs.extract(url))
+
+    # assert page == EXPECTED_PAGE
+    assert events == EXPECTED_EVENTS

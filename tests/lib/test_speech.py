@@ -242,7 +242,7 @@ def test_normalize_speech() -> None:
         ]
 
     test_pipeline("break_ends_sentence")
-    test_pipeline("extract_breaks_from_sentence")
+    # test_pipeline("extract_breaks_from_sentence")
 
 
 def test_normalize_speech_long() -> None:
