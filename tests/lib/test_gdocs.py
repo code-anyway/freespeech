@@ -37,7 +37,7 @@ def test_extract():
         gdocs.extract("https://docs.google.com/INVALID_GDOCS_URL")
 
 
-def test_read_transcript():
+def test_extract_and_parse():
     url = "https://docs.google.com/document/d/16E56VsclHUOapBhcfEf9BzmN2pZklXZE1V1Oik2vSkM/edit?usp=sharing"
     page, events = gdocs.parse(gdocs.extract(url))
 
