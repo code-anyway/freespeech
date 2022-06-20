@@ -35,7 +35,9 @@ def chunk(text: str, max_chars: int) -> Sequence[str]:
     # then the text of all groups in the pattern
     # are also returned as part of the resulting list.
     split = re.split(r"(\!|\?|\.\s+)", text)
-    sentences = [a + b for a, b in zip_longest(split[0::2], split[1::2], fillvalue="") if a + b]
+    sentences = [
+        a + b for a, b in zip_longest(split[0::2], split[1::2], fillvalue="") if a + b
+    ]
 
     def chunk_sentences() -> Iterator[str]:
         res = ""
