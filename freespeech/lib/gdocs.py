@@ -113,24 +113,28 @@ def parse_properties(text: str) -> Page:
     Returns:
         a Page object.
     """
+    page_attributes = [
+        "origin",
+        "language",
+        "voice",
+        "clip_id",
+        "method",
+        "original_audio_level",
+        "video",
+    ]
+    properties = dict(
+        re.findall(f"({'|'.join(page_attributes)}):.(.*)", text, flags=re.M)
+    )
 
-    def find_property(attribute: str, text: str):
-        attribute_in_doc = attribute.replace("_", " ")
-        match_object = re.search(f"(?<={attribute_in_doc}: ).*", text, flags=re.I)
+    keys = properties.keys()
+    for attribute in page_attributes:
+        if attribute not in keys and attribute != "video":
+            raise TypeError(f"{attribute} must be defined")
 
-        if not match_object:
-            if attribute != "video":
-                raise TypeError(f"{attribute_in_doc} must be defined")
-            return None
-        if attribute == "original_audio_level":
-            return int(match_object[0])
+    properties["original_audio_level"] = int(properties["original_audio_level"])
+    properties["video"] = None if "video" not in keys else properties["video"]
 
-        return match_object[0]
-
-    page_attributes = vars(Page)["__match_args__"]
-    properties = [find_property(attr, text) for attr, in zip(page_attributes)]
-
-    return Page(*properties)
+    return Page(**properties)
 
 
 def parse(text: str) -> Tuple[Page, Sequence[Event]]:
@@ -152,9 +156,8 @@ def from_properties_and_events(page: Page, events: Sequence[Event]) -> str:
     # putting up properties
     properties = vars(page)
     for property, value in properties.items():
-        attribute_in_doc = " ".join(word.capitalize() for word in property.split("_"))
         attribute_value = " " + str(value) if value else ""
-        output += f"{attribute_in_doc}:{attribute_value}\n"
+        output += f"{property}:{attribute_value}\n"
 
     # putting up events
     output += "\n"

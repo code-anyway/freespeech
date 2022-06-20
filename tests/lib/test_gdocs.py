@@ -28,13 +28,13 @@ EXPECTED_EVENTS = [
         voice=None,
     ),
 ]
-EXPECTED_TEXT = """Origin: https://youtube.com/foo
-Language: en-US
-Voice: Alonzo Church
-Clip Id: deadbeef239
-Method: Subtitles
-Original Audio Level: 2
-Video:
+EXPECTED_TEXT = """origin: https://youtube.com/foo
+language: en-US
+voice: Alonzo Church
+clip_id: deadbeef239
+method: Subtitles
+original_audio_level: 2
+video:
 
 00:00:00/00:00:01 (Grace Hopper)
 Hello, Bill!
@@ -59,14 +59,14 @@ def test_extract():
 
 def test_parse():
     parsed_page = gdocs.parse_properties(
-        """Origin: https://youtube.com/foo
-        Language: en-US
-        Voice: Alonzo Church
-        Clip Id: deadbeef239
-        apple banana orange :
-        Method: Subtitles
-        Original Audio Level: 2
-        Video:
+        """origin: https://youtube.com/foo
+        language: en-US
+        voice: Alonzo Church
+        clip_id: deadbeef239
+        apple banana: orange
+        method: Subtitles
+        original_audio_level: 2
+        video:
         """
     )
     assert parsed_page == EXPECTED_PAGE
