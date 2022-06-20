@@ -108,7 +108,7 @@ def parse_properties(text: str) -> Page:
     """Parses the properties of a transcript from the input string.
 
     Args:
-        text: a tring containing the properties for a transcript.
+        text: a string containing the properties for a transcript.
 
     Returns:
         a Page object.
