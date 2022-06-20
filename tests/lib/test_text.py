@@ -50,15 +50,25 @@ def test_chunk() -> None:
     assert text.chunk("Hello.", max_chars=6) == ["Hello."]
     assert text.chunk("Hello.", max_chars=1) == ["Hello."]
     assert text.chunk("Long sentence.", max_chars=5) == ["Long sentence."]
+    assert text.chunk("Hello.", max_chars=1) == ["Hello."]
 
 
 def test_chunk_raw() -> None:
     s = "abcdef"
+    # check chunk by size behavior
     assert text.chunk_raw(s, 2) == ["ab", "cd", "ef"]
     assert text.chunk_raw(s, 3) == ["abc", "def"]
     assert text.chunk_raw(s, 4) == ["abcd", "ef"]
     assert text.chunk_raw(s, 1) == ["a", "b", "c", "d", "e", "f"]
     assert text.chunk_raw("", 1) == []
+
+    # check chunk by punctuation (comma should not break sentence but '!' should
+    assert text.chunk("One? Two. ", 1) == ["One?", "Two."]
+    assert text.chunk("One. Two. ", 1) == ["One.", "Two."]
+    assert text.chunk("One, Two. ", 1) == ["One, Two."]
+    assert text.chunk("One. Two ", 1) == ["One.", "Two"]
+    assert text.chunk("One! Two. ", 1) == ["One!", "Two."]
+
 
 
 def test_remove_symbols() -> None:
@@ -90,11 +100,3 @@ def test_chunk_supports_dots_within_pauses() -> None:
         "The newline is also a space char #2.1# after dot.",
         "This is a second sentence",
     ]
-
-
-def test_split_by_sentences() -> None:
-    assert ["One? ", "Two. "] == text.split_to_sentences("One? Two. ")
-    assert ["One. ", "Two. "] == text.split_to_sentences("One. Two. ")
-    assert ["One, Two. "] == text.split_to_sentences("One, Two. ")
-    assert ["One. ", "Two "] == text.split_to_sentences("One. Two ")
-    assert ["One! ", "Two. "] == text.split_to_sentences("One! Two. ")
