@@ -1,20 +1,26 @@
+from pprint import pprint
 import pytest
 from googleapiclient import errors
 
 from freespeech.lib import gdocs
-from freespeech.types import Event
+from freespeech.types import Event, Voice
 
 EXPECTED_PAGE = gdocs.Page(
     origin="https://youtube.com/foo",
     language="en-US",
     voice="Alonzo Church",
-    method="Subtitles",
     clip_id="deadbeef239",
+    method="Subtitles",
     original_audio_level=2,
     video=None,
 )
 EXPECTED_EVENTS = [
-    Event(time_ms=0, duration_ms=1000, chunks=["\nHello, Bill!\n\n"], voice=None),
+    Event(
+        time_ms=0,
+        duration_ms=1000,
+        chunks=["\nHello, Bill!\n\n"],
+        voice=Voice(character="Grace Hopper", pitch=0.0, speech_rate=None),
+    ),
     Event(
         time_ms=2000,
         duration_ms=2000,
@@ -22,6 +28,20 @@ EXPECTED_EVENTS = [
         voice=None,
     ),
 ]
+EXPECTED_TEXT = """Origin: https://youtube.com/foo
+Language: en-US
+Voice: Alonzo Church
+Clip Id: deadbeef239
+Method: Subtitles
+Original Audio Level: 2
+Video:
+
+00:00:00/00:00:01 (Grace Hopper)
+Hello, Bill!
+
+00:00:02/00:00:04
+It was a huge mistake.
+"""
 
 
 def test_extract():
@@ -42,8 +62,8 @@ def test_parse():
         """Origin: https://youtube.com/foo
         Language: en-US
         Voice: Alonzo Church
-        Clip ID: deadbeef239
-        Dub:
+        Clip Id: deadbeef239
+        apple banana orange :
         Method: Subtitles
         Original Audio Level: 2
         Video:
@@ -60,3 +80,8 @@ def test_extract_and_parse():
 
     assert page == EXPECTED_PAGE
     assert events == EXPECTED_EVENTS
+
+
+def test_from_properties_and_events():
+    loaded_text = gdocs.from_properties_and_events(EXPECTED_PAGE, EXPECTED_EVENTS)
+    assert loaded_text == EXPECTED_TEXT

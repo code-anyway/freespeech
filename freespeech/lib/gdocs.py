@@ -1,7 +1,9 @@
+from argparse import ArgumentError
 import logging
 import re
 from contextlib import contextmanager
 from dataclasses import dataclass
+from tracemalloc import start
 from typing import Any, Sequence, Tuple
 
 import googleapiclient.discovery
@@ -142,3 +144,24 @@ def parse(text: str) -> Tuple[Page, Sequence[Event]]:
     events = transcript.parse_events(lines)
 
     return page, events
+
+
+def from_properties_and_events(page: Page, events: Sequence[Event]) -> str:
+    output = ""
+
+    # putting up properties
+    properties = vars(page)
+    for property, value in properties.items():
+        attribute_in_doc = " ".join(word.capitalize() for word in property.split("_"))
+        attribute_value = " " + str(value) if value else ""
+        output += f"{attribute_in_doc}:{attribute_value}\n"
+
+    # putting up events
+    output += "\n"
+    for event in events:
+        output += transcript.unparse_time_interval(
+            event.time_ms, event.duration_ms, event.voice
+        )
+        output += "".join(event.chunks)
+
+    return output
