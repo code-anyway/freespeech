@@ -28,6 +28,7 @@ from freespeech.types import (
     ServiceProvider,
     TranscriptionModel,
     Voice,
+    assert_never,
     is_character,
     url,
 )
@@ -35,48 +36,47 @@ from freespeech.types import (
 logger = logging.getLogger(__name__)
 
 Normalization = Literal["break_ends_sentence", "extract_breaks_from_sentence"]
-TTSProvider = Literal["microsoft", "google"]
 
 MAX_CHUNK_LENGTH = 1000  # Google Speech API Limit
 
 # Let's give voices real names and map them to API-specific names
-VOICES = {
+VOICES: Dict[str, Dict[str, Tuple[ServiceProvider, str]]] = {
     "Ada Lovelace": {
-        "en-US": ("google", "en-US-Wavenet-F"),
-        "ru-RU": ("google", "ru-RU-Wavenet-E"),
-        "pt-PT": ("google", "pt-PT-Wavenet-D"),
-        "de-DE": ("google", "de-DE-Wavenet-C"),
-        "es-US": ("google", "es-US-Wavenet-A"),
+        "en-US": ("Google", "en-US-Wavenet-F"),
+        "ru-RU": ("Google", "ru-RU-Wavenet-E"),
+        "pt-PT": ("Google", "pt-PT-Wavenet-D"),
+        "de-DE": ("Google", "de-DE-Wavenet-C"),
+        "es-US": ("Google", "es-US-Wavenet-A"),
     },
     "Grace Hopper": {
-        "en-US": ("google", "en-US-Wavenet-C"),
-        "ru-RU": ("google", "ru-RU-Wavenet-C"),
-        "pt-PT": ("google", "pt-PT-Wavenet-A"),
-        "de-DE": ("google", "de-DE-Wavenet-F"),
-        "uk-UA": ("google", "uk-UA-Wavenet-A"),
-        "es-US": ("google", "es-US-Wavenet-A"),
+        "en-US": ("Google", "en-US-Wavenet-C"),
+        "ru-RU": ("Google", "ru-RU-Wavenet-C"),
+        "pt-PT": ("Google", "pt-PT-Wavenet-A"),
+        "de-DE": ("Google", "de-DE-Wavenet-F"),
+        "uk-UA": ("Google", "uk-UA-Wavenet-A"),
+        "es-US": ("Google", "es-US-Wavenet-A"),
     },
     "Alan Turing": {
-        "en-US": ("google", "en-US-Wavenet-I"),
-        "ru-RU": ("google", "ru-RU-Wavenet-D"),
-        "pt-PT": ("google", "pt-PT-Wavenet-C"),
-        "de-DE": ("google", "de-DE-Wavenet-B"),
-        "es-US": ("google", "es-US-Wavenet-B"),
+        "en-US": ("Google", "en-US-Wavenet-I"),
+        "ru-RU": ("Google", "ru-RU-Wavenet-D"),
+        "pt-PT": ("Google", "pt-PT-Wavenet-C"),
+        "de-DE": ("Google", "de-DE-Wavenet-B"),
+        "es-US": ("Google", "es-US-Wavenet-B"),
     },
     "Alonzo Church": {
-        "en-US": ("google", "en-US-Wavenet-D"),
-        "ru-RU": ("google", "ru-RU-Wavenet-B"),
-        "pt-PT": ("google", "pt-PT-Wavenet-B"),
-        "de-DE": ("google", "de-DE-Wavenet-D"),
-        "es-US": ("google", "es-US-Wavenet-C"),
+        "en-US": ("Google", "en-US-Wavenet-D"),
+        "ru-RU": ("Google", "ru-RU-Wavenet-B"),
+        "pt-PT": ("Google", "pt-PT-Wavenet-B"),
+        "de-DE": ("Google", "de-DE-Wavenet-D"),
+        "es-US": ("Google", "es-US-Wavenet-C"),
     },
     "Bill": {
-        "en-US": ("microsoft", "en-US-ChristopherNeural"),
-        "uk-UA": ("microsoft", "uk-UA-OstapNeural"),
+        "en-US": ("Azure", "en-US-ChristopherNeural"),
+        "uk-UA": ("Azure", "uk-UA-OstapNeural"),
     },
     "Melinda": {
-        "en-US": ("microsoft", "en-US-AriaNeural"),
-        "uk-UA": ("microsoft", "uk-UA-PolinaNeural"),
+        "en-US": ("Azure", "en-US-AriaNeural"),
+        "uk-UA": ("Azure", "uk-UA-PolinaNeural"),
     },
 }
 
@@ -110,7 +110,8 @@ def supported_google_voices() -> Dict[str, Sequence[str]]:
 
 @cache
 def supported_azure_voices() -> Dict[str, Sequence[str]]:
-    config = azure_tts.SpeechConfig(**env.get_azure_config())
+    azure_key, azure_region = env.get_azure_config()
+    config = azure_tts.SpeechConfig(subscription=azure_key, region=azure_region)
     ms_synthesizer = azure_tts.SpeechSynthesizer(config, None)
     all_languages = ms_synthesizer.get_voices_async().get()
     return {v.short_name: v.locale for v in all_languages.voices}
@@ -281,28 +282,21 @@ def is_valid_ssml(text: str) -> bool:
     return root.tag == "{http://www.w3.org/2001/10/synthesis}speak"
 
 
-def _text_to_ssml(text: str, voice: str, speech_rate: float) -> str:
+def _wrap_in_ssml(text: str, voice: str, speech_rate: float) -> str:
     result = (
         '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
         'xml:lang="en-US">'
-        '<voice name="{VOICE}"><prosody rate="{RATE:.1f}">{TEXT}</prosody></voice>'
+        '<voice name="{VOICE}"><prosody rate="{RATE:f}">{TEXT}</prosody></voice>'
         "</speak>".format(TEXT=text, VOICE=voice, RATE=speech_rate)
     )
     assert is_valid_ssml(result), f"text={text} result={result}"
     return result
 
 
-def text_to_ssml_chunks(
-    text: str, chunk_length: int, voice: str, rate: float = 1.0
-) -> Sequence[str]:
+def text_to_chunks(text: str, chunk_length: int, voice: str) -> Sequence[str]:
     inner = re.sub(r"#(\d+(\.\d+)?)#", r'<break time="\1s" />', text)
-
-    overhead = len(_text_to_ssml("", voice=voice, speech_rate=rate))
-
-    return [
-        _text_to_ssml(c, voice=voice, speech_rate=rate)
-        for c in chunk(text=inner, max_chars=chunk_length - overhead)
-    ]
+    overhead = len(_wrap_in_ssml("", voice=voice, speech_rate=1.0))
+    return chunk(text=inner, max_chars=chunk_length - overhead)
 
 
 async def synthesize_text(
@@ -322,15 +316,18 @@ async def synthesize_text(
         )
 
     provider, provider_voice = VOICES[voice][lang]
-    if provider == "google":
-        all_voices = supported_google_voices()
-    elif provider == "microsoft":
-        all_voices = supported_azure_voices()
-    else:
-        raise ValueError(f"Unknown TTS provider {provider}")
+    match provider:
+        case "Google":
+            all_voices = supported_google_voices()
+        case "Azure":
+            all_voices = supported_azure_voices()
+        case "Deepgram":
+            raise RuntimeError("Deepgram can nmot be used as TTS provider")
+        case never:
+            assert_never(never)
 
-    chunks = text_to_ssml_chunks(
-        text, chunk_length=MAX_CHUNK_LENGTH, voice=provider_voice, rate=1.0
+    chunks_with_breaks_expanded = text_to_chunks(
+        text, chunk_length=MAX_CHUNK_LENGTH, voice=provider_voice
     )
 
     if provider_voice not in all_voices or lang not in all_voices[provider_voice]:
@@ -368,44 +365,44 @@ async def synthesize_text(
                 audio_config=google_tts.AudioConfig(
                     audio_encoding=google_tts.AudioEncoding.LINEAR16,
                     pitch=pitch,
-                    speaking_rate=rate,
                 ),
             )
             return result.audio_content
 
         def _azure_api_call(ssml_phrase: str) -> bytes:
-            speech_config = azure_tts.SpeechConfig(**env.get_azure_config())
+            azure_key, azure_region = env.get_azure_config()
+            speech_config = azure_tts.SpeechConfig(
+                subscription=azure_key, region=azure_region
+            )
             speech_synthesizer = azure_tts.SpeechSynthesizer(
                 speech_config=speech_config, audio_config=None
             )
-            result = speech_synthesizer.speak_ssml(ssml_phrase.format(RATE=rate))
+            result = speech_synthesizer.speak_ssml(ssml_phrase)
             if not result.reason == azure_tts.ResultReason.SynthesizingAudioCompleted:
                 logger.error(
                     f"Error synthesizing voice with Azure provider."
                     f" {result.reason}, {result.cancellation_details}"
                 )
-                raise ValueError(
+                raise RuntimeError(
                     f"Error synthesizing voice with Azure. {result.reason}"
                 )
 
             return result.audio_data
 
-        def _update_rate(ssml_as_string: str, new_rate: float) -> str:
-            return re.sub(
-                r"rate\s*=\s*\"[\d|.]*\"", f'rate="{new_rate:f}"', ssml_as_string
-            )
-
-        if provider == "microsoft":
+        if provider == "Azure":
             _api_call = _azure_api_call
-        elif provider == "google":
+        elif provider == "Google":
             _api_call = _google_api_call
         else:
             raise ValueError(f"Unknown TTS provider {provider}")
 
         responses = await asyncio.gather(
             *[
-                concurrency.run_in_thread_pool(_api_call, _update_rate(phrase, rate))
-                for phrase in chunks
+                concurrency.run_in_thread_pool(
+                    _api_call,
+                    _wrap_in_ssml(phrase, voice=provider_voice, speech_rate=rate),
+                )
+                for phrase in chunks_with_breaks_expanded
             ]
         )
 

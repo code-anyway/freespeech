@@ -12,52 +12,30 @@ AUDIO_EN_GS = "gs://freespeech-tests/test_speech/en-US-mono.wav"
 TEST_OUTPUT_GS = "gs://freespeech-tests/test_speech/output/"
 
 
-def test_text_to_ssml_chunks():
-    f = speech.text_to_ssml_chunks
-    assert f("", 16, "Bill") == [
-        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
+def test_wrap_ssml():
+    assert (
+        speech._wrap_in_ssml("", voice="Bill", speech_rate=1.0)
+        == '<speak version="1.000000" xmlns="http://www.w3.org/2001/10/synthesis" '
         'xml:lang="en-US"><voice name="Bill"><prosody rate="1.0"></prosody>'
         "</voice></speak>"
-    ]
-    assert f("Hello#1.0#world!", 100, "Bill") == [
-        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
-        'xml:lang="en-US">'
-        '<voice name="Bill"><prosody rate="1.0">Hello<break time="1.0s" />'
-        "world!</prosody>"
-        "</voice></speak>"
-    ]
-    assert f("Hello#1#world!", 100, "Bill") == [
-        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
-        'xml:lang="en-US">'
-        '<voice name="Bill">'
-        '<prosody rate="1.0">Hello<break time="1s" />world!</prosody></voice></speak>'
-    ]
+    )
+
+
+def test_text_to_ssml_chunks():
+    f = speech.text_to_chunks
+    assert f("", 16, "Bill") == [""]
+    assert f("Hello#1.0#world!", 100, "Bill") == ['Hello<break time="1.0s" />world!']
     assert f("Hello#1#dear #2# world!", 100, "Bill") == [
-        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
-        'xml:lang="en-US"><voice name="Bill">'
-        '<prosody rate="1.0">'
         'Hello<break time="1s" />dear <break time="2s" /> world!'
-        "</prosody></voice></speak>"
     ]
     # given the big XML overhead, this one fits into the 300-char limit of chunk...
-    assert f("Hello#1#dear #2# world! How are you?", 300, "Bill") == [
-        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
-        'xml:lang="en-US"><voice name="Bill">'
-        '<prosody rate="1.0">'
-        'Hello<break time="1s" />dear <break time="2s" /> world! How are you?'
-        "</prosody></voice></speak>"  # noqa E501
+    assert f("Hello #1# dear #2# world! How are you?", 300, "Bill") == [
+        'Hello <break time="1s" /> dear <break time="2s" /> world! How are you?'
     ]
     # but not into the 100-char limit
-    assert f("Hello#1#dear #2# world! How are you?", 100, "Bill") == [
-        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
-        'xml:lang="en-US"><voice name="Bill">'
-        '<prosody rate="1.0">'
-        'Hello<break time="1s" />dear <break time="2s" /> world!</prosody>'
-        "</voice></speak>",
-        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
-        'xml:lang="en-US"><voice name="Bill">'
-        '<prosody rate="1.0">How are you?</prosody>'
-        "</voice></speak>",
+    assert f("Hello #1# dear #2# world! How are you?", 100, "Bill") == [
+        'Hello <break time="1s" /> dear <break time="2s" /> world!',
+        "How are you?",
     ]
 
 
