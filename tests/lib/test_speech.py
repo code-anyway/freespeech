@@ -15,8 +15,8 @@ TEST_OUTPUT_GS = "gs://freespeech-tests/test_speech/output/"
 def test_wrap_ssml():
     assert (
         speech._wrap_in_ssml("", voice="Bill", speech_rate=1.0)
-        == '<speak version="1.000000" xmlns="http://www.w3.org/2001/10/synthesis" '
-        'xml:lang="en-US"><voice name="Bill"><prosody rate="1.0"></prosody>'
+        == '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
+        'xml:lang="en-US"><voice name="Bill"><prosody rate="1.000000"></prosody>'
         "</voice></speak>"
     )
 

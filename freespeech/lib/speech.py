@@ -40,7 +40,9 @@ Normalization = Literal["break_ends_sentence", "extract_breaks_from_sentence"]
 MAX_CHUNK_LENGTH = 1000  # Google Speech API Limit
 
 # Let's give voices real names and map them to API-specific names
-VOICES: Dict[str, Dict[str, Tuple[ServiceProvider, str]]] = {
+# https://docs.microsoft.com/en-us/azure/cognitive-services/speech-service/language-support
+# https://cloud.google.com/text-to-speech/docs/voices
+VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
     "Ada Lovelace": {
         "en-US": ("Google", "en-US-Wavenet-F"),
         "ru-RU": ("Google", "ru-RU-Wavenet-E"),
@@ -150,8 +152,8 @@ async def transcribe(
             return await _transcribe_deepgram(uri, audio, lang, model)
         case "Azure":
             raise NotImplementedError()
-        case _:
-            raise ValueError(f"Unsupported provider: {provider}")
+        case never:
+            assert_never(never)
 
 
 async def _transcribe_deepgram(
@@ -303,7 +305,7 @@ async def synthesize_text(
     text: str,
     duration_ms: int,
     voice: Character,
-    lang: str,
+    lang: Language,
     pitch: float,
     output_dir: Path | str,
 ) -> Tuple[Path, Voice]:
@@ -322,7 +324,7 @@ async def synthesize_text(
         case "Azure":
             all_voices = supported_azure_voices()
         case "Deepgram":
-            raise RuntimeError("Deepgram can nmot be used as TTS provider")
+            raise ValueError("Deepgram can not be used as TTS provider")
         case never:
             assert_never(never)
 
@@ -389,12 +391,15 @@ async def synthesize_text(
 
             return result.audio_data
 
-        if provider == "Azure":
-            _api_call = _azure_api_call
-        elif provider == "Google":
-            _api_call = _google_api_call
-        else:
-            raise ValueError(f"Unknown TTS provider {provider}")
+        match provider:
+            case "Azure":
+                _api_call = _azure_api_call
+            case "Google":
+                _api_call = _google_api_call
+            case "Deepgram":
+                raise ValueError("Can not use Deepgram as a TTS provider")
+            case never:
+                assert_never(never)
 
         responses = await asyncio.gather(
             *[
@@ -435,7 +440,7 @@ async def synthesize_text(
 async def synthesize_events(
     events: Sequence[Event],
     voice: Character,
-    lang: str,
+    lang: Language,
     pitch: float,
     output_dir: Path | str,
 ) -> Tuple[Path, Sequence[Voice]]:
@@ -523,5 +528,7 @@ def normalize_speech(
                     acc += [concat_events(last_event, event, break_sentence=True)]
                 case "extract_breaks_from_sentence":
                     raise NotImplementedError()
+                case never:
+                    assert_never(never)
 
     return acc
