@@ -18,7 +18,13 @@ from google.cloud.speech_v1.types.cloud_speech import LongRunningRecognizeRespon
 from freespeech import env
 from freespeech.lib import concurrency, media
 from freespeech.lib.storage import obj
-from freespeech.lib.text import chunk, is_sentence, make_sentence, remove_symbols
+from freespeech.lib.text import (
+    chunk,
+    is_sentence,
+    make_sentence,
+    remove_symbols,
+    split_sentences,
+)
 from freespeech.types import (
     Audio,
     Character,
@@ -285,6 +291,8 @@ def is_valid_ssml(text: str) -> bool:
 
 
 def _wrap_in_ssml(text: str, voice: str, speech_rate: float) -> str:
+    text = "".join([f"<s>{sentence}</s>" for sentence in split_sentences(text)])
+
     result = (
         '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
         'xml:lang="en-US">'
@@ -298,7 +306,12 @@ def _wrap_in_ssml(text: str, voice: str, speech_rate: float) -> str:
 def text_to_chunks(text: str, chunk_length: int, voice: str) -> Sequence[str]:
     inner = re.sub(r"#(\d+(\.\d+)?)#", r'<break time="\1s" />', text)
     overhead = len(_wrap_in_ssml("", voice=voice, speech_rate=1.0))
-    return chunk(text=inner, max_chars=chunk_length - overhead)
+    sentence_overhead = len("<s></s>")
+    return chunk(
+        text=inner,
+        max_chars=chunk_length - overhead,
+        sentence_overhead=sentence_overhead,
+    )
 
 
 async def synthesize_text(

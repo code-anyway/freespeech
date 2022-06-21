@@ -67,6 +67,27 @@ def test_chunk() -> None:
     assert text.chunk("Hello.", max_chars=1) == ["Hello."]
 
 
+def test_chunk_overhead() -> None:
+    # no overhead; text is split as is
+    assert text.chunk("One. Two. Three", 10, sentence_overhead=0) == [
+        "One. Two.",
+        "Three",
+    ]
+    # adding some overhead to each sentence. Assuming we wrap each sentence in some
+    # symbol, for example
+    assert text.chunk("One. Two. Three", 10, sentence_overhead=2) == [
+        "One.",
+        "Two.",
+        "Three",
+    ]
+    # now getting ready for SSML's <s> wrapping
+    assert text.chunk("One. Two. Three", 14, sentence_overhead=len("<s></s>")) == [
+        "One.",
+        "Two.",
+        "Three",
+    ]
+
+
 def test_chunk_raw() -> None:
     s = "abcdef"
     assert text.chunk_raw(s, 2) == ["ab", "cd", "ef"]
