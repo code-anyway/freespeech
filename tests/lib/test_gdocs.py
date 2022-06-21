@@ -37,6 +37,7 @@ video:
 
 00:00:00/00:00:01 (Grace Hopper)
 Hello, Bill!
+How are you?
 
 00:00:02/00:00:04
 It was a huge mistake.

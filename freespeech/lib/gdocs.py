@@ -144,7 +144,13 @@ def parse(text: str) -> Tuple[Page, Sequence[Event]]:
     page = parse_properties(head)
 
     timestamps = blocks[1 :: transcript.timecode_parser.groups + 1]
-    lines: Sequence[str] = sum([list(t) for t in zip(timestamps, paragraphs)], [])
+    lines: Sequence[str] = sum(
+        [
+            [timestamp] + [item for item in paragraph.split("\n") if item]
+            for timestamp, paragraph in zip(timestamps, paragraphs)
+        ],
+        [],
+    )
     events = transcript.parse_events(lines)
 
     return page, events
@@ -160,11 +166,14 @@ def from_properties_and_events(page: Page, events: Sequence[Event]) -> str:
         output += f"{property}:{attribute_value}\n"
 
     # putting up events
-    output += "\n"
     for event in events:
-        output += transcript.unparse_time_interval(
-            event.time_ms, event.duration_ms, event.voice
+        output += "\n"
+        output += (
+            transcript.unparse_time_interval(
+                event.time_ms, event.duration_ms, event.voice
+            )
+            + "\n"
         )
-        output += "".join(event.chunks)
+        output += "\n".join(event.chunks) + "\n"
 
     return output
