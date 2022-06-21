@@ -1,4 +1,3 @@
-from pprint import pprint
 import pytest
 from googleapiclient import errors
 
@@ -18,13 +17,13 @@ EXPECTED_EVENTS = [
     Event(
         time_ms=0,
         duration_ms=1000,
-        chunks=["\nHello, Bill!\n\n"],
+        chunks=["Hello, Bill!", "How are you?"],
         voice=Voice(character="Grace Hopper", pitch=0.0, speech_rate=None),
     ),
     Event(
         time_ms=2000,
         duration_ms=2000,
-        chunks=["\nIt was a huge mistake.\n"],
+        chunks=["It was a huge mistake."],
         voice=None,
     ),
 ]
