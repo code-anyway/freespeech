@@ -75,13 +75,21 @@ def test_parse():
 
 
 def test_extract_and_parse():
-    url = "https://docs.google.com/document/d/16E56VsclHUOapBhcfEf9BzmN2pZklXZE1V1Oik2vSkM/edit?usp=sharing"
+    url = "https://docs.google.com/document/d/16E56VsclHUOapBhcfEf9BzmN2pZklXZE1V1Oik2vSkM/edit?usp=sharing"  # noqa: E501
     page, events = gdocs.parse(gdocs.extract(url))
 
     assert page == EXPECTED_PAGE
     assert events == EXPECTED_EVENTS
 
 
-def test_from_properties_and_events():
-    loaded_text = gdocs.from_properties_and_events(EXPECTED_PAGE, EXPECTED_EVENTS)
+def test_text_from_properties_and_events():
+    loaded_text = gdocs.text_from_properties_and_events(EXPECTED_PAGE, EXPECTED_EVENTS)
     assert loaded_text == EXPECTED_TEXT
+
+
+def test_create():
+    url = gdocs.create("test_gdocs::test_create", EXPECTED_PAGE, EXPECTED_EVENTS)
+    page, events = gdocs.parse(gdocs.extract(url))
+
+    assert page == EXPECTED_PAGE
+    assert events == EXPECTED_EVENTS

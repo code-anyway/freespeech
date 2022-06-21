@@ -1,10 +1,8 @@
-from argparse import ArgumentError
 import logging
 import re
 from contextlib import contextmanager
 from dataclasses import dataclass
-from tracemalloc import start
-from typing import Any, Sequence, Tuple
+from typing import Any, List, Sequence, Tuple
 
 import googleapiclient.discovery
 from google.oauth2 import service_account
@@ -79,6 +77,24 @@ def gdocs_client(credentials: service_account.Credentials) -> Any:
         service._http.http.close()
 
 
+@contextmanager
+def drive_client(credentials: service_account.Credentials) -> Any:
+    service = googleapiclient.discovery.build("drive", "v3", credentials=credentials)
+    try:
+        yield service
+    finally:
+        # Some client libraries are leaving SSL connections unclosed
+        # https://github.com/googleapis/google-api-python-client/issues/618#issuecomment-669787286
+        service._http.http.close()
+
+
+def get_credentials(scopes: List[str]) -> service_account.Credentials:
+    return service_account.Credentials.from_service_account_file(
+        env.get_service_account_file(),
+        scopes=scopes,
+    )
+
+
 def extract(url: str) -> str:
     """Extracts text contents of Google Docs document.
 
@@ -92,9 +108,8 @@ def extract(url: str) -> str:
         document_id, *_ = re.findall(r"\/document\/d\/([a-zA-Z0-9-_]+)", url)
     except ValueError as e:
         raise ValueError(f"Invalid URL: {url}") from e
-    credentials = service_account.Credentials.from_service_account_file(
-        env.get_service_account_file(),
-        scopes=["https://www.googleapis.com/auth/documents.readonly"],
+    credentials = get_credentials(
+        scopes=["https://www.googleapis.com/auth/documents.readonly"]
     )
 
     with gdocs_client(credentials) as client:
@@ -156,7 +171,55 @@ def parse(text: str) -> Tuple[Page, Sequence[Event]]:
     return page, events
 
 
-def from_properties_and_events(page: Page, events: Sequence[Event]) -> str:
+def share_with_all(document_id: str):
+    permission = {
+        "type": "anyone",
+        "role": "writer",
+    }
+    with drive_client(
+        get_credentials(scopes=["https://www.googleapis.com/auth/drive"])
+    ) as service:
+        service.permissions().create(
+            fileId=document_id,
+            body=permission,
+            fields="id",
+        ).execute()
+
+
+def create(title: str, page: Page, events: Sequence[Event]) -> str:
+    text = text_from_properties_and_events(page, events)
+    body = {
+        "title": title,
+    }
+    requests = [
+        {
+            "insertText": {
+                "location": {
+                    "index": 1,
+                },
+                "text": text,
+            }
+        },
+    ]
+
+    credentials = get_credentials(scopes=["https://www.googleapis.com/auth/documents"])
+
+    with gdocs_client(credentials) as client:
+        documents = client.documents()
+        document = documents.create(body=body).execute()
+        _id = document.get("documentId")
+
+        client.documents().batchUpdate(
+            documentId=_id, body={"requests": requests}
+        ).execute()
+
+    # TODO (astaff): introduce permissions control.
+    share_with_all(_id)
+
+    return f"https://docs.google.com/document/d/{_id}/edit#"
+
+
+def text_from_properties_and_events(page: Page, events: Sequence[Event]) -> str:
     output = ""
 
     # putting up properties
