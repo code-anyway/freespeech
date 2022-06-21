@@ -8,12 +8,12 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Dict, Sequence, Tuple
 
+import azure.cognitiveservices.speech as azure_tts
 from deepgram import Deepgram
 from google.api_core import exceptions as google_api_exceptions
 from google.cloud import speech as speech_api
-from google.cloud import texttospeech
+from google.cloud import texttospeech as google_tts
 from google.cloud.speech_v1.types.cloud_speech import LongRunningRecognizeResponse
-from google.cloud.texttospeech_v1.types import SynthesizeSpeechResponse
 
 from freespeech import env
 from freespeech.lib import concurrency, media
@@ -28,48 +28,57 @@ from freespeech.types import (
     ServiceProvider,
     TranscriptionModel,
     Voice,
+    assert_never,
     is_character,
     url,
 )
 
 logger = logging.getLogger(__name__)
 
-
 Normalization = Literal["break_ends_sentence", "extract_breaks_from_sentence"]
-
 
 MAX_CHUNK_LENGTH = 1000  # Google Speech API Limit
 
 # Let's give voices real names and map them to API-specific names
-VOICES = {
+# https://docs.microsoft.com/en-us/azure/cognitive-services/speech-service/language-support
+# https://cloud.google.com/text-to-speech/docs/voices
+VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
     "Ada Lovelace": {
-        "en-US": "en-US-Wavenet-F",
-        "ru-RU": "ru-RU-Wavenet-E",
-        "pt-PT": "pt-PT-Wavenet-D",
-        "de-DE": "de-DE-Wavenet-C",
-        "es-US": "es-US-Wavenet-A",
+        "en-US": ("Google", "en-US-Wavenet-F"),
+        "ru-RU": ("Google", "ru-RU-Wavenet-E"),
+        "pt-PT": ("Google", "pt-PT-Wavenet-D"),
+        "de-DE": ("Google", "de-DE-Wavenet-C"),
+        "es-US": ("Google", "es-US-Wavenet-A"),
     },
     "Grace Hopper": {
-        "en-US": "en-US-Wavenet-C",
-        "ru-RU": "ru-RU-Wavenet-C",
-        "pt-PT": "pt-PT-Wavenet-A",
-        "de-DE": "de-DE-Wavenet-F",
-        "uk-UA": "uk-UA-Wavenet-A",
-        "es-US": "es-US-Wavenet-A",
+        "en-US": ("Google", "en-US-Wavenet-C"),
+        "ru-RU": ("Google", "ru-RU-Wavenet-C"),
+        "pt-PT": ("Google", "pt-PT-Wavenet-A"),
+        "de-DE": ("Google", "de-DE-Wavenet-F"),
+        "uk-UA": ("Google", "uk-UA-Wavenet-A"),
+        "es-US": ("Google", "es-US-Wavenet-A"),
     },
     "Alan Turing": {
-        "en-US": "en-US-Wavenet-I",
-        "ru-RU": "ru-RU-Wavenet-D",
-        "pt-PT": "pt-PT-Wavenet-C",
-        "de-DE": "de-DE-Wavenet-B",
-        "es-US": "es-US-Wavenet-B",
+        "en-US": ("Google", "en-US-Wavenet-I"),
+        "ru-RU": ("Google", "ru-RU-Wavenet-D"),
+        "pt-PT": ("Google", "pt-PT-Wavenet-C"),
+        "de-DE": ("Google", "de-DE-Wavenet-B"),
+        "es-US": ("Google", "es-US-Wavenet-B"),
     },
     "Alonzo Church": {
-        "en-US": "en-US-Wavenet-D",
-        "ru-RU": "ru-RU-Wavenet-B",
-        "pt-PT": "pt-PT-Wavenet-B",
-        "de-DE": "de-DE-Wavenet-D",
-        "es-US": "es-US-Wavenet-C",
+        "en-US": ("Google", "en-US-Wavenet-D"),
+        "ru-RU": ("Google", "ru-RU-Wavenet-B"),
+        "pt-PT": ("Google", "pt-PT-Wavenet-B"),
+        "de-DE": ("Google", "de-DE-Wavenet-D"),
+        "es-US": ("Google", "es-US-Wavenet-C"),
+    },
+    "Bill": {
+        "en-US": ("Azure", "en-US-ChristopherNeural"),
+        "uk-UA": ("Azure", "uk-UA-OstapNeural"),
+    },
+    "Melinda": {
+        "en-US": ("Azure", "en-US-AriaNeural"),
+        "uk-UA": ("Azure", "uk-UA-PolinaNeural"),
     },
 }
 
@@ -92,13 +101,22 @@ TRANSCRIBE_TIMEOUT_SEC = 300
 
 
 @cache
-def supported_voices() -> Dict[str, Sequence[str]]:
-    client = texttospeech.TextToSpeechClient()
+def supported_google_voices() -> Dict[str, Sequence[str]]:
+    client = google_tts.TextToSpeechClient()
 
     # Performs the list voices request
     response = client.list_voices()
 
     return {voice.name: voice.language_codes for voice in response.voices}
+
+
+@cache
+def supported_azure_voices() -> Dict[str, Sequence[str]]:
+    azure_key, azure_region = env.get_azure_config()
+    config = azure_tts.SpeechConfig(subscription=azure_key, region=azure_region)
+    ms_synthesizer = azure_tts.SpeechSynthesizer(config, None)
+    all_languages = ms_synthesizer.get_voices_async().get()
+    return {v.short_name: v.locale for v in all_languages.voices}
 
 
 async def transcribe(
@@ -134,8 +152,8 @@ async def transcribe(
             return await _transcribe_deepgram(uri, audio, lang, model)
         case "Azure":
             raise NotImplementedError()
-        case _:
-            raise ValueError(f"Unsupported provider: {provider}")
+        case never:
+            assert_never(never)
 
 
 async def _transcribe_deepgram(
@@ -263,54 +281,63 @@ def is_valid_ssml(text: str) -> bool:
     except ET.ParseError:
         return False
 
-    return root.tag == "speak"
+    return root.tag == "{http://www.w3.org/2001/10/synthesis}speak"
 
 
-def text_to_ssml_chunks(text: str, chunk_length: int) -> Sequence[str]:
+def _wrap_in_ssml(text: str, voice: str, speech_rate: float) -> str:
+    result = (
+        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
+        'xml:lang="en-US">'
+        '<voice name="{VOICE}"><prosody rate="{RATE:f}">{TEXT}</prosody></voice>'
+        "</speak>".format(TEXT=text, VOICE=voice, RATE=speech_rate)
+    )
+    assert is_valid_ssml(result), f"text={text} result={result}"
+    return result
+
+
+def text_to_chunks(text: str, chunk_length: int, voice: str) -> Sequence[str]:
     inner = re.sub(r"#(\d+(\.\d+)?)#", r'<break time="\1s" />', text)
-
-    def wrap(text: str) -> str:
-        result = f"<speak>{text}</speak>"
-        assert is_valid_ssml(result), f"text={text} result={result}"
-        return result
-
-    overhead = len(wrap(""))
-
-    return [wrap(c) for c in chunk(text=inner, max_chars=chunk_length - overhead)]
+    overhead = len(_wrap_in_ssml("", voice=voice, speech_rate=1.0))
+    return chunk(text=inner, max_chars=chunk_length - overhead)
 
 
 async def synthesize_text(
     text: str,
     duration_ms: int,
     voice: Character,
-    lang: str,
+    lang: Language,
     pitch: float,
     output_dir: Path | str,
 ) -> Tuple[Path, Voice]:
-    chunks = text_to_ssml_chunks(text, chunk_length=MAX_CHUNK_LENGTH)
-
     if voice not in VOICES:
-        raise ValueError(
-            (f"Unsupported voice: {voice}\n" f"Supported voices: {VOICES}")
-        )
+        raise ValueError(f"Unsupported voice: {voice}\n" f"Supported voices: {VOICES}")
 
     if lang not in VOICES[voice]:
         raise ValueError(
-            (f"Unsupported lang {lang} for {voice}\n" f"Supported voices: {VOICES}")
+            f"Unsupported lang {lang} for {voice}\n" f"Supported voices: {VOICES}"
         )
 
-    google_voice = VOICES[voice][lang]
-    all_google_voices = supported_voices()
+    provider, provider_voice = VOICES[voice][lang]
+    match provider:
+        case "Google":
+            all_voices = supported_google_voices()
+        case "Azure":
+            all_voices = supported_azure_voices()
+        case "Deepgram":
+            raise ValueError("Deepgram can not be used as TTS provider")
+        case never:
+            assert_never(never)
 
-    if (
-        google_voice not in all_google_voices
-        or lang not in all_google_voices[google_voice]
-    ):
+    chunks_with_breaks_expanded = text_to_chunks(
+        text, chunk_length=MAX_CHUNK_LENGTH, voice=provider_voice
+    )
+
+    if provider_voice not in all_voices or lang not in all_voices[provider_voice]:
         raise ValueError(
             (
-                f"Google Speech Synthesis API "
+                f"{provider} Speech Synthesis API "
                 "doesn't support {lang} for voice {voice}\n"
-                f"Supported values: {all_google_voices}"
+                f"Supported values: {all_voices}"
             )
         )
 
@@ -330,29 +357,65 @@ async def synthesize_text(
         if rate > SPEECH_RATE_MAXIMUM:
             return await _synthesize_step(SPEECH_RATE_MAXIMUM, retries=None)
 
-        def _api_call(phrase: str) -> SynthesizeSpeechResponse:
-            client = texttospeech.TextToSpeechClient()
-            return client.synthesize_speech(
-                input=texttospeech.SynthesisInput(ssml=phrase),
-                voice=texttospeech.VoiceSelectionParams(
-                    language_code=lang, name=google_voice
+        def _google_api_call(ssml_phrase: str) -> bytes:
+            client = google_tts.TextToSpeechClient()
+            result = client.synthesize_speech(
+                input=google_tts.SynthesisInput(ssml=ssml_phrase),
+                voice=google_tts.VoiceSelectionParams(
+                    language_code=lang,
                 ),
-                audio_config=texttospeech.AudioConfig(
-                    audio_encoding=texttospeech.AudioEncoding.LINEAR16,
+                audio_config=google_tts.AudioConfig(
+                    audio_encoding=google_tts.AudioEncoding.LINEAR16,
                     pitch=pitch,
-                    speaking_rate=rate,
                 ),
             )
+            return result.audio_content
+
+        def _azure_api_call(ssml_phrase: str) -> bytes:
+            azure_key, azure_region = env.get_azure_config()
+            speech_config = azure_tts.SpeechConfig(
+                subscription=azure_key, region=azure_region
+            )
+            speech_synthesizer = azure_tts.SpeechSynthesizer(
+                speech_config=speech_config, audio_config=None
+            )
+            result = speech_synthesizer.speak_ssml(ssml_phrase)
+            if not result.reason == azure_tts.ResultReason.SynthesizingAudioCompleted:
+                logger.error(
+                    f"Error synthesizing voice with Azure provider."
+                    f" {result.reason}, {result.cancellation_details}"
+                )
+                raise RuntimeError(
+                    f"Error synthesizing voice with Azure. {result.reason}"
+                )
+
+            return result.audio_data
+
+        match provider:
+            case "Azure":
+                _api_call = _azure_api_call
+            case "Google":
+                _api_call = _google_api_call
+            case "Deepgram":
+                raise ValueError("Can not use Deepgram as a TTS provider")
+            case never:
+                assert_never(never)
 
         responses = await asyncio.gather(
-            *[concurrency.run_in_thread_pool(_api_call, phrase) for phrase in chunks]
+            *[
+                concurrency.run_in_thread_pool(
+                    _api_call,
+                    _wrap_in_ssml(phrase, voice=provider_voice, speech_rate=rate),
+                )
+                for phrase in chunks_with_breaks_expanded
+            ]
         )
 
         with TemporaryDirectory() as tmp_dir:
             files = [f"{media.new_file(tmp_dir)}.wav" for _ in responses]
             for file, response in zip(files, responses):
                 with open(file, "wb") as fd:
-                    fd.write(response.audio_content)
+                    fd.write(response)
             audio_file = await media.concat(files, output_dir)
 
         (audio, *_), _ = media.probe(audio_file)
@@ -377,7 +440,7 @@ async def synthesize_text(
 async def synthesize_events(
     events: Sequence[Event],
     voice: Character,
-    lang: str,
+    lang: Language,
     pitch: float,
     output_dir: Path | str,
 ) -> Tuple[Path, Sequence[Voice]]:
@@ -465,5 +528,7 @@ def normalize_speech(
                     acc += [concat_events(last_event, event, break_sentence=True)]
                 case "extract_breaks_from_sentence":
                     raise NotImplementedError()
+                case never:
+                    assert_never(never)
 
     return acc

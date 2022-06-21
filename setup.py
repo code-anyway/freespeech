@@ -51,6 +51,7 @@ setup(
         "google-cloud-speech",
         "google-cloud-logging",
         "google-cloud-firestore",
+        "azure-cognitiveservices-speech",
         "google-api-python-client",
         "google-auth",
         "google-auth-oauthlib",
