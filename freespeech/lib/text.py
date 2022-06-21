@@ -17,36 +17,52 @@ def make_sentence(s: str):
     return f"{s}."
 
 
-def chunk(text: str, max_chars: int) -> Sequence[str]:
+def split_sentences(s: str) -> Sequence[str]:
+    """Split into sentences broken down by the punctuation followed by space.
+
+    Args:
+        s: string to split
+    Returns:
+        Sequence of strings representing sentences.
+    """
+    # If capturing parentheses are used in pattern,
+    # then the text of all groups in the pattern
+    # are also returned as part of the resulting list.
+    split = re.split(r"(\!|\?|\.\s+)", s)
+    return [
+        a + b for a, b in zip_longest(split[0::2], split[1::2], fillvalue="") if a + b
+    ]
+
+
+def chunk(text: str, max_chars: int, sentence_overhead: int = 0) -> Sequence[str]:
     """Split text into chunks.
 
     Args:
         text: Original text.
         max_chars: Character limit for each chunk.
+        sentence_overhead: Extra limit used by each sentence.
 
     Returns:
         Chunks of text containing one or more sentences, each chunk
-        will be less than `max_chars`. Text is broken down on sentence border.
+        will be less than `max_chars`. Also overall text overhead and sentence
+        overhead are accounted for `max_chars`. Text is broken down on sentence border.
     """
     if not text:
         return [text]
 
-    # If capturing parentheses are used in pattern,
-    # then the text of all groups in the pattern
-    # are also returned as part of the resulting list.
-    split = re.split(r"(\!|\?|\.\s+)", text)
-    sentences = [
-        a + b for a, b in zip_longest(split[0::2], split[1::2], fillvalue="") if a + b
-    ]
-
     def chunk_sentences() -> Iterator[str]:
         res = ""
-        for s in sentences:
-            if len(res) + len(s) > max_chars:
+        chunk_limit = max_chars
+
+        for s in split_sentences(text):
+            if len(res) + len(s) > chunk_limit:
                 if res:
+                    chunk_limit = max_chars
                     yield res.strip()
+                chunk_limit -= sentence_overhead
                 res = s
             else:
+                chunk_limit -= sentence_overhead
                 res += s
         if res:
             yield res.strip()
