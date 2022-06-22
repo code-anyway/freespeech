@@ -17,6 +17,7 @@ from freespeech.types import (
     ServiceProvider,
     Source,
     assert_never,
+    is_character,
     is_language,
     is_source,
     url,
@@ -59,7 +60,7 @@ async def say(request):
             try:
                 origin, lang, method = get_transcribe_arguments(state)
             except (AttributeError, ValueError) as e:
-                raise aiohttp.web.HTTPBadRequest(e)
+                raise aiohttp.web.HTTPBadRequestError(text=str(e))
 
             document_url = await transcribe(origin, lang, method)
             return web.json_response(
@@ -69,7 +70,7 @@ async def say(request):
             try:
                 document_url, lang = get_translate_arguments(state)
             except (AttributeError, ValueError) as e:
-                raise aiohttp.web.HTTPBadRequest(e)
+                raise aiohttp.web.HTTPBadRequest(text=str(e))
 
             translated_url = await translate(document_url, lang)
             return web.json_response(
@@ -77,11 +78,11 @@ async def say(request):
             )
         case "dub":
             try:
-                document_url = get_dub_arguments(state)
+                document_url, voice = get_dub_arguments(state)
             except (AttributeError, ValueError) as e:
-                raise aiohttp.web.HTTPBadRequest(e)
+                raise aiohttp.web.HTTPBadRequest(text=str(e))
 
-            video_url = await dub(document_url)
+            video_url = await dub(document_url, voice=voice)
             return web.json_response(
                 {"text": f"Here you are: {video_url}", "url": video_url}
             )
@@ -89,10 +90,11 @@ async def say(request):
             assert_never(never)
 
 
-def get_dub_arguments(state: Dict[str, Any]) -> url:
+def get_dub_arguments(state: Dict[str, Any]) -> Tuple[url, Character | None]:
     document_url = get_page_url(state)
+    voice = get_voice(state)
 
-    return document_url
+    return document_url, voice
 
 
 def get_translate_arguments(state: Dict[str, Any]) -> Tuple[url, Language]:
@@ -108,6 +110,24 @@ def get_transcribe_arguments(state: Dict[str, Any]) -> Tuple[str, Language, Sour
     method = get_method(state)
 
     return origin, lang, method
+
+
+def get_voice(state: Dict[str, Any]) -> Character | None:
+    voice = state.get("voice", None)
+
+    if voice is None:
+        return None
+
+    if len(voice) > 1:
+        logger.warning(f"Multiple voices in the intent: {voice}")
+    voice, *_ = voice
+
+    if not is_character(voice):
+        raise ValueError(
+            f"Unsupported voice: {voice}. Try Alan Turing, Grace Hopper, Bill or Melinda."  # noqa: E501
+        )
+
+    return voice
 
 
 def get_method(state: Dict[str, Any]) -> Source:
@@ -196,7 +216,10 @@ async def transcribe(origin: url, lang: Language, method: Source) -> url:
         case _:
             raise ValueError(f"Unsupported transcription method: {method}")
 
-    title = f"{clip.meta.description} ({lang})"
+    events = normalize_speech(events, method="break_ends_sentence")
+
+    title = f"{clip.meta.title} ({lang})"
+
     async with get_crud_client() as _client:
         video_url = await client.video(_client, clip._id)
 
@@ -209,6 +232,7 @@ async def transcribe(origin: url, lang: Language, method: Source) -> url:
         original_audio_level=2,
         video=video_url,
     )
+
     doc_url = gdocs.create(title, page=page, events=events)
 
     return doc_url
