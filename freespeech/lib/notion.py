@@ -301,13 +301,13 @@ def render_text(t: str) -> Dict:
 
 def parse_events(blocks: List[Dict]) -> Sequence[Event]:
     ALLOWED_BLOCK_TYPES = ["heading_1", "heading_2", "heading_3", "paragraph"]
-    lines = [
+    text = "\n".join(
         str(_parse_value(block))
         for block in blocks
         if block["type"] in ALLOWED_BLOCK_TYPES
-    ]
+    )
 
-    return transcript.parse_events(lines)
+    return transcript.parse_events(text)
 
 
 def parse_transcript(

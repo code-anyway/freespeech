@@ -2,7 +2,7 @@ import logging
 import re
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, List, Sequence, Tuple
+from typing import List, Sequence, Tuple
 
 import googleapiclient.discovery
 from google.oauth2 import service_account
@@ -21,7 +21,7 @@ class Page:
     voice: Character
     clip_id: str
     method: Source
-    original_audio_level: int
+    original_audio_level: float
     video: str | None
 
 
@@ -67,7 +67,9 @@ def _read_structural_elements(elements) -> str:
 
 
 @contextmanager
-def gdocs_client(credentials: service_account.Credentials) -> Any:
+def gdocs_client(
+    credentials: service_account.Credentials,
+) -> googleapiclient.discovery.Resource:
     service = googleapiclient.discovery.build("docs", "v1", credentials=credentials)
     try:
         yield service
@@ -78,7 +80,9 @@ def gdocs_client(credentials: service_account.Credentials) -> Any:
 
 
 @contextmanager
-def drive_client(credentials: service_account.Credentials) -> Any:
+def drive_client(
+    credentials: service_account.Credentials,
+) -> googleapiclient.discovery.Resource:
     service = googleapiclient.discovery.build("drive", "v3", credentials=credentials)
     try:
         yield service
@@ -138,7 +142,7 @@ def parse_properties(text: str) -> Page:
         "video",
     ]
     properties = dict(
-        re.findall(f"({'|'.join(page_attributes)}):.(.*)", text, flags=re.M)
+        re.findall(rf"({'|'.join(page_attributes)}):\s*(.*)$", text, flags=re.M)
     )
 
     keys = properties.keys()
@@ -146,8 +150,8 @@ def parse_properties(text: str) -> Page:
         if attribute not in keys and attribute != "video":
             raise TypeError(f"{attribute} must be defined")
 
-    properties["original_audio_level"] = int(properties["original_audio_level"])
-    properties["video"] = None if "video" not in keys else properties["video"]
+    properties["original_audio_level"] = float(properties["original_audio_level"])
+    properties["video"] = None if "video" not in keys else properties["video"] or None
 
     return Page(**properties)
 
@@ -155,18 +159,19 @@ def parse_properties(text: str) -> Page:
 def parse(text: str) -> Tuple[Page, Sequence[Event]]:
     blocks = transcript.timecode_parser.split(text)
 
-    head, *paragraphs = blocks[:: transcript.timecode_parser.groups + 1]
-    page = parse_properties(head)
+    # first block before the first timecode contains properties, the rest
+    # of the text following each timecode is textual content of the transcript.
+    properties, *paragraphs = blocks[:: transcript.timecode_parser.groups + 1]
+    page = parse_properties(properties)
 
     timestamps = blocks[1 :: transcript.timecode_parser.groups + 1]
-    lines: Sequence[str] = sum(
-        [
-            [timestamp] + [item for item in paragraph.split("\n") if item]
+
+    events = transcript.parse_events(
+        text="\n".join(
+            f"{timestamp}\n{paragraph}"
             for timestamp, paragraph in zip(timestamps, paragraphs)
-        ],
-        [],
+        )
     )
-    events = transcript.parse_events(lines)
 
     return page, events
 

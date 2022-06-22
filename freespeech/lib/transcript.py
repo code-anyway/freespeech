@@ -95,8 +95,9 @@ def unparse_time_interval(time_ms: int, duration_ms: int, voice: Voice | None) -
     return res
 
 
-def parse_events(lines: Sequence[str]) -> Sequence[Event]:
+def parse_events(text: str) -> Sequence[Event]:
     events = []
+    lines = [line for line in text.split("\n") if line]
 
     for line in lines:
         if timecode_parser.fullmatch(line):
