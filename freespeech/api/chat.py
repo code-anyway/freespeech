@@ -1,5 +1,5 @@
 from tempfile import TemporaryDirectory
-from typing import List, Sequence, Tuple
+from typing import Any, Dict, List, Sequence, Tuple
 
 import aiohttp
 from aiohttp import web
@@ -54,20 +54,7 @@ async def say(request):
 
     match (intent):
         case "transcribe":
-            origin = state.get("url", None)
-            if not origin:
-                raise AttributeError("Missing origin url")
-
-            lang = state.get("language", None)
-            if not lang:
-                raise AttributeError("Missing language")
-            is_language(lang)
-
-            method = state.get("method", None)
-            if not method:
-                raise AttributeError("Missing method")
-            notion.is_source(method)
-
+            origin, lang, method = get_transcribe_arguments(state)
             document_url = await transcribe(origin[0], lang[0], method[0])
 
             return web.json_response(
@@ -96,6 +83,23 @@ async def get_audio(clip_id: str) -> Tuple[str, Audio]:
 
     return output_url, audio_info
 
+
+def get_transcribe_arguments(state: Dict[str, Any]) -> Tuple[str, Language, Source]:
+    origin = state.get("url", None)
+    if not origin:
+        raise AttributeError("Missing origin url")
+
+    lang = state.get("language", None)
+    if not lang:
+        raise AttributeError("Missing language")
+    is_language(lang)
+
+    method = state.get("method", None)
+    if not method:
+        raise AttributeError("Missing method")
+    notion.is_source(method)
+
+    return origin, lang, method
 
 async def transcribe(origin: url, lang: Language, method: notion.Source) -> url:
     async with get_crud_client() as _client:
