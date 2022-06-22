@@ -1,24 +1,30 @@
+import logging
+from dataclasses import replace
 from tempfile import TemporaryDirectory
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Any, Dict, Sequence, Tuple
 
 import aiohttp
 from aiohttp import web
 
 from freespeech import client, env
-from freespeech.lib import language, media, notion, speech
+from freespeech.lib import gdocs, language, media, speech
 from freespeech.lib.storage import obj
 from freespeech.types import (
     Audio,
+    Character,
     Event,
     Language,
     ServiceProvider,
-    Voice,
+    Source,
     assert_never,
     is_language,
+    is_source,
     url,
 )
 
 routes = web.RouteTableDef()
+logger = logging.getLogger(__name__)
+
 
 DUB_CLIENT_TIMEOUT = 3600
 CRUD_CLIENT_TIMEOUT = 3600
@@ -28,10 +34,6 @@ GAP_MS = 1400
 
 # Won't attempt concatenating events if one is longer than LENGTH.
 PHRASE_LENGTH = 600
-
-# For now, hardcode it to https://www.notion.so/f27eb91e04754fbcb6ace5f9871e7bb0?v=d7d74a5fe6c644d39b5ccc714efa11a6  # noqa: E501
-# TODO: remove once we have users, sessions and stuff.
-NOTION_DATABASE_ID = "f27eb91e04754fbcb6ace5f9871e7bb0"
 
 
 def normalize_speech(
@@ -54,18 +56,218 @@ async def say(request):
 
     match (intent):
         case "transcribe":
-            origin, lang, method = get_transcribe_arguments(state)
-            document_url = await transcribe(origin[0], lang[0], method[0])
+            try:
+                origin, lang, method = get_transcribe_arguments(state)
+            except (AttributeError, ValueError) as e:
+                raise aiohttp.web.HTTPBadRequest(e)
 
+            document_url = await transcribe(origin, lang, method)
             return web.json_response(
                 {"text": f"Here you are: {document_url}", "url": document_url}
             )
         case "translate":
-            pass
+            try:
+                document_url, lang = get_translate_arguments(state)
+            except (AttributeError, ValueError) as e:
+                raise aiohttp.web.HTTPBadRequest(e)
+
+            translated_url = await translate(document_url, lang)
+            return web.json_response(
+                {"text": f"Here you are: {translated_url}", "url": translated_url}
+            )
         case "dub":
-            pass
+            try:
+                document_url = get_dub_arguments(state)
+            except (AttributeError, ValueError) as e:
+                raise aiohttp.web.HTTPBadRequest(e)
+
+            video_url = await dub(document_url)
+            return web.json_response(
+                {"text": f"Here you are: {video_url}", "url": video_url}
+            )
         case never:
             assert_never(never)
+
+
+def get_dub_arguments(state: Dict[str, Any]) -> url:
+    document_url = get_page_url(state)
+
+    return document_url
+
+
+def get_translate_arguments(state: Dict[str, Any]) -> Tuple[url, Language]:
+    document_url = get_page_url(state)
+    lang = get_language(state)
+
+    return document_url, lang
+
+
+def get_transcribe_arguments(state: Dict[str, Any]) -> Tuple[str, Language, Source]:
+    origin = get_origin(state)
+    lang = get_language(state)
+    method = get_method(state)
+
+    return origin, lang, method
+
+
+def get_method(state: Dict[str, Any]) -> Source:
+    method = state.get("method", None)
+    if not method:
+        raise AttributeError(
+            "Missing transcript method. Try Machine A, Machine B, or Subtitles."
+        )
+    if len(method) > 1:
+        logger.warning(f"Multiple transcription methods in the intent: {method}")
+    method, *_ = method
+
+    if not is_source(method):
+        raise ValueError(
+            f"Unsupported transcript method: {method}. Try Machine A, Machine B, or Subtitles."  # noqa: E501
+        )
+
+    return method
+
+
+def get_language(state: Dict[str, Any]) -> Language:
+    lang = state.get("language", None)
+    if not lang:
+        raise AttributeError("Missing language.")
+
+    if len(lang) > 1:
+        logger.warning(f"Multiple languages in the intent: {lang}")
+    lang, *_ = lang
+
+    if not is_language(lang):
+        raise ValueError(f"Unsupported language: {lang}")
+    return lang
+
+
+def get_origin(state: Dict[str, Any]) -> str:
+    origin = state.get("url", None)
+    if not origin:
+        raise AttributeError(
+            "Missing origin url. Try something that starts with https://youtube.com"
+        )
+    if len(origin) > 1:
+        logger.warning(f"Multiple origins in the intent: {origin}")
+    origin, *_ = origin
+    return origin
+
+
+def get_page_url(state: Dict[str, Any]) -> str:
+    page_url = state.get("url", None)
+    if not page_url:
+        raise AttributeError(
+            "Missing document url. Try something that starts with https://docs.google.com/"  # noqa: E501
+        )
+    if len(page_url) > 1:
+        logger.warning(f"Multiple documents in the intent: {page_url}")
+    page_url, *_ = page_url
+    return page_url
+
+
+async def transcribe(origin: url, lang: Language, method: Source) -> url:
+    async with get_crud_client() as _client:
+        clip = await client.upload(
+            http_client=_client,
+            video_url=origin,
+            lang=lang,
+        )
+
+    match (method):
+        case "Subtitles":
+            events = clip.transcript
+        case "Machine A" | "Machine B":
+            uri, audio = await get_audio(clip._id)
+
+            # TODO (astaff): move this to lib.transcribe
+            provider: ServiceProvider
+            match method:
+                case "Machine A":
+                    provider = "Google"
+                case "Machine B":
+                    provider = "Deepgram"
+                case "Machine C":
+                    provider = "Azure"
+
+            events = await speech.transcribe(
+                uri=uri, audio=audio, lang=lang, provider=provider
+            )
+        case _:
+            raise ValueError(f"Unsupported transcription method: {method}")
+
+    title = f"{clip.meta.description} ({lang})"
+    async with get_crud_client() as _client:
+        video_url = await client.video(_client, clip._id)
+
+    page = gdocs.Page(
+        origin=origin,
+        language=lang,
+        voice="Alan Turing",
+        clip_id=clip._id,
+        method=method,
+        original_audio_level=2,
+        video=video_url,
+    )
+    doc_url = gdocs.create(title, page=page, events=events)
+
+    return doc_url
+
+
+async def dub(transcript: url, voice: Character | None) -> url:
+    page, events = gdocs.parse(gdocs.extract(transcript))
+
+    async with get_crud_client() as _client:
+        clip = await client.clip(_client, page.clip_id)
+
+    async with get_dub_client() as _client:
+        dubbed_clip = await client.dub(
+            http_client=_client,
+            clip_id=clip._id,
+            transcript=events,
+            default_character=voice or page.voice,
+            lang=page.language,
+            pitch=0.0,
+            weights=(page.original_audio_level, 10),
+        )
+
+    async with get_crud_client() as _client:
+        public_url = await client.video(_client, dubbed_clip._id)
+
+    return public_url
+
+
+async def translate(transcript: url, lang: Language) -> str:
+    page, events = gdocs.parse(gdocs.extract(transcript))
+    events = language.translate_events(
+        events,
+        source=page.language,
+        target=lang,
+    )
+
+    page = replace(page, language=lang)
+    async with get_crud_client() as _client:
+        clip = await client.clip(_client, page.clip_id)
+
+    title = f"{clip.meta.description} ({lang})"
+    doc_url = gdocs.create(title, page=page, events=events)
+
+    return doc_url
+
+
+# TODO (astaff): move outside of notion.py?
+def get_dub_client():
+    return aiohttp.ClientSession(
+        base_url=env.get_dub_service_url(),
+        timeout=aiohttp.ClientTimeout(DUB_CLIENT_TIMEOUT),
+    )
+
+
+def get_crud_client():
+    return aiohttp.ClientSession(
+        base_url=env.get_crud_service_url(),
+        timeout=aiohttp.ClientTimeout(CRUD_CLIENT_TIMEOUT),
+    )
 
 
 async def get_audio(clip_id: str) -> Tuple[str, Audio]:
@@ -82,94 +284,3 @@ async def get_audio(clip_id: str) -> Tuple[str, Audio]:
         await obj.put(mono_file, output_url)
 
     return output_url, audio_info
-
-
-def get_transcribe_arguments(state: Dict[str, Any]) -> Tuple[str, Language, Source]:
-    origin = state.get("url", None)
-    if not origin:
-        raise AttributeError("Missing origin url")
-
-    lang = state.get("language", None)
-    if not lang:
-        raise AttributeError("Missing language")
-    is_language(lang)
-
-    method = state.get("method", None)
-    if not method:
-        raise AttributeError("Missing method")
-    notion.is_source(method)
-
-    return origin, lang, method
-
-async def transcribe(origin: url, lang: Language, method: notion.Source) -> url:
-    async with get_crud_client() as _client:
-        clip = await client.upload(
-            http_client=_client,
-            video_url=origin,
-            lang=lang,
-        )
-
-    match (method):
-        case "Subtitles":
-            transcript = clip.transcript
-        case "Machine A" | "Machine B":
-            uri, audio = await get_audio(clip._id)
-
-            # TODO (astaff): move this to lib.transcribe
-            provider: ServiceProvider
-            match method:
-                case "Machine A":
-                    provider = "Google"
-                case "Machine B":
-                    provider = "Deepgram"
-                case "Machine C":
-                    provider = "Azure"
-
-            transcript = await speech.transcribe(
-                uri=uri, audio=audio, lang=lang, provider=provider
-            )
-        case _:
-            raise ValueError(f"Unsupported method: {method}")
-
-    properties = {
-        notion.PROPERTY_NAME_PAGE_TITLE: {
-            "title": [{"type": "text", "text": {"content": clip.meta.title}}],
-        },
-        notion.PROPERTY_NAME_LANG: {"select": {"name": lang[0]}},
-        notion.PROPERTY_NAME_ORIGIN: {"url": origin[0]},
-        notion.PROPERTY_NAME_CLIP_ID: notion.render_text(clip._id),
-        notion.PROPERTY_NAME_SOURCE: {"select": {"name": method}},
-        notion.PROPERTY_NAME_DESCRIPTION: notion.render_text(clip.meta.description),
-        notion.PROPERTY_NAME_TITLE: notion.render_text(clip.meta.title),
-        notion.PROPERTY_NAME_TAGS: {"multi_select": [{"name": tag} for tag in clip.meta.tags or []]},
-    }
-    blocks: List[dict] = sum([notion.render_event(e) for e in transcript], [])
-
-    res = await notion.create_page(
-        database_id=NOTION_DATABASE_ID, properties=properties, blocks=blocks
-    )
-
-    return res["url"]
-
-
-def dub(transcript: url, voice: Voice | None) -> url:
-    pass
-
-
-def translate(transcript: url, lang: Language) -> str:
-    pass
-
-
-# TODO (astaff): move outside of notion.py?
-def get_dub_client():
-    return aiohttp.ClientSession(
-        base_url=env.get_dub_service_url(),
-        timeout=aiohttp.ClientTimeout(DUB_CLIENT_TIMEOUT),
-    )
-
-
-def get_crud_client():
-    return aiohttp.ClientSession(
-        base_url=env.get_crud_service_url(),
-        timeout=aiohttp.ClientTimeout(CRUD_CLIENT_TIMEOUT),
-    )

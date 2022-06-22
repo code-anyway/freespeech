@@ -31,7 +31,7 @@ async def test_transcribe(const, client, aiohttp_server, monkeypatch):
     resp = await client.post("/say", json=params)
     data = await resp.json()
 
-    assert data["url"].startswith('https://www.notion.so/Announcer-s-test-')
+    assert data["url"].startswith("https://www.notion.so/Announcer-s-test-")
     assert data["text"] == f"Here you are: {data['url']}"
 
     text = f"transcribe {const.ANNOUNCERS_TEST_VIDEO_URL} from {const.ANNOUNCERS_TEST_VIDEO_LANGUAGE} using Machine B"  # noqa: E501
@@ -40,5 +40,5 @@ async def test_transcribe(const, client, aiohttp_server, monkeypatch):
     resp = await client.post("/say", json=params)
     data = await resp.json()
 
-    assert data["url"].startswith('https://www.notion.so/Announcer-s-test-')
+    assert data["url"].startswith("https://www.notion.so/Announcer-s-test-")
     assert data["text"] == f"Here you are: {data['url']}"
