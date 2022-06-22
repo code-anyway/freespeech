@@ -209,9 +209,7 @@ def create(title: str, page: Page, events: Sequence[Event]) -> str:
         document = documents.create(body=body).execute()
         _id = document.get("documentId")
 
-        client.documents().batchUpdate(
-            documentId=_id, body={"requests": requests}
-        ).execute()
+        documents.batchUpdate(documentId=_id, body={"requests": requests}).execute()
 
     # TODO (astaff): introduce permissions control.
     share_with_all(_id)
