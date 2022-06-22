@@ -93,3 +93,11 @@ def test_create():
 
     assert page == EXPECTED_PAGE
     assert events == EXPECTED_EVENTS
+
+
+def test_long_transcript():
+    url = "https://docs.google.com/document/d/1FQEWOvJPq3_KR7pm2-L_GWqHgKRP9iq0Cx1vwNGCptg/edit#"  # noqa: E501
+    page, events = gdocs.parse(gdocs.extract(url))
+
+    assert page.origin == "https://www.youtube.com/watch?v=U93QRMcQU5Y"
+    assert len(events) == 14

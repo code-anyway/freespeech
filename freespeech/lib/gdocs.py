@@ -157,21 +157,16 @@ def parse_properties(text: str) -> Page:
 
 
 def parse(text: str) -> Tuple[Page, Sequence[Event]]:
-    blocks = transcript.timecode_parser.split(text)
+    match = transcript.timecode_parser.search(text)
 
-    # first block before the first timecode contains properties, the rest
-    # of the text following each timecode is textual content of the transcript.
-    properties, *paragraphs = blocks[:: transcript.timecode_parser.groups + 1]
+    if not match:
+        raise ValueError("Invalid document content")
+
+    transcript_start = match.start()
+    properties = text[:transcript_start]
     page = parse_properties(properties)
 
-    timestamps = blocks[1 :: transcript.timecode_parser.groups + 1]
-
-    events = transcript.parse_events(
-        text="\n".join(
-            f"{timestamp}\n{paragraph}"
-            for timestamp, paragraph in zip(timestamps, paragraphs)
-        )
-    )
+    events = transcript.parse_events(text=text[transcript_start:])
 
     return page, events
 
