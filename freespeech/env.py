@@ -112,3 +112,12 @@ def get_azure_conversations_token() -> str:
         )
 
     return token
+
+
+def get_telegram_bot_token() -> str:
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", None)
+
+    if not token:
+        raise RuntimeError("Environment variable TELEGRAM_BOT_TOKEN is not set. ")
+
+    return token

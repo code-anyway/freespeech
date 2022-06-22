@@ -1,10 +1,9 @@
-import logging
 import logging.config
 
 import click
 from aiohttp import web
 
-from freespeech.api import crud, dub, language, notion, pub, speech
+from freespeech.api import chat, crud, dub, language, notion, pub, speech, telegram
 from freespeech.lib import youtube
 
 SERVICE_ROUTES = {
@@ -14,6 +13,7 @@ SERVICE_ROUTES = {
     "notion": notion.routes,
     "pub": pub.routes,
     "speech": speech.routes,
+    "chat": chat.routes,
 }
 
 LOGGING_CONFIG = {
@@ -39,7 +39,6 @@ LOGGING_CONFIG = {
     },
 }
 logging.config.dictConfig(LOGGING_CONFIG)
-
 
 logger = logging.getLogger(__name__)
 
@@ -119,3 +118,28 @@ def upload(video_file, meta_file, credentials_file):
         meta_file=meta_file,
         credentials_file=credentials_file,
     )
+
+
+@click.option(
+    "-p",
+    "--port",
+    required=False,
+    default=8080,
+    type=int,
+    help="HTTP port to listen on",
+)
+@cli.command(name="start-telegram")
+def start_telegram(port: int):
+    app = web.Application(logger=logger)
+
+    routes = SERVICE_ROUTES["chat"]
+    logger.info(f"Adding routes for chat: {[r for r in routes]}")
+    app.add_routes(routes)
+
+    telegram.start_bot(app)
+
+    web.run_app(app, port=port)
+
+
+if __name__ == "__main__":
+    cli()

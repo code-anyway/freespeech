@@ -90,3 +90,14 @@ async def video(http_client: aiohttp.ClientSession, clip_id: str) -> str:
         raise RuntimeError(await resp.text())
     video_dict = await resp.json()
     return video_dict["url"]
+
+
+async def say(http_client: aiohttp.ClientSession, message: str) -> str:
+    resp = await http_client.post("/say", json={"text": message})
+    if resp.ok:
+        data = await resp.json()
+        # todo add normal error handling
+        return data.get("text", "BAD RESPONSE")
+    else:
+        error_msg = await resp.text()
+        return f"Error: {error_msg}"

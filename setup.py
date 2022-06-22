@@ -39,6 +39,7 @@ setup(
     """,
     install_requires=[
         "aiohttp",
+        "aiogram",
         "azure-ai-language-conversations",
         "click",
         "deepgram-sdk",
