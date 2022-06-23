@@ -10,7 +10,7 @@ EXPECTED_PAGE = gdocs.Page(
     voice="Alonzo Church",
     clip_id="deadbeef239",
     method="Subtitles",
-    original_audio_level=2.5,
+    original_audio_level=2,
     video=None,
 )
 EXPECTED_EVENTS = [
@@ -32,7 +32,7 @@ language: en-US
 voice: Alonzo Church
 clip_id: deadbeef239
 method: Subtitles
-original_audio_level: 2.5
+original_audio_level: 2
 video:
 
 00:00:00/00:00:01 (Grace Hopper)
@@ -65,7 +65,7 @@ def test_parse():
         clip_id: deadbeef239
         apple banana: orange
         method: Subtitles
-        original_audio_level: 2.5
+        original_audio_level: 2
         video:
         """
     )

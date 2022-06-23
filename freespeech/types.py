@@ -39,11 +39,20 @@ def is_character(val: str) -> TypeGuard[Character]:
     )
 
 
-Source = Literal["Machine", "Machine A", "Machine B", "Subtitles", "Translate"]
+Source = Literal[
+    "Machine", "Machine A", "Machine B", "Machine C", "Subtitles", "Translate"
+]
 
 
 def is_source(val: str) -> TypeGuard[Source]:
-    return val in ("Machine", "Machine A", "Machine B", "Subtitles", "Translate")
+    return val in (
+        "Machine",
+        "Machine A",
+        "Machine B",
+        "Machine C",
+        "Subtitles",
+        "Translate",
+    )
 
 
 url = str

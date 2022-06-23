@@ -55,36 +55,48 @@ async def say(request):
     intent, entities = await language.intent(text)
     state = {**state, **entities}
 
-    match (intent):
+    match intent:
         case "transcribe":
             try:
                 origin, lang, method = get_transcribe_arguments(state)
             except (AttributeError, ValueError) as e:
-                raise aiohttp.web.HTTPBadRequestError(text=str(e))
+                raise aiohttp.web.HTTPBadRequest(reason=str(e))
 
             document_url = await transcribe(origin, lang, method)
             return web.json_response(
-                {"text": f"Here you are: {document_url}", "url": document_url}
+                {
+                    "text": f"Here you are: {document_url}",
+                    "result": document_url,
+                    "state": state,
+                }
             )
         case "translate":
             try:
                 document_url, lang = get_translate_arguments(state)
             except (AttributeError, ValueError) as e:
-                raise aiohttp.web.HTTPBadRequest(text=str(e))
+                raise aiohttp.web.HTTPBadRequest(reason=str(e))
 
             translated_url = await translate(document_url, lang)
             return web.json_response(
-                {"text": f"Here you are: {translated_url}", "url": translated_url}
+                {
+                    "text": f"Here you are: {translated_url}",
+                    "result": translated_url,
+                    "state": state,
+                }
             )
         case "dub":
             try:
                 document_url, voice = get_dub_arguments(state)
             except (AttributeError, ValueError) as e:
-                raise aiohttp.web.HTTPBadRequest(text=str(e))
+                raise aiohttp.web.HTTPBadRequest(reason=str(e))
 
             video_url = await dub(document_url, voice=voice)
             return web.json_response(
-                {"text": f"Here you are: {video_url}", "url": video_url}
+                {
+                    "text": f"Here you are: {video_url}",
+                    "result": video_url,
+                    "state": state,
+                }
             )
         case never:
             assert_never(never)
@@ -197,7 +209,7 @@ async def transcribe(origin: url, lang: Language, method: Source) -> url:
     match (method):
         case "Subtitles":
             events = clip.transcript
-        case "Machine A" | "Machine B":
+        case "Machine" | "Machine A" | "Machine B" | "Machine C":
             uri, audio = await get_audio(clip._id)
 
             # TODO (astaff): move this to lib.transcribe
@@ -213,8 +225,10 @@ async def transcribe(origin: url, lang: Language, method: Source) -> url:
             events = await speech.transcribe(
                 uri=uri, audio=audio, lang=lang, provider=provider
             )
-        case _:
+        case "Translate":
             raise ValueError(f"Unsupported transcription method: {method}")
+        case never:
+            assert_never(never)
 
     events = normalize_speech(events, method="break_ends_sentence")
 
@@ -273,13 +287,12 @@ async def translate(transcript: url, lang: Language) -> str:
     async with get_crud_client() as _client:
         clip = await client.clip(_client, page.clip_id)
 
-    title = f"{clip.meta.description} ({lang})"
+    title = f"{clip.meta.title} ({lang})"
     doc_url = gdocs.create(title, page=page, events=events)
 
     return doc_url
 
 
-# TODO (astaff): move outside of notion.py?
 def get_dub_client():
     return aiohttp.ClientSession(
         base_url=env.get_dub_service_url(),

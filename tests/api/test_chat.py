@@ -1,4 +1,4 @@
-from typing import Generator
+from typing import Dict, Generator, Tuple
 
 import pytest
 import pytest_asyncio
@@ -16,55 +16,39 @@ async def client(aiohttp_client) -> Generator[AiohttpClient, None, None]:
     return await aiohttp_client(app)
 
 
+async def step(text: str, client) -> Tuple[str, str, Dict]:
+    resp = await client.post("/say", json={"text": text})
+    resp.raise_for_status()
+    data = await resp.json()
+    return data["text"], data["result"], data["state"]
+
+
 @pytest.mark.asyncio
-async def test_transcribe(const, client, aiohttp_server, monkeypatch):
+async def test_transcribe_translate_dub(const, client, aiohttp_server, monkeypatch):
     app = web.Application()
     app.add_routes(crud.routes)
     app.add_routes(dub.routes)
     _ = await aiohttp_server(app, port=8088)
 
     monkeypatch.setenv("FREESPEECH_CRUD_SERVICE_URL", "http://localhost:8088")
+    monkeypatch.setenv("FREESPEECH_DUB_SERVICE_URL", "http://localhost:8088")
 
-    VIDEO_URL = const.ANNOUNCERS_TEST_VIDEO_URL
-    # VIDEO_URL = "https://www.youtube.com/watch?v=U93QRMcQU5Y"
-    LANGUAGE = const.ANNOUNCERS_TEST_VIDEO_LANGUAGE
-    # LANGUAGE = "English"
+    VIDEO_URL = "https://www.youtube.com/watch?v=DEqXNfs_HhY"
 
-    text = f"load {VIDEO_URL} in {LANGUAGE} using Subtitles"  # noqa: E501
-    params = {"text": text}
+    text = f"load {VIDEO_URL} in English using Machine B"
+    reply, en_url, state = await step(text, client)
+    assert state == {"language": ["en-US"], "method": ["Machine B"], "url": [VIDEO_URL]}
+    assert en_url.startswith("https://docs.google.com/document/d")
+    assert reply == f"Here you are: {en_url}"
 
-    resp = await client.post("/say", json=params)
-    data = await resp.json()
+    text = f"translate {en_url} to Russian"
+    reply, ru_url, state = await step(text, client)
+    assert state == {"language": ["ru-RU"], "url": [en_url]}
+    assert ru_url.startswith("https://docs.google.com/document/d")
+    assert reply == f"Here you are: {ru_url}"
 
-    assert data["url"].startswith("https://docs.google.com/document/d")
-    assert data["text"] == f"Here you are: {data['url']}"
-
-    text = f"transcribe {VIDEO_URL} from {LANGUAGE} using Machine B"  # noqa: E501
-    params = {"text": text}
-
-    resp = await client.post("/say", json=params)
-    data = await resp.json()
-
-    assert data["url"].startswith("https://docs.google.com/document/d")
-    assert data["text"] == f"Here you are: {data['url']}"
-
-
-@pytest.mark.asyncio
-async def test_dub(client, aiohttp_server, monkeypatch):
-    PAGE_URL = "https://docs.google.com/document/d/1FQEWOvJPq3_KR7pm2-L_GWqHgKRP9iq0Cx1vwNGCptg/edit#"
-
-    app = web.Application()
-    app.add_routes(crud.routes)
-    app.add_routes(dub.routes)
-    _ = await aiohttp_server(app, port=8088)
-
-    monkeypatch.setenv("FREESPEECH_CRUD_SERVICE_URL", "http://localhost:8088")
-
-    text = f"dub {PAGE_URL}"  # noqa: E501
-    params = {"text": text}
-
-    resp = await client.post("/say", json=params)
-    data = await resp.json()
-
-    assert data["url"].startswith("https://docs.google.com/document/d")
-    assert data["text"] == f"Here you are: {data['url']}"
+    text = f"dub {ru_url}"
+    reply, dub_url, state = await step(text, client)
+    assert state == {"url": [ru_url]}
+    assert dub_url.endswith(".mp4")
+    assert reply == f"Here you are: {dub_url}"

@@ -60,7 +60,9 @@ def parse_intent(
 ) -> Tuple[str, Dict[str, List]]:
     intent, *_ = [
         intent["category"]
-        for intent in prediction["intents"]
+        for intent in sorted(
+            prediction["intents"], key=lambda p: p["confidenceScore"], reverse=True
+        )
         if intent["confidenceScore"] > intent_confidence
     ]
 
@@ -70,7 +72,9 @@ def parse_intent(
         )
 
     entities: Dict[str, List] = dict()
-    for entity in prediction["entities"]:
+    for entity in sorted(
+        prediction["entities"], key=lambda e: e["confidenceScore"], reverse=True
+    ):
         if entity["confidenceScore"] > entity_confidence:
             category = entity["category"]
             key = [
@@ -89,6 +93,8 @@ async def intent(
     # Inspired by:
     # https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/cognitivelanguage/azure-ai-language-conversations/samples/sample_analyze_conversation_app.py  # noqa: E501
     token = env.get_azure_conversations_token()
+
+    # TODO (astaff): extract into config
     url = "https://freespeech-chatbot.cognitiveservices.azure.com"
     project_name = "chat-bot"
     deployment_name = "prod"

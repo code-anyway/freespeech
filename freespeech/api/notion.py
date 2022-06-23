@@ -67,7 +67,7 @@ async def _process_transcript(
 
     if not transcript.events:
         match transcript.source:
-            case "Machine" | "Machine A" | "Machine B":
+            case "Machine" | "Machine A" | "Machine B" | "Machine C":
                 transcript = await _transcribe(database_id, transcript)
             case "Subtitles":
                 transcript = await _from_subtitles(database_id, transcript)
