@@ -120,29 +120,11 @@ def upload(video_file, meta_file, credentials_file):
     )
 
 
-@click.option(
-    "-p",
-    "--port",
-    required=False,
-    default=8080,
-    type=int,
-    help="HTTP port to listen on",
-)
 @cli.command(name="start-telegram")
-def start_telegram(port: int):
-    # We are doing this so telegram module doesn't evaluate
-    # trying to access environment variables that might be not set.
+def start_telegram():
     from freespeech.api import telegram
 
-    app = web.Application(logger=logger)
-
-    routes = SERVICE_ROUTES["chat"]
-    logger.info(f"Adding routes for chat: {[r for r in routes]}")
-    app.add_routes(routes)
-
-    telegram.start_bot(app)
-
-    web.run_app(app, port=port)
+    telegram.start_bot()
 
 
 if __name__ == "__main__":

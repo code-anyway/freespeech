@@ -4,7 +4,6 @@ import aiogram as tg
 import aiohttp
 from aiogram import types as tg_types
 from aiohttp import ClientResponseError
-from aiohttp.abc import Application
 
 from freespeech import client, env
 from freespeech.api.chat import DUB_CLIENT_TIMEOUT
@@ -67,22 +66,18 @@ async def _message(message: tg_types.Message):
             await message.reply(f"Error :{e.message}")
 
 
-def start_bot(webapp: Application):
+def start_bot():
     # order is important here, think of it as a filter chain.
     dispatcher.register_message_handler(_help, commands=["start", "help"])
     dispatcher.register_message_handler(_message)
 
-    tg.executor.set_webhook(
-        dispatcher,
-        webhook_path=WEBHOOK_ROUTE,
-        web_app=webapp,
-        on_shutdown=on_shutdown,
-        on_startup=on_startup,
+    tg.executor.start_polling(
+        dispatcher, on_startup=on_startup, on_shutdown=on_shutdown
     )
 
 
-async def commands_list_menu(disp):
-    await disp.bot.set_my_commands(
+async def commands_list_menu(dispatcher):
+    await dispatcher.bot.set_my_commands(
         [
             tg_types.BotCommand("start", "Start"),
             tg_types.BotCommand("help", "Help"),
