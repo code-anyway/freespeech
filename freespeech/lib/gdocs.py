@@ -4,10 +4,10 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import List, Sequence, Tuple
 
+import google.auth
 import googleapiclient.discovery
 from google.oauth2 import service_account
 
-from freespeech import env
 from freespeech.lib import transcript
 from freespeech.types import Character, Event, Language, Source
 
@@ -93,10 +93,9 @@ def drive_client(
 
 
 def get_credentials(scopes: List[str]) -> service_account.Credentials:
-    return service_account.Credentials.from_service_account_file(
-        env.get_service_account_file(),
-        scopes=scopes,
-    )
+    credentials, _ = google.auth.default(scopes=scopes)
+
+    return credentials
 
 
 def extract(url: str) -> str:
