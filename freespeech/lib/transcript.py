@@ -102,7 +102,6 @@ def parse_events(text: str) -> Sequence[Event]:
     lines = [line for line in text.split("\n") if line]
 
     for line in lines:
-        print(line)
         if timecode_parser.fullmatch(line):
             start_ms, duration_ms, character = parse_time_interval(line)
             events += [

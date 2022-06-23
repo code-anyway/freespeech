@@ -67,7 +67,7 @@ async def _process_transcript(
 
     if not transcript.events:
         match transcript.source:
-            case "Machine" | "Machine A" | "Machine B":
+            case "Machine" | "Machine A" | "Machine B" | "Machine C":
                 transcript = await _transcribe(database_id, transcript)
             case "Subtitles":
                 transcript = await _from_subtitles(database_id, transcript)
@@ -252,6 +252,7 @@ async def _dub(database_id: str, transcript: notion.Transcript) -> notion.Transc
     return await notion.put_transcript(database_id, updated_transcript, only_props=True)
 
 
+# TODO (astaff): move outside of notion.py?
 def get_dub_client():
     return aiohttp.ClientSession(
         base_url=env.get_dub_service_url(),

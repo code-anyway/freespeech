@@ -1,3 +1,5 @@
+import pytest
+
 from freespeech.lib import language
 from freespeech.types import Event
 
@@ -33,3 +35,16 @@ def test_translate_with_empty_chunks():
     events_ru = [Event(time_ms=0, duration_ms=1_000, chunks=[])]
     events_en = [Event(time_ms=0, duration_ms=1_000, chunks=[])]
     assert language.translate_events(events_ru, "ru-RU", "en-US") == events_en
+
+
+@pytest.mark.asyncio
+async def test_intent():
+    intent, entities = await language.intent(
+        "load https://youtube.com/a and https://youtube.com/b using English and Russian subtitles"  # noqa: E501
+    )
+    intent == "load"
+    assert entities == {
+        "url": ["https://youtube.com/a", "https://youtube.com/b"],
+        "language": ["en-US", "ru-RU"],
+        "method": ["subtitles"],
+    }

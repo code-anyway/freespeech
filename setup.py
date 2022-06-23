@@ -39,6 +39,7 @@ setup(
     """,
     install_requires=[
         "aiohttp",
+        "azure-ai-language-conversations",
         "click",
         "deepgram-sdk",
         "ffmpeg-python",

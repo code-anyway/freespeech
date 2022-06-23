@@ -100,3 +100,15 @@ def get_azure_config() -> tuple[str, str]:
             "env vars are required to work with Azure TTS"
         )
     return azure_key, azure_region
+
+
+@functools.cache
+def get_azure_conversations_token() -> str:
+    token = os.environ.get("AZURE_CONVERSATIONS_TOKEN", None)
+
+    if not token:
+        raise RuntimeError(
+            "Environment variable `AZURE_CONVERSATIONS_TOKEN` is not set"
+        )
+
+    return token
