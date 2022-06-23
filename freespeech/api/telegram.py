@@ -1,17 +1,36 @@
 import aiogram as tg
 import aiohttp
 from aiogram import types as tg_types
+from aiohttp import ClientResponseError
 from aiohttp.abc import Application
 
 from freespeech import client, env
 from freespeech.api.chat import DUB_CLIENT_TIMEOUT
 
+help_text = """
+Hi, I am a Freespeech chat bot.
+With my help you can translate and dub videos to other languages.
+
+Try this:
+
+Transcribe https://www.youtube.com/watch?v=N9B59PHIFbA in English using Machine B
+
+it will give you a google doc to edit and approve.
+Then you can translate it:
+
+Translate https://docs.google.com/document/d/1FbV0eW4Q-yKWYjPkMRCrGd2yD78n7MtswVmN9LSo4mA/edit to Ukrainian
+
+Please, edit it as well. Tranlsation might be inaccurate! And then give it a voice:
+
+dub https://docs.google.com/document/d/1FbV0eW4Q-yKWYjPkMRCrGd2yD78n7MtswVmN9LSo4mA/edit#
+
+/help for this message anytime.
+"""  # noqa: E501
+
 bot = tg.Bot(token=env.get_telegram_bot_token())
-# TODO replace with env.configuration
-SERVER_URL = "https://ce0b-178-74-255-76.eu.ngrok.io"
 WEBHOOK_ROUTE = "/tg_webhook"
-WEBHOOK_URL = f"{SERVER_URL}{WEBHOOK_ROUTE}"
-dp = tg.Dispatcher(bot)
+WEBHOOK_URL = env.get_telegram_webhook_url()
+dispatcher = tg.Dispatcher(bot)
 
 
 def get_chat_client():
@@ -21,19 +40,32 @@ def get_chat_client():
     )
 
 
-@dp.message_handler()
+# not using aiogram decorators to have full control over order of rules
+@dispatcher.async_task
+async def _help(message: tg_types.Message):
+    await message.reply(help_text, disable_web_page_preview=True)
+
+
+@dispatcher.async_task
 async def _message(message: tg_types.Message):
     """
     Conversation's entry point
     """
     async with get_chat_client() as _client:
-        response = await client.say(_client, message.text)
-        await message.reply(f"Got response from API: {response}")
+        try:
+            text, response, state = await client.say(_client, message.text)
+            await message.reply(text)
+        except ClientResponseError as e:
+            await message.reply(f"Error :{e.message}")
 
 
 def start_bot(webapp: Application):
+    # order is important here, think of it as a filter chain.
+    dispatcher.register_message_handler(_help, commands=["start", "help"])
+    dispatcher.register_message_handler(_message)
+
     tg.executor.set_webhook(
-        dp,
+        dispatcher,
         webhook_path=WEBHOOK_ROUTE,
         web_app=webapp,
         on_shutdown=on_shutdown,
@@ -41,11 +73,24 @@ def start_bot(webapp: Application):
     )
 
 
-async def on_startup(dp):
+async def commands_list_menu(disp):
+    await disp.bot.set_my_commands(
+        [
+            tg_types.BotCommand("start", "Start"),
+            tg_types.BotCommand("help", "Help"),
+            tg_types.BotCommand("transcribe", "Dub"),
+            tg_types.BotCommand("translate", "Translate"),
+            tg_types.BotCommand("dub", "Dub"),
+        ]
+    )
+
+
+async def on_startup(dispatcher):
     await bot.set_webhook(WEBHOOK_URL)
+    await commands_list_menu(dispatcher)
 
 
-async def on_shutdown(dp):
+async def on_shutdown(dispatcher):
     await bot.delete_webhook()
-    await dp.storage.close()
-    await dp.storage.wait_closed()
+    await dispatcher.storage.close()
+    await dispatcher.storage.wait_closed()

@@ -78,6 +78,18 @@ def get_crud_service_url() -> str:
 
 
 @functools.cache
+def get_say_service_url() -> str:
+    url = os.environ.get("FREESPEECH_SAY_SERVICE_URL", None)
+
+    if not url:
+        raise RuntimeError(
+            "Environment variable 'FREESPEECH_CRUD_SERVICE_URL' is not set."
+        )
+
+    return url
+
+
+@functools.cache
 def get_dub_service_url() -> str:
     url = os.environ.get("FREESPEECH_DUB_SERVICE_URL", None)
 
@@ -114,6 +126,7 @@ def get_azure_conversations_token() -> str:
     return token
 
 
+@functools.cache
 def get_telegram_bot_token() -> str:
     token = os.environ.get("TELEGRAM_BOT_TOKEN", None)
 
@@ -121,3 +134,13 @@ def get_telegram_bot_token() -> str:
         raise RuntimeError("Environment variable TELEGRAM_BOT_TOKEN is not set. ")
 
     return token
+
+
+@functools.cache
+def get_telegram_webhook_url() -> str:
+    url = os.environ.get("TELEGRAM_WEBHOOK_URL", None)
+
+    if not url:
+        raise RuntimeError("For Telegram, TELEGRAM_WEBHOOK_URL should be set.")
+
+    return url

@@ -1,9 +1,13 @@
+import logging
 from dataclasses import asdict
 from typing import Dict, Sequence, Tuple
 
 import aiohttp.client
+from aiohttp import ClientResponseError
 
 from freespeech.types import Audio, Character, Clip, Event, Language, Meta
+
+logger = logging.getLogger(__name__)
 
 
 async def upload(http_client: aiohttp.ClientSession, video_url: str, lang: str) -> Clip:
@@ -78,10 +82,13 @@ async def dub(
     }
 
     async with http_client.post(f"/clips/{clip_id}/dub", json=params) as resp:
-        assert resp.status == 200
-        clip_dict = await resp.json()
-
-    return _build_clip(clip_dict)
+        try:
+            resp.raise_for_status()
+            clip_dict = await resp.json()
+            return _build_clip(clip_dict)
+        except ClientResponseError as e:
+            logger.error(e)
+            raise
 
 
 async def video(http_client: aiohttp.ClientSession, clip_id: str) -> str:
@@ -92,12 +99,15 @@ async def video(http_client: aiohttp.ClientSession, clip_id: str) -> str:
     return video_dict["url"]
 
 
-async def say(http_client: aiohttp.ClientSession, message: str) -> str:
-    resp = await http_client.post("/say", json={"text": message})
-    if resp.ok:
+async def say(
+    http_client: aiohttp.ClientSession, message: str
+) -> Tuple[str, str, Dict]:
+    try:
+        # todo (lexaux) push state back to API
+        resp = await http_client.post("/say", json={"text": message})
+        resp.raise_for_status()
         data = await resp.json()
-        # todo add normal error handling
-        return data.get("text", "BAD RESPONSE")
-    else:
-        error_msg = await resp.text()
-        return f"Error: {error_msg}"
+        return data["text"], data["result"], data["state"]
+    except ClientResponseError as e:
+        logger.error(e)
+        raise
