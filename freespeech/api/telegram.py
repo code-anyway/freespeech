@@ -18,9 +18,9 @@ help_text = [
     "Transcribe https://www.youtube.com/watch?v=N9B59PHIFbA in English "
     "using Machine B",
     "It will give you a google doc to edit and approve.\n" "Then you can translate it:",
-    "Translate https://docs.google.com/document/d/1FbV0eW4Q-yKWYjPkMRCrGd2yD78n7MtswVmN9LSo4mA/edit to Ukrainian"  # noqa: E501,
-    "Please, edit it as well. Translation might be inaccurate! And then give it a voice:"  # noqa: E501,
-    "dub https://docs.google.com/document/d/1FbV0eW4Q-yKWYjPkMRCrGd2yD78n7MtswVmN9LSo4mA/edit#"  # noqa: E501,
+    "Translate https://docs.google.com/document/d/1FbV0eW4Q-yKWYjPkMRCrGd2yD78n7MtswVmN9LSo4mA/edit to Ukrainian",  # noqa: E501
+    "Please, edit it as well. Translation might be inaccurate! And then give it a voice:",  # noqa: E501
+    "dub https://docs.google.com/document/d/1FbV0eW4Q-yKWYjPkMRCrGd2yD78n7MtswVmN9LSo4mA/edit#",  # noqa: E501,
     "/help for this message anytime. For quality purposes this conversations are recorded.",  # noqa: E501,
 ]
 
