@@ -78,12 +78,12 @@ def get_crud_service_url() -> str:
 
 
 @functools.cache
-def get_say_service_url() -> str:
-    url = os.environ.get("FREESPEECH_SAY_SERVICE_URL", None)
+def get_chat_service_url() -> str:
+    url = os.environ.get("FREESPEECH_CHAT_SERVICE_URL", None)
 
     if not url:
         raise RuntimeError(
-            "Environment variable 'FREESPEECH_CRUD_SERVICE_URL' is not set."
+            "Environment variable 'FREESPEECH_CHAT_SERVICE_URL' is not set."
         )
 
     return url
