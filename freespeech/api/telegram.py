@@ -3,6 +3,7 @@ import logging
 import aiogram as tg
 import aiohttp
 from aiogram import types as tg_types
+from aiogram.utils.executor import start_webhook
 from aiohttp import ClientResponseError
 from aiohttp.abc import Application
 
@@ -67,17 +68,18 @@ async def _message(message: tg_types.Message):
             await message.reply(f"Error :{e.message}")
 
 
-def start_bot(webapp: Application):
+def start_bot(port: int):
     # order is important here, think of it as a filter chain.
     dispatcher.register_message_handler(_help, commands=["start", "help"])
     dispatcher.register_message_handler(_message)
+    logger.warning(f"Going to start telegram bot webhook on port {port}. ")
 
-    tg.executor.set_webhook(
+    tg.executor.start_webhook(
         dispatcher,
         webhook_path=WEBHOOK_ROUTE,
-        web_app=webapp,
         on_shutdown=on_shutdown,
         on_startup=on_startup,
+        port=port
     )
 
 
@@ -94,11 +96,15 @@ async def commands_list_menu(disp):
 
 
 async def on_startup(dispatcher):
+    logger.warning("Setting up telegram bot...")
     await bot.set_webhook(WEBHOOK_URL)
     await commands_list_menu(dispatcher)
+    logger.warning("Telegram bot set up. ")
 
 
 async def on_shutdown(dispatcher):
+    logger.warning("Shutting down telegram bot... ")
     await bot.delete_webhook()
     await dispatcher.storage.close()
     await dispatcher.storage.wait_closed()
+    logger.warning("Telegram bot shut down.")
