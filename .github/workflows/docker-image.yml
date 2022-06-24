@@ -33,6 +33,8 @@ jobs:
     - name: Type check
       run: docker run -i freespeech-test:latest "make typecheck"
     - name: Tests
+      env:
+        PYTEST_ADDOPTS: "--color=yes"
       run: |
         docker run -i \
         -v /tmp/id/test.json:/id/test.json \
@@ -43,4 +45,5 @@ jobs:
         -e DEEPGRAM_TOKEN \
         -e FREESPEECH_STORAGE_BUCKET \
         -e NOTION_TOKEN \
+        -e PYTEST_ADDOPTS \
         freespeech-test:latest "make test"
