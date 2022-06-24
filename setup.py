@@ -71,7 +71,8 @@ setup(
             "black",
             "isort",
             "coverage",
-            "flake8"
+            "flake8",
+            "mypy"
         ]
     },
     python_requires=">=3.10",
