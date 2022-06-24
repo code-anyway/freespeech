@@ -5,7 +5,6 @@ import aiohttp
 from aiogram import types as tg_types
 from aiogram.utils.executor import start_webhook
 from aiohttp import ClientResponseError
-from aiohttp.abc import Application
 
 from freespeech import client, env
 from freespeech.api.chat import DUB_CLIENT_TIMEOUT
@@ -74,12 +73,12 @@ def start_bot(port: int):
     dispatcher.register_message_handler(_message)
     logger.warning(f"Going to start telegram bot webhook on port {port}. ")
 
-    tg.executor.start_webhook(
-        dispatcher,
+    start_webhook(
+        dispatcher=dispatcher,
         webhook_path=WEBHOOK_ROUTE,
         on_shutdown=on_shutdown,
         on_startup=on_startup,
-        port=port
+        port=port,
     )
 
 
@@ -103,8 +102,11 @@ async def on_startup(dispatcher):
 
 
 async def on_shutdown(dispatcher):
+    # The webook is not unset on a purpose. In a multi-node environment,
+    # such as Google Cloud Run, having the webhook deregister in on_shutdown
+    # would lead to a situation when the entire webhook stops receiving Telegram
+    # updates, even if a single container was decommissioned.
     logger.warning("Shutting down telegram bot... ")
-    await bot.delete_webhook()
     await dispatcher.storage.close()
     await dispatcher.storage.wait_closed()
     logger.warning("Telegram bot shut down.")
