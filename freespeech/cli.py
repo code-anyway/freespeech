@@ -133,6 +133,7 @@ def start_telegram(port: int):
     # We are doing this so telegram module doesn't evaluate
     # trying to access environment variables that might be not set.
     from freespeech.api import telegram
+
     telegram.start_bot(port)
 
 
