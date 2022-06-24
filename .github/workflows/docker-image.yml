@@ -1,0 +1,27 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build the Docker image
+      run: docker build . --file Dockerfile --tag freespeech:latest
+      run: docker build . --file Dockerfile.test --tag freespeech-test:latest
+    - name: Code quality
+      run: docker run -it freespeech-test:latest make quality
+    - name: Type check
+      run: docker run -it freespeech-test:latest make typecheck
+    - name: Tests
+      run: docker run -it freespeech-test:latest make test
+    
+      
