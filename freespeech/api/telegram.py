@@ -3,6 +3,7 @@ import logging
 import aiogram as tg
 import aiohttp
 from aiogram import types as tg_types
+from aiogram.utils.executor import start_webhook
 from aiohttp import ClientResponseError
 
 from freespeech import client, env
@@ -72,8 +73,8 @@ def start_bot(port: int):
     dispatcher.register_message_handler(_message)
     logger.warning(f"Going to start telegram bot webhook on port {port}. ")
 
-    tg.executor.start_webhook(
-        dispatcher,
+    start_webhook(
+        dispatcher=dispatcher,
         webhook_path=WEBHOOK_ROUTE,
         on_shutdown=on_shutdown,
         on_startup=on_startup,
