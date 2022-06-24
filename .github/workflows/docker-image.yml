@@ -11,7 +11,13 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
-
+    env:
+      AZURE_CONVERSATIONS_TOKEN: ${{ secrets.AZURE_CONVERSATIONS_TOKEN }}
+      AZURE_REGION: eastus
+      AZURE_SUBSCRIPTION_KEY: ${{ secrets.AZURE_SUBSCRIPTION_KEY }}
+      DEEPGRAM_TOKEN: ${{ secrets.DEEPGRAM_TOKEN }}
+      FREESPEECH_STORAGE_BUCKET: freespeech-tests
+      NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
     steps:
     - uses: actions/checkout@v3
     - name: Write Google Application Credentials JSON
@@ -29,6 +35,12 @@ jobs:
     - name: Tests
       run: |
         docker run -i \
-        -v /tmp/id:/id \
+        -v /tmp/id/test.json:/id/test.json \
         -e GOOGLE_APPLICATION_CREDENTIALS=/id/test.json \
+        -e AZURE_CONVERSATIONS_TOKEN \
+        -e AZURE_REGION \
+        -e AZURE_SUBSCRIPTION_KEY \
+        -e DEEPGRAM_TOKEN \
+        -e FREESPEECH_STORAGE_BUCKET \
+        -e NOTION_TOKEN \
         freespeech-test:latest "make test"
