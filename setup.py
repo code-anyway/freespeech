@@ -71,6 +71,7 @@ setup(
             "black",
             "isort",
             "coverage",
+            "flake8"
         ]
     },
     python_requires=">=3.10",
