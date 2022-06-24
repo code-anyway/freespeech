@@ -19,10 +19,10 @@ jobs:
     - name: Build test image
       run: docker build . --file Dockerfile.test --tag freespeech-test:latest
     - name: Code quality
-      run: docker run -i freespeech-test:latest make quality
+      run: docker run -i freespeech-test:latest "make quality"
     - name: Type check
-      run: docker run -i freespeech-test:latest make typecheck
+      run: docker run -i freespeech-test:latest "make typecheck"
     - name: Tests
-      run: docker run -i freespeech-test:latest make test
+      run: docker run -i freespeech-test:latest "make test"
     
       
