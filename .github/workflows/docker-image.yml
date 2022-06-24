@@ -11,9 +11,15 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    env:
+      GOOGLE_APPLICATION_CREDENTIALS_BASE64: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_BASE64 }}
 
     steps:
     - uses: actions/checkout@v3
+    - name: Write Google Application Credentials JSON
+      run: |
+        mkdir /tmp/id && \
+        echo $GOOGLE_APPLICATION_CREDENTIALS_BASE64 | base64 -d - > /tmp/id/test.json
     - name: Build base image
       run: docker build . --file Dockerfile --tag freespeech:latest
     - name: Build test image
@@ -23,6 +29,8 @@ jobs:
     - name: Type check
       run: docker run -i freespeech-test:latest "make typecheck"
     - name: Tests
-      run: docker run -i freespeech-test:latest "make test"
-    
-      
+      run: |
+        docker run -i \
+        -v /tmp/id:/id \
+        -e GOOGLE_APPLICATION_CREDENTIALS=/id/test.json \
+        freespeech-test:latest "make test"
