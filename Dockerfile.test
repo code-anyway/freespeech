@@ -1,0 +1,8 @@
+FROM freespeech:latest
+
+RUN mkdir /root/freespeech/tests
+COPY Makefile /root/freespeech
+COPY tests /root/freespeech/tests
+RUN pip install -e ".[test]"
+
+ENTRYPOINT ["/bin/bash", "-c"]
