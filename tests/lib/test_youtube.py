@@ -41,7 +41,9 @@ def test_broken_download(tmp_path):
     # some videos have streams with 'content-length' missing which causes
     # pytube to crash
     missing_content_length = "https://youtu.be/BoGEAwsHmr0"
-    _, _, _, _ = youtube.download(missing_content_length, tmp_path)
+    _, _, _, _ = youtube.download(
+        missing_content_length, output_dir=tmp_path, max_retries=10
+    )
 
 
 def test_download_local(tmp_path):
