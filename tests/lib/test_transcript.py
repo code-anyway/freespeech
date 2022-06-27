@@ -1,4 +1,31 @@
+import os
+import time
+
 from freespeech.lib import transcript
+from freespeech.types import Voice
+
+
+def test_unparse_time_interval():
+    up = transcript.unparse_time_interval
+    # assert up(0, 1000, Voice(character="Grace Hopper")) \
+    #        == "00:00:00/00:00:01 (Grace Hopper)"
+
+    # and this should work well regardless of what timezone is set
+    current_tz = os.environ.get("TZ", None)
+    try:
+        os.environ["TZ"] = "America/Los_Angeles"
+        time.tzset()
+        assert (
+            up(0, 1000, Voice(character="Grace Hopper"))
+            == "00:00:00/00:00:01 (Grace Hopper)"
+        )
+    finally:
+        # cleaning up the timezone
+        if current_tz:
+            os.environ["TZ"] = current_tz
+        else:
+            del os.environ["TZ"]
+        time.tzset()
 
 
 def test_parse_event():
