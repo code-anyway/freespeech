@@ -7,7 +7,7 @@ test:
 	python -m pytest -n auto --dist=loadfile -s -vv ./tests/
 
 typecheck:
-	python -m mypy $(check_dirs)
+	python -m mypy --install-types --non-interactive $(check_dirs)
 
 quality:
 	black --check $(check_dirs)

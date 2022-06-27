@@ -4,6 +4,8 @@ from dataclasses import replace
 from datetime import datetime
 from typing import Sequence, Tuple
 
+import pytz
+
 from freespeech.types import Character, Event, Voice, is_character
 
 logger = logging.getLogger(__name__)
@@ -86,7 +88,7 @@ def unparse_time_interval(time_ms: int, duration_ms: int, voice: Voice | None) -
     finish_ms = time_ms + duration_ms
 
     def _ms_to_iso_time(ms: int) -> str:
-        t = datetime.fromtimestamp(ms / 1000.0).time()
+        t = datetime.fromtimestamp(ms / 1000.0, tz=pytz.UTC).time()
         return t.isoformat()
 
     res = f"{_ms_to_iso_time(start_ms)}/{_ms_to_iso_time(finish_ms)}"
