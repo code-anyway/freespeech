@@ -1,7 +1,9 @@
+import logging
 from dataclasses import asdict, replace
 from tempfile import TemporaryDirectory
 from typing import List, Tuple
 
+import aiohttp.web
 from aiohttp import web
 
 from freespeech import env
@@ -10,38 +12,43 @@ from freespeech.lib.storage import doc, obj
 from freespeech.types import Clip, Event, Language, Voice
 
 routes = web.RouteTableDef()
+logger = logging.getLogger(__name__)
 
 
 @routes.post("/clips/{clip_id}/dub")
 async def create_dub(request):
-    clip_id = request.match_info["clip_id"]
-    params = await request.json()
+    try:
+        clip_id = request.match_info["clip_id"]
+        params = await request.json()
 
-    voice = Voice(character=params["characters"]["default"], pitch=params["pitch"])
-    events = [
-        Event(
-            time_ms=event["time_ms"],
-            duration_ms=event["duration_ms"],
-            chunks=event["chunks"],
-            voice=Voice(**value) if (value := event.get("voice", None)) else None,
+        voice = Voice(character=params["characters"]["default"], pitch=params["pitch"])
+        events = [
+            Event(
+                time_ms=event["time_ms"],
+                duration_ms=event["duration_ms"],
+                chunks=event["chunks"],
+                voice=Voice(**value) if (value := event.get("voice", None)) else None,
+            )
+            for event in params["transcript"]
+        ]
+
+        db = doc.google_firestore_client()
+        clip = await doc.get(db, "clips", clip_id)
+        clip = Clip(**clip)
+
+        dub_clip = await _dub(
+            clip=clip,
+            lang=params["lang"],
+            voice=voice,
+            events=events,
+            weights=params["weights"],
         )
-        for event in params["transcript"]
-    ]
+        await doc.put(db, "clips", dub_clip._id, asdict(dub_clip))
 
-    db = doc.google_firestore_client()
-    clip = await doc.get(db, "clips", clip_id)
-    clip = Clip(**clip)
-
-    dub_clip = await _dub(
-        clip=clip,
-        lang=params["lang"],
-        voice=voice,
-        events=events,
-        weights=params["weights"],
-    )
-    await doc.put(db, "clips", dub_clip._id, asdict(dub_clip))
-
-    return web.json_response(asdict(dub_clip))
+        return web.json_response(asdict(dub_clip))
+    except ValueError as e:
+        logger.exception(e)
+        raise aiohttp.web.HTTPBadRequest(reason=str(e))
 
 
 # TODO (astaff): this should go into API eventually.

@@ -147,7 +147,9 @@ def parse_properties(text: str) -> Page:
     keys = properties.keys()
     for attribute in page_attributes:
         if attribute not in keys and attribute != "video":
-            raise TypeError(f"{attribute} must be defined")
+            raise TypeError(
+                f"Error reading doc properties: {attribute} must be defined"
+            )
 
     properties["original_audio_level"] = int(properties["original_audio_level"])
     properties["video"] = None if "video" not in keys else properties["video"] or None
