@@ -29,7 +29,7 @@ WEBHOOK_ROUTE = "/tg_webhook"
 WEBHOOK_URL = env.get_telegram_webhook_url()
 dispatcher = tg.Dispatcher(bot)
 
-bot_details: tg_types.User | None = None
+bot_details: tg_types.User
 
 
 def get_chat_client():
