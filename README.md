@@ -10,7 +10,8 @@
 Prerequisites:
 
 * Docker
-* Google Cloud Service Account Credentials (default: `./id/google-cloud-development-credentials.json`)
+* Google Cloud Service Account Credentials (
+  default: `./id/google-cloud-development-credentials.json`)
 
 ```bash
 docker build -t freespeech .
@@ -33,7 +34,8 @@ freespeech --help
 
 ### Environment
 
-It is recommended to use VSCode's Dev Container extension and get a shell into container as a part of your development
+It is recommended to use VSCode's Dev Container extension and get a shell into container
+as a part of your development
 environment.
 
 You are expected to set:
@@ -44,6 +46,9 @@ You are expected to set:
 * `AZURE_REGION` and `AZURE_SUBSCRIPTION_KEY` to use Microsoft TTS service
 * `AZURE_CONVERSATIONS_TOKEN`
 * `DEEPGRAM_TOKEN`
+* `TELEGRAM_WEBHOOK_URL` and `TELEGRAM_BOT_TOKEN`. Bot token you can get from
+  https://t.me/BotFather, and webhook should point to the address your telegram is
+  available + `tg_webhook`
 
 For example:
 
@@ -55,7 +60,8 @@ export AZURE_REGION="CHANGE: region for example eastus,"
 export AZURE_SUBSCRIPTION_KEY="CHANGE: subscription key"
 ```
 
-If your preferred workflow is different, you can get shell access into a container with your local working directory
+If your preferred workflow is different, you can get shell access into a container with
+your local working directory
 mounted:
 
 ```bash
@@ -82,9 +88,11 @@ From project home directory in the container:
 
 #### Azure
 
-Currently, text-to-speech from Azure is used. In order to get a working environment, one needs to:
+Currently, text-to-speech from Azure is used. In order to get a working environment, one
+needs to:
 
-1. Have a Microsoft Azure account. https://azure.microsoft.com/en-us/free/ to get started
+1. Have a Microsoft Azure account. https://azure.microsoft.com/en-us/free/ to get
+   started
 2. Create a Speech resource in certain Azure region
    https://ms.portal.azure.com/#create/Microsoft.CognitiveServicesSpeechServices
 3. Obtain values for `AZURE_REGION` and `AZURE_SUBSCRIPTION_KEY` required by the app
@@ -92,3 +100,11 @@ Currently, text-to-speech from Azure is used. In order to get a working environm
 
 General quickstart
 guide: https://docs.microsoft.com/en-us/azure/cognitive-services/speech-service/get-started-speech-to-text
+
+### Telegram
+
+Service is available as a chatbot. You would need to create a chat bot via
+https://t.me/BotFather (and hence obtain `TELEGRAM_BOT_TOKEN` to set env). Please also
+**disable** privacy mode for bot since we want to react to plain mentions in groups.
+
+Webhook should point to the address your telegram instance is available + `tg_webhook`  

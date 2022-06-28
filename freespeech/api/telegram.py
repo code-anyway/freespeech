@@ -29,6 +29,8 @@ WEBHOOK_ROUTE = "/tg_webhook"
 WEBHOOK_URL = env.get_telegram_webhook_url()
 dispatcher = tg.Dispatcher(bot)
 
+bot_details: tg_types.User | None = None
+
 
 def get_chat_client():
     return aiohttp.ClientSession(
@@ -49,7 +51,17 @@ async def _message(message: tg_types.Message):
     """
     Conversation's entry point
     """
+
+    def _is_message_for_bot() -> bool:
+        if f"@{bot_details.username}" in message.text:
+            return True
+        if message.chat.type == "private":
+            return True
+        return False
+
     async with get_chat_client() as _client:
+        if not _is_message_for_bot():
+            return
         try:
             text, response, state = await client.say(_client, message.text)
             logger.warning(
@@ -98,6 +110,9 @@ async def on_startup(dispatcher):
     logger.warning("Setting up telegram bot...")
     await bot.set_webhook(WEBHOOK_URL)
     await commands_list_menu(dispatcher)
+
+    global bot_details
+    bot_details = await bot.get_me()
     logger.warning("Telegram bot set up. ")
 
 
