@@ -1,10 +1,11 @@
 import json
+from typing import Sequence, get_args
 
 import pytest
 
 from freespeech.lib import media, speech
 from freespeech.lib.storage import obj
-from freespeech.types import Event, Voice
+from freespeech.types import Event, Language, Voice
 
 AUDIO_EN_LOCAL = "tests/lib/data/media/en-US-mono.wav"
 AUDIO_EN_GS = "gs://freespeech-tests/test_speech/en-US-mono.wav"
@@ -320,3 +321,17 @@ async def test_synthesize_azure(tmp_path) -> None:
     (voice,) = voices
 
     assert voice.speech_rate == pytest.approx(0.87, rel=1e-2)
+
+
+def test_voices_and_languages_completeness() -> None:
+    """
+    Ensure that we have a voice for each character/language combination. Otherwise
+    this might lead to some errors
+    Returns:
+    """
+    supported_languages: Sequence[Language] = get_args(Language)
+    for character, voices in speech.VOICES.items():
+        for lang in supported_languages:
+            assert voices.get(
+                lang, None
+            ), f"Language {lang} not found for character {character}"

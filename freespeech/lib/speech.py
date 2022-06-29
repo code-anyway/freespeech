@@ -55,6 +55,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "pt-PT": ("Google", "pt-PT-Wavenet-D"),
         "de-DE": ("Google", "de-DE-Wavenet-C"),
         "es-US": ("Google", "es-US-Wavenet-A"),
+        "uk-UA": ("Google", "uk-UA-Wavenet-A"),
     },
     "Grace Hopper": {
         "en-US": ("Google", "en-US-Wavenet-C"),
@@ -70,6 +71,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "pt-PT": ("Google", "pt-PT-Wavenet-C"),
         "de-DE": ("Google", "de-DE-Wavenet-B"),
         "es-US": ("Google", "es-US-Wavenet-B"),
+        "uk-UA": ("Azure", "uk-UA-OstapNeural"),
     },
     "Alonzo Church": {
         "en-US": ("Google", "en-US-Wavenet-D"),
@@ -77,13 +79,22 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "pt-PT": ("Google", "pt-PT-Wavenet-B"),
         "de-DE": ("Google", "de-DE-Wavenet-D"),
         "es-US": ("Google", "es-US-Wavenet-C"),
+        "uk-UA": ("Azure", "uk-UA-OstapNeural"),
     },
     "Bill": {
         "en-US": ("Azure", "en-US-ChristopherNeural"),
+        "ru-RU": ("Azure", "ru-RU-DmitryNeural"),
+        "pt-PT": ("Azure", "pt-PT-DuarteNeural"),
+        "de-DE": ("Azure", "de-DE-ConradNeural"),
+        "es-US": ("Azure", "es-US-AlonsoNeural"),
         "uk-UA": ("Azure", "uk-UA-OstapNeural"),
     },
     "Melinda": {
+        "ru-RU": ("Azure", "ru-RU-DariyaNeural"),
         "en-US": ("Azure", "en-US-AriaNeural"),
+        "pt-PT": ("Azure", "pt-PT-RaquelNeural"),
+        "de-DE": ("Azure", "de-DE-KlarissaNeural"),
+        "es-US": ("Azure", "es-US-PalomaNeural"),
         "uk-UA": ("Azure", "uk-UA-PolinaNeural"),
     },
 }
