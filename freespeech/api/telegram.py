@@ -53,6 +53,7 @@ async def _message(message: tg_types.Message):
     """
 
     def _is_message_for_bot() -> bool:
+        global bot_details
         if f"@{bot_details.username}" in message.text:
             return True
         if message.chat.type == "private":
