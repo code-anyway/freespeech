@@ -46,9 +46,7 @@ You are expected to set:
 * `AZURE_REGION` and `AZURE_SUBSCRIPTION_KEY` to use Microsoft TTS service
 * `AZURE_CONVERSATIONS_TOKEN`
 * `DEEPGRAM_TOKEN`
-* `TELEGRAM_WEBHOOK_URL` and `TELEGRAM_BOT_TOKEN`. Bot token you can get from
-  https://t.me/BotFather, and webhook should point to the address your telegram is
-  available + `tg_webhook`
+* `TELEGRAM_WEBHOOK_URL` and `TELEGRAM_BOT_TOKEN` - see Telegram section below
 
 For example:
 
@@ -98,13 +96,20 @@ needs to:
 3. Obtain values for `AZURE_REGION` and `AZURE_SUBSCRIPTION_KEY` required by the app
    [link to guide](https://docs.microsoft.com/en-us/azure/cognitive-services/cognitive-services-apis-create-account#get-the-keys-for-your-resource)
 
-General quickstart
-guide: https://docs.microsoft.com/en-us/azure/cognitive-services/speech-service/get-started-speech-to-text
+General quickstart guide:
+https://docs.microsoft.com/en-us/azure/cognitive-services/speech-service/get-started-speech-to-text
 
 ### Telegram
 
 Service is available as a chatbot. You would need to create a chat bot via
 https://t.me/BotFather (and hence obtain `TELEGRAM_BOT_TOKEN` to set env). Please also
 **disable** privacy mode for bot since we want to react to plain mentions in groups.
+This can be done in BotFather settings for your bot via telegram itself.
 
-Webhook should point to the address your telegram instance is available + `tg_webhook`  
+`TELEGRAM_WEBHOOK_URL` should also be set. This should be a publicly accessible URL
+pointing to the webhook. Telegram would push messages to this URL. Typically this would
+look like `http://address.tld:8080/tg_webhook` when ran with `start-telegram`
+on `address.tld` host.
+
+You can use [ngrok](https://ngrok.com) to forward local port from development machine 
+to a public address.

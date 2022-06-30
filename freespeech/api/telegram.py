@@ -60,9 +60,10 @@ async def _message(message: tg_types.Message):
             return True
         return False
 
+    if not _is_message_for_bot():
+        return
+
     async with get_chat_client() as _client:
-        if not _is_message_for_bot():
-            return
         try:
             text, response, state = await client.say(_client, message.text)
             logger.warning(
@@ -109,11 +110,12 @@ async def commands_list_menu(disp):
 
 async def on_startup(dispatcher):
     logger.warning("Setting up telegram bot...")
-    await bot.set_webhook(WEBHOOK_URL)
     await commands_list_menu(dispatcher)
 
     global bot_details
     bot_details = await bot.get_me()
+
+    await bot.set_webhook(WEBHOOK_URL)
     logger.warning("Telegram bot set up. ")
 
 
