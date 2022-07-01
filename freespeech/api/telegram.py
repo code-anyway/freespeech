@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import urlparse
 
 import aiogram as tg
 import aiohttp
@@ -25,8 +26,8 @@ help_text = [
 ]
 
 bot = tg.Bot(token=env.get_telegram_bot_token())
-WEBHOOK_ROUTE = "/tg_webhook"
 WEBHOOK_URL = env.get_telegram_webhook_url()
+WEBHOOK_ROUTE = urlparse(WEBHOOK_URL).path
 dispatcher = tg.Dispatcher(bot)
 
 
