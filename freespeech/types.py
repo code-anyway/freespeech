@@ -21,7 +21,6 @@ Character = Literal[
     "Grace Hopper",
     "Ada Lovelace",
     "Alonzo Church",
-    "Original",
     "Bill",
     "Melinda",
 ]

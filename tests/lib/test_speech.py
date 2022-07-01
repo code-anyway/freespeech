@@ -1,10 +1,11 @@
 import json
+from typing import Sequence, get_args
 
 import pytest
 
 from freespeech.lib import media, speech
 from freespeech.lib.storage import obj
-from freespeech.types import Event, Voice
+from freespeech.types import Character, Event, Language, Voice, assert_never
 
 AUDIO_EN_LOCAL = "tests/lib/data/media/en-US-mono.wav"
 AUDIO_EN_GS = "gs://freespeech-tests/test_speech/en-US-mono.wav"
@@ -320,3 +321,41 @@ async def test_synthesize_azure(tmp_path) -> None:
     (voice,) = voices
 
     assert voice.speech_rate == pytest.approx(0.87, rel=1e-2)
+
+
+def test_voices_and_languages_completeness() -> None:
+    """
+    Ensure that we have a voice for each character/language combination. Otherwise
+    this might lead to some errors
+    Returns:
+    """
+    supported_languages: Sequence[Language] = get_args(Language)
+    all_characters: Sequence[Character] = get_args(Character)
+
+    # 1 check that all characters have their voice definitions
+    # this is the completeness check, the other end is ensured by the type checking (we
+    # can not use wrong literal for character)
+    for character in all_characters:
+        assert character in speech.VOICES.keys()
+
+    # 2 check that whenever we have a character defined, they support all languages
+    for character, voices in speech.VOICES.items():
+        for lang in supported_languages:
+            assert voices.get(
+                lang, None
+            ), f"Language {lang} not found for character {character}"
+
+    # 3 check that real voices are supported by the provider (no typo) and we support
+    # all the providers
+    for character, supported_voices in speech.VOICES.items():
+        for language, voice in supported_voices.items():
+            provider, provider_voice = voice
+            match provider:
+                case "Google":
+                    assert language in speech.supported_google_voices()[provider_voice]
+                case "Azure":
+                    assert language in speech.supported_azure_voices()[provider_voice]
+                case "Deepgram":
+                    raise ValueError("Deepgram can not be a ")
+                case never:
+                    assert_never(never)
