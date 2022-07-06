@@ -76,9 +76,9 @@ async def _message(message: tg_types.Message):
             logger.error(
                 f"Error in conversation with {message.from_user.username}:\n"
                 f"User: {message.text}\n"
-                f"Bot:  {e.message}"
+                f"Bot:  {e.message}, HTTP status = {e.status}"
             )
-            await message.reply(f"{e.message}")
+            await message.reply(e.message)
 
 
 def start_bot(port: int):

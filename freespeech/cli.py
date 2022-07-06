@@ -1,7 +1,8 @@
 import logging.config
 
 import click
-from aiohttp import web
+import googleapiclient
+from aiohttp import ClientResponseError, web
 
 from freespeech.api import chat, crud, dub, language, notion, pub, speech
 from freespeech.lib import youtube
@@ -43,6 +44,24 @@ logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
 
 
+@web.middleware
+async def error_handler_middleware(request, handler):
+    try:
+        resp = await handler(request)
+        return resp
+    except (
+        AttributeError,
+        NameError,
+        ValueError,
+        googleapiclient.errors.HttpError,
+    ) as e:
+        logger.warning(f"Caught user input error: {e}")
+        raise web.HTTPBadRequest(reason=str(e)) from e
+    except ClientResponseError as e:
+        logger.warning(f"Caught downstream api call error: {e}")
+        raise web.HTTPBadRequest(reason=e.message) from e
+
+
 @click.group()
 @click.version_option()
 def cli():
@@ -62,7 +81,7 @@ def cli():
 def start(port: int, services):
     """Start HTTP API Server"""
     logger.info(f"Starting aiohttp server on port {port}")
-    app = web.Application(logger=logger)
+    app = web.Application(logger=logger, middlewares=[error_handler_middleware])
 
     for service in services:
         if service not in SERVICE_ROUTES:
