@@ -70,7 +70,7 @@ def test_parse():
         """
     )
     assert parsed_page == EXPECTED_PAGE
-    with pytest.raises(TypeError, match=".*(?=must be defined)"):
+    with pytest.raises(AttributeError, match=".*(?=must be defined)"):
         gdocs.parse_properties("") == EXPECTED_PAGE
 
 
