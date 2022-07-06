@@ -9,7 +9,7 @@ import googleapiclient.discovery
 from google.oauth2 import service_account
 
 from freespeech.lib import transcript
-from freespeech.types import Character, Event, Language, Source
+from freespeech.types import Character, Event, Language, Source, Voice
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +176,9 @@ def parse(text: str) -> Tuple[Page, Sequence[Event]]:
     properties = text[:transcript_start]
     page = parse_properties(properties)
 
-    events = transcript.parse_events(text=text[transcript_start:])
+    events = transcript.parse_events(
+        text=text[transcript_start:], default_voice=Voice(page.voice)
+    )
 
     return page, events
 
@@ -241,7 +243,9 @@ def text_from_properties_and_events(page: Page, events: Sequence[Event]) -> str:
         output += "\n"
         output += (
             transcript.unparse_time_interval(
-                event.time_ms, event.duration_ms, event.voice, event.speech_rate
+                event.time_ms,
+                event.duration_ms,
+                event.voice,
             )
             + "\n"
         )

@@ -17,14 +17,13 @@ EXPECTED_EVENTS = [
         time_ms=0,
         duration_ms=1000,
         chunks=["Hello, Bill!", "How are you?"],
-        voice=Voice(character="Grace Hopper", pitch=0.0, speech_rate=None),
+        voice=Voice(character="Grace Hopper", pitch=0.0, speech_rate=1.0),
     ),
     Event(
         time_ms=2000,
         duration_ms=None,
         chunks=["It was a huge mistake."],
-        voice=None,
-        speech_rate=1.4,
+        voice=Voice(character="Alonzo Church", pitch=0.0, speech_rate=1.4),
     ),
 ]
 EXPECTED_TEXT = """origin: https://youtube.com/foo
