@@ -99,7 +99,9 @@ async def intent(
     project_name = "chat-bot"
     deployment_name = "prod"
 
-    client = ConversationAnalysisClient(url, AzureKeyCredential(token))
+    # todo (astaff 07/06/2022) remove type ignore after fixing
+    # https://github.com/astaff/freespeech/issues/76
+    client = ConversationAnalysisClient(url, AzureKeyCredential(token))  # type: ignore
     async with client:
         result = await client.analyze_conversation(
             task={
