@@ -22,9 +22,10 @@ EXPECTED_EVENTS = [
     ),
     Event(
         time_ms=2000,
-        duration_ms=2000,
+        duration_ms=None,
         chunks=["It was a huge mistake."],
         voice=None,
+        speech_rate=1.4,
     ),
 ]
 EXPECTED_TEXT = """origin: https://youtube.com/foo
@@ -39,7 +40,7 @@ video:
 Hello, Bill!
 How are you?
 
-00:00:02/00:00:04
+00:00:02@1.4
 It was a huge mistake.
 """
 
@@ -84,6 +85,7 @@ def test_extract_and_parse():
 
 def test_text_from_properties_and_events():
     loaded_text = gdocs.text_from_properties_and_events(EXPECTED_PAGE, EXPECTED_EVENTS)
+    print(loaded_text)
     assert loaded_text == EXPECTED_TEXT
 
 

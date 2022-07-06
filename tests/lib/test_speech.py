@@ -105,6 +105,16 @@ async def test_synthesize_text(tmp_path) -> None:
     assert first.chunks == ["One, two."]
     assert second.chunks == [" 3."]
 
+    output, voice = await speech.synthesize_text(
+        text="One. Two. #2# Three.",
+        duration_ms=None,
+        voice="Grace Hopper",
+        lang="en-US",
+        pitch=0.0,
+        output_dir=tmp_path,
+        init_rate=3.0,
+    )
+
 
 @pytest.mark.asyncio
 async def test_synthesize_azure_transcribe_google(tmp_path) -> None:

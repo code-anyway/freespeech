@@ -230,7 +230,7 @@ def text_from_properties_and_events(page: Page, events: Sequence[Event]) -> str:
         output += "\n"
         output += (
             transcript.unparse_time_interval(
-                event.time_ms, event.duration_ms, event.voice
+                event.time_ms, event.duration_ms, event.voice, event.speech_rate
             )
             + "\n"
         )
