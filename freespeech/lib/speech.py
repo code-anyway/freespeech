@@ -334,7 +334,6 @@ async def synthesize_text(
     lang: Language,
     pitch: float,
     output_dir: Path | str,
-    init_rate: float = 1.0,
 ) -> Tuple[Path, Voice]:
     if voice not in VOICES:
         raise ValueError(f"Unsupported voice: {voice}\n" f"Supported voices: {VOICES}")
@@ -463,7 +462,7 @@ async def synthesize_text(
             return await _synthesize_step(rate, retries - 1)
 
     output_file, speech_rate = await _synthesize_step(
-        rate=init_rate, retries=SYNTHESIS_RETRIES
+        rate=1.0, retries=SYNTHESIS_RETRIES
     )
 
     return output_file, Voice(speech_rate=speech_rate, character=voice, pitch=pitch)

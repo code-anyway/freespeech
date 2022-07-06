@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Sequence, Tuple
 
 import pytz
+from freespeech.lib import speech
 
 from freespeech.types import Character, Event, Voice, is_character
 
@@ -78,9 +79,7 @@ def parse_time_interval(interval: str) -> Tuple[int, int, Character | None, floa
     return start_ms, duration_ms, character, speech_rate
 
 
-def unparse_time_interval(
-    time_ms: int, duration_ms: int | None, voice: Voice | None, speech_rate: float
-) -> str:
+def unparse_time_interval(time_ms: int, duration_ms: int | None, voice: Voice) -> str:
     """Generates HH:MM:SS.fff/HH:MM:SS.fff (Character) or HH:MM:SS.fff@rr.rr (Character)
     (if speechrate is set) representation for a time interval and voice.
 
@@ -103,7 +102,7 @@ def unparse_time_interval(
     res = f"{_ms_to_iso_time(start_ms)}"
 
     if duration_ms is None:
-        res += f"@{str(speech_rate)}"  # should I round here?
+        res += f"@{str(voice.speech_rate)}"  # should I round here?
     else:
         finish_ms = time_ms + duration_ms
         res += f"/{_ms_to_iso_time(finish_ms)}"
@@ -114,7 +113,7 @@ def unparse_time_interval(
     return res
 
 
-def parse_events(text: str) -> Sequence[Event]:
+def parse_events(text: str, default_voice: Voice) -> Sequence[Event]:
     events = []
     lines = [line for line in text.split("\n") if line]
 
@@ -126,8 +125,9 @@ def parse_events(text: str) -> Sequence[Event]:
                     start_ms,
                     duration_ms,
                     chunks=[],
-                    voice=Voice(character) if character else None,
-                    speech_rate=speech_rate,
+                    voice=Voice(character, speech_rate=speech_rate)
+                    if character
+                    else default_voice,  # default voice?
                 )
             ]
         else:
