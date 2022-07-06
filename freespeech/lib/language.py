@@ -99,6 +99,8 @@ async def intent(
     project_name = "chat-bot"
     deployment_name = "prod"
 
+    # todo (astaff 07/06/2022) confirm that the line below
+    # resolves https://github.com/astaff/freespeech/runs/7148219569
     client = ConversationAnalysisClient(url, AzureKeyCredential(token))
     async with client:
         result = await client.analyze_conversation(
