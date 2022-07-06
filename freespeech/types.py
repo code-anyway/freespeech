@@ -72,9 +72,10 @@ class Voice:
 @dataclass(frozen=True)
 class Event:
     time_ms: int
-    duration_ms: int
+    duration_ms: int | None
     chunks: List[str]
     voice: Voice | None = None
+    speech_rate: float = 1.0
 
 
 @dataclass(frozen=True)

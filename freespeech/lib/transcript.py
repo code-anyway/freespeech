@@ -37,7 +37,7 @@ def ms_to_iso_time(ms: int) -> str:
     return t.isoformat(timespec="microseconds")
 
 
-def parse_time_interval(interval: str) -> Tuple[int, int, Character | None]:
+def parse_time_interval(interval: str) -> Tuple[int, int, Character | None, float]:
     """Parses HH:MM:SS.fff/HH:MM:SS.fff (Character) into (start_ms, duration_ms, Character).
 
     Args:
@@ -63,18 +63,28 @@ def parse_time_interval(interval: str) -> Tuple[int, int, Character | None]:
         character = None
 
     start_ms = to_milliseconds(start)
-    if qualifier == "/":
-        finish_ms = to_milliseconds(value)
-        duration_ms = finish_ms - start_ms
-    elif qualifier == "#":
-        duration_ms = round(float(value) * 1000)
+    speech_rate = 1.0
 
-    return start_ms, duration_ms, character
+    match qualifier:
+        case "/":
+            finish_ms = to_milliseconds(value)
+            duration_ms = finish_ms - start_ms
+        case "#":
+            duration_ms = round(float(value) * 1000)
+        case "@":
+            duration_ms = None
+            speech_rate = float(value)
+        case _:
+            pass
+
+    return start_ms, duration_ms, character, speech_rate
 
 
-def unparse_time_interval(time_ms: int, duration_ms: int, voice: Voice | None) -> str:
-    """Generates HH:MM:SS.fff/HH:MM:SS.fff (Character)?
-    representation for a time interval and voice.
+def unparse_time_interval(
+    time_ms: int, duration_ms: int | None, voice: Voice | None, speech_rate: float
+) -> str:
+    """Generates HH:MM:SS.fff/HH:MM:SS.fff (Character) or HH:MM:SS.fff@rr.rr (Character)
+    (if speechrate is set) representation for a time interval and voice.
 
     Args:
         time_ms: interval start time in milliseconds.
@@ -86,10 +96,15 @@ def unparse_time_interval(time_ms: int, duration_ms: int, voice: Voice | None) -
        two ISO 8601 formatted timespamps separated by "/" with optional
        voice info added.
     """
-    start_ms = time_ms
-    finish_ms = time_ms + duration_ms
 
-    res = f"{ms_to_iso_time(start_ms)}/{ms_to_iso_time(finish_ms)}"
+    start_ms = time_ms
+    res = f"{ms_to_iso_time(start_ms)}"
+
+    if duration_ms is None:
+        res += f"@{str(speech_rate)}"  # should I round here?
+    else:
+        finish_ms = time_ms + duration_ms
+        res += f"/{ms_to_iso_time(finish_ms)}"
 
     if voice:
         res = f"{res} ({voice.character})"
@@ -103,13 +118,14 @@ def parse_events(text: str) -> Sequence[Event]:
 
     for line in lines:
         if timecode_parser.fullmatch(line):
-            start_ms, duration_ms, character = parse_time_interval(line)
+            start_ms, duration_ms, character, speech_rate = parse_time_interval(line)
             events += [
                 Event(
                     start_ms,
                     duration_ms,
                     chunks=[],
                     voice=Voice(character) if character else None,
+                    speech_rate=speech_rate,
                 )
             ]
         else:

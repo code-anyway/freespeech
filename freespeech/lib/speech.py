@@ -314,9 +314,11 @@ def _wrap_in_ssml(text: str, voice: str, speech_rate: float) -> str:
     return result
 
 
-def text_to_chunks(text: str, chunk_length: int, voice: str) -> Sequence[str]:
+def text_to_chunks(
+    text: str, chunk_length: int, voice: str, speech_rate: float
+) -> Sequence[str]:
     inner = re.sub(r"#(\d+(\.\d+)?)#", r'<break time="\1s" />', text)
-    overhead = len(_wrap_in_ssml("", voice=voice, speech_rate=1.0))
+    overhead = len(_wrap_in_ssml("", voice=voice, speech_rate=speech_rate))
     sentence_overhead = len("<s></s>")
     return chunk(
         text=inner,
@@ -327,11 +329,12 @@ def text_to_chunks(text: str, chunk_length: int, voice: str) -> Sequence[str]:
 
 async def synthesize_text(
     text: str,
-    duration_ms: int,
+    duration_ms: int | None,
     voice: Character,
     lang: Language,
     pitch: float,
     output_dir: Path | str,
+    init_rate: float = 1.0,
 ) -> Tuple[Path, Voice]:
     if voice not in VOICES:
         raise ValueError(f"Unsupported voice: {voice}\n" f"Supported voices: {VOICES}")
@@ -351,8 +354,13 @@ async def synthesize_text(
             assert_never(never)
 
     chunks_with_breaks_expanded = text_to_chunks(
-        text, chunk_length=MAX_CHUNK_LENGTH, voice=provider_voice
+        text,
+        chunk_length=MAX_CHUNK_LENGTH,
+        voice=provider_voice,
+        speech_rate=init_rate,
     )
+
+    # eyeballing duration?
 
     if provider_voice not in all_voices or lang not in all_voices[provider_voice]:
         raise ValueError(
@@ -453,7 +461,7 @@ async def synthesize_text(
             return await _synthesize_step(rate, retries - 1)
 
     output_file, speech_rate = await _synthesize_step(
-        rate=1.0, retries=SYNTHESIS_RETRIES
+        rate=init_rate, retries=SYNTHESIS_RETRIES
     )
 
     return output_file, Voice(speech_rate=speech_rate, character=voice, pitch=pitch)
@@ -476,6 +484,7 @@ async def synthesize_events(
         clip, voice_info = await synthesize_text(
             text=" ".join(event.chunks),
             duration_ms=event.duration_ms,
+            init_rate=event.speech_rate,
             voice=voice if event.voice is None else event.voice.character,
             lang=lang,
             pitch=pitch if event.voice is None else event.voice.pitch,
