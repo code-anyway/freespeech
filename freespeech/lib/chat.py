@@ -194,9 +194,7 @@ def create(intent: str, n: int) -> Generator[UtteranceRecord, None, None]:
         )
 
 
-def training_data(
-    intents: Sequence[Intent], sample_sizes: List[int]
-) -> Sequence[Dict]:
+def training_data(intents: Sequence[Intent], sample_sizes: List[int]) -> Sequence[Dict]:
     """Given list of intents and corresponding training set sample size for each intent
     generate training data that classifies intents and highlighs entities.
     """
