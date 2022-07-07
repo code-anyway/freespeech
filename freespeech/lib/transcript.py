@@ -113,7 +113,7 @@ def unparse_time_interval(time_ms: int, duration_ms: int | None, voice: Voice) -
     return res
 
 
-def parse_events(text: str, default_voice: Voice) -> Sequence[Event]:
+def parse_events(text: str, default_character: Character) -> Sequence[Event]:
     events = []
     lines = [line for line in text.split("\n") if line]
 
@@ -125,9 +125,10 @@ def parse_events(text: str, default_voice: Voice) -> Sequence[Event]:
                     start_ms,
                     duration_ms,
                     chunks=[],
-                    voice=Voice(character, speech_rate=speech_rate)
-                    if character
-                    else default_voice,  # default voice?
+                    voice=Voice(
+                        character if character else default_character,
+                        speech_rate=speech_rate,
+                    ),
                 )
             ]
         else:
