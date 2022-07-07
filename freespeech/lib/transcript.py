@@ -1,8 +1,8 @@
 import logging
-from pathlib import Path
 import re
 from dataclasses import replace
 from datetime import datetime
+from pathlib import Path
 from typing import Sequence, Tuple
 
 import pytz
@@ -139,13 +139,10 @@ def parse_srt(srt_file: Path | str) -> Sequence[Event]:
     result = [
         Event(
             time_ms=(start_ms := to_milliseconds(start.replace(",", "."))),
-            duration_ms=(
-                to_milliseconds(finish.replace(",", ".")) - start_ms
-            ),
+            duration_ms=(to_milliseconds(finish.replace(",", ".")) - start_ms),
             chunks=[(" ".join(text.split("\n"))).strip()],
         )
         for start, finish, text, _ in match
     ]
 
     return result
-
