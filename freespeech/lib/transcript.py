@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 import re
 from dataclasses import replace
 from datetime import datetime
@@ -15,6 +16,23 @@ timecode_parser = re.compile(
 )
 
 
+def to_milliseconds(s: str) -> int:
+    if s.find(".") == -1:
+        timestamp, after_dot = (s.replace(" ", ""), "0")
+    else:
+        timestamp, after_dot = s.replace(" ", "").split(".", 1)
+
+    t = datetime.strptime(timestamp, "%H:%M:%S")
+    extra_micros = int(after_dot[:6].ljust(6, "0"))
+    return (
+        t.hour * 60 * 60 * 1_000
+        + t.minute * 60 * 1_000
+        + t.second * 1_000
+        + t.microsecond // 1_000
+        + extra_micros // 1_000
+    )
+
+
 def parse_time_interval(interval: str) -> Tuple[int, int, Character | None]:
     """Parses HH:MM:SS.fff/HH:MM:SS.fff (Character) into (start_ms, duration_ms, Character).
 
@@ -25,26 +43,6 @@ def parse_time_interval(interval: str) -> Tuple[int, int, Character | None]:
     Returns:
         Event start time and duration in milliseconds and optional character.
     """
-
-    # TODO (astaff): couldn't find a sane way to do that
-    # other than parsing it as datetime from a custom
-    # ISO format that ingores date. Hence this.
-    def _to_milliseconds(s: str):
-        if s.find(".") == -1:
-            timestamp, after_dot = (s.replace(" ", ""), "0")
-        else:
-            timestamp, after_dot = s.replace(" ", "").split(".", 1)
-
-        t = datetime.strptime(timestamp, "%H:%M:%S")
-        extra_micros = int(after_dot[:6].ljust(6, "0"))
-        return (
-            t.hour * 60 * 60 * 1_000
-            + t.minute * 60 * 1_000
-            + t.second * 1_000
-            + t.microsecond // 1_000
-            + extra_micros // 1_000
-        )
-
     match = timecode_parser.search(interval)
 
     if not match:
@@ -60,9 +58,9 @@ def parse_time_interval(interval: str) -> Tuple[int, int, Character | None]:
     else:
         character = None
 
-    start_ms = _to_milliseconds(start)
+    start_ms = to_milliseconds(start)
     if qualifier == "/":
-        finish_ms = _to_milliseconds(value)
+        finish_ms = to_milliseconds(value)
         duration_ms = finish_ms - start_ms
     elif qualifier == "#":
         duration_ms = round(float(value) * 1000)
@@ -121,3 +119,33 @@ def parse_events(text: str) -> Sequence[Event]:
                 events += [replace(event := events.pop(), chunks=event.chunks + [line])]
 
     return events
+
+
+def parse_srt(srt_file: Path | str) -> Sequence[Event]:
+    """Generates sequence of Events out of .srt file.
+
+    Args:
+        srt_file: path to an .srt file.
+
+    Returns:
+        Speeched events parsed from .srt file.
+    """
+    with open(srt_file, "r") as fd:
+        text = "".join(list(fd)) + "\n"
+
+    parser = re.compile(r"\d+\n([\d\:\,]+)\s*-->\s*([\d\:\,]+)\n((.+\n)+)")
+    match = parser.findall(text)
+
+    result = [
+        Event(
+            time_ms=(start_ms := to_milliseconds(start.replace(",", "."))),
+            duration_ms=(
+                to_milliseconds(finish.replace(",", ".")) - start_ms
+            ),
+            chunks=[(" ".join(text.split("\n"))).strip()],
+        )
+        for start, finish, text, _ in match
+    ]
+
+    return result
+
