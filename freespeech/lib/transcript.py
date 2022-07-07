@@ -2,7 +2,6 @@ import logging
 import re
 from dataclasses import replace
 from datetime import datetime
-from pathlib import Path
 from typing import Sequence, Tuple
 
 import pytz
@@ -121,18 +120,17 @@ def parse_events(text: str) -> Sequence[Event]:
     return events
 
 
-def parse_srt(srt_file: Path | str) -> Sequence[Event]:
-    """Generates sequence of Events out of .srt file.
+def parse_srt(text: str) -> Sequence[Event]:
+    """Generates sequence of Events from subtitles stored in .srt format.
 
     Args:
-        srt_file: path to an .srt file.
+        text: content of .srt file.
 
     Returns:
-        Speeched events parsed from .srt file.
+        Speech events parsed from .srt.
     """
-    with open(srt_file, "r") as fd:
-        text = "".join(list(fd)) + "\n"
-
+    if not text.endswith("\n"):
+        text += "\n"
     parser = re.compile(r"\d+\n([\d\:\,]+)\s*-->\s*([\d\:\,]+)\n((.+\n)+)")
     match = parser.findall(text)
 

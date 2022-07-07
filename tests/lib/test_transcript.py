@@ -82,7 +82,9 @@ def test_parse_time_interval():
 
 def test_srt():
     SRT_FILE = "tests/lib/data/transcript/karlsson.srt"
-    res = transcript.parse_srt(SRT_FILE)
+
+    with open(SRT_FILE) as lines:
+        res = transcript.parse_srt("".join(lines))
 
     expected = [
         Event(
