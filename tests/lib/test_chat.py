@@ -17,7 +17,7 @@ async def test_intent():
 
 
 def test_training_data():
-    data = chat.generate_training_data(
+    data = chat.training_data(
         intents=["dub", "translate", "transcribe"], sample_sizes=[100, 100, 100]
     )
     assert len(data) == 300
