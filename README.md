@@ -68,7 +68,7 @@ docker run -it \
     -e NOTION_TOKEN="Notion-integration-token" \
     -e FREESPEECH_STORAGE_BUCKET="freespeech-tests" \
     -e AZURE_REGION="CHANGE: region for example eastus," \
-    -e AZURE_SUBSCRIPTION_KEY="CHANGE: subscription key" \   
+    -e AZURE_SUBSCRIPTION_KEY="CHANGE: subscription key" \
     -v $(pwd):/workspace/freespeech \
     --workdir="/workspace/freespeech" \
     --entrypoint /bin/bash freespeech
@@ -78,9 +78,9 @@ docker run -it \
 
 From project home directory in the container:
 
-* To run locally: `pip install -e .` and `freespeech --help`
-* To test locally: `pip install -e ".[test]"`
-* To run the tests: `make test`.
+- To run locally: `pip install -e .` and `freespeech --help`
+- To test locally: `pip install -e ".[test]"`
+- To run the tests: `make test`.
 
 ### Cloud
 
