@@ -48,7 +48,7 @@ def normalize_speech(
 async def say(request):
     def _raise_unknown_query(unhandled_intent: str | None = None):
         raise aiohttp.web.HTTPBadRequest(
-            reason=f"I don't know how to handle {unhandled_intent}. Try /help?"
+            reason=f"I don't know how to handle {unhandled_intent or 'this'}. Try /help?"
         )
 
     params = await request.json()
