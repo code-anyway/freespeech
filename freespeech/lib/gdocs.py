@@ -177,7 +177,8 @@ def parse(text: str) -> Tuple[Page, Sequence[Event]]:
     page = parse_properties(properties)
 
     events = transcript.parse_events(
-        text=text[transcript_start:], default_voice=Voice(page.voice)
+        text=text[transcript_start:],
+        default_character=page.voice,  # needs a hard default
     )
 
     return page, events
