@@ -46,9 +46,9 @@ def normalize_speech(
 
 @routes.post("/say")
 async def say(request):
-    def _raise_unknown_query():
+    def _raise_unknown_query(unhandled_intent: str | None = None):
         raise aiohttp.web.HTTPBadRequest(
-            reason=f"I don't know how to handle {intent}. Try /help?"
+            reason=f"I don't know how to handle {unhandled_intent}. Try /help?"
         )
 
     params = await request.json()
@@ -61,7 +61,7 @@ async def say(request):
         intent, entities = await language.intent(text)
         state = {**state, **entities}
     except ValueError:
-        _raise_unknown_query()
+        _raise_unknown_query(intent)
 
     match intent:
         case "transcribe":
@@ -97,8 +97,8 @@ async def say(request):
                 }
             )
 
-        case _:
-            _raise_unknown_query()
+        case other_intent:
+            _raise_unknown_query(unhandled_intent=other_intent)
 
 
 def get_dub_arguments(state: Dict[str, Any]) -> Tuple[url, Character | None]:

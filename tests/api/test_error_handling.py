@@ -24,6 +24,10 @@ async def webapp(aiohttp_server, aiohttp_client):
     async def make_handled_exception(request):
         raise AttributeError("Handled exception. Some user message.")
 
+    @routes.get("/permission_error")
+    async def make_permission_error(request):
+        raise PermissionError("Permissions not enough")
+
     @routes.get("/unhandled_exception")
     async def make_unhandled_exception(request):
         raise TypeError("Just an unhandled error - should be 500")
@@ -63,6 +67,14 @@ async def test_handled_exception_should_be_4XX(client):
     except ClientResponseError as e:
         assert e.status == 400
         assert e.message == "Handled exception. Some user message."
+
+    result = await client.get("permission_error")
+    try:
+        result.raise_for_status()
+        assert False, "Should have raised an exception"
+    except ClientResponseError as e:
+        assert e.status == 400
+        assert e.message == "Permissions not enough"
 
 
 @pytest.mark.asyncio

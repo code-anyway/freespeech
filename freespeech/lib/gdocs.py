@@ -115,11 +115,14 @@ def extract(url: str) -> str:
         scopes=["https://www.googleapis.com/auth/documents.readonly"]
     )
 
-    with gdocs_client(credentials) as client:
-        documents = client.documents()
-        document = documents.get(documentId=document_id).execute()
+    try:
+        with gdocs_client(credentials) as client:
+            documents = client.documents()
+            document = documents.get(documentId=document_id).execute()
 
-    return _read_structural_elements(document.get("body").get("content"))
+        return _read_structural_elements(document.get("body").get("content"))
+    except googleapiclient.errors.HttpError as e:
+        raise PermissionError(e.error_details) from e
 
 
 def parse_properties(text: str) -> Page:

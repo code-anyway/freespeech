@@ -1,7 +1,6 @@
 import logging.config
 
 import click
-import googleapiclient
 from aiohttp import ClientResponseError, web
 
 from freespeech.api import chat, crud, dub, language, notion, pub, speech
@@ -53,7 +52,7 @@ async def error_handler_middleware(request, handler):
         AttributeError,
         NameError,
         ValueError,
-        googleapiclient.errors.HttpError,
+        PermissionError,
     ) as e:
         logger.warning(f"Caught user input error: {e}")
         raise web.HTTPBadRequest(reason=str(e)) from e
