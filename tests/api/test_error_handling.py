@@ -41,7 +41,6 @@ async def webapp(aiohttp_server, aiohttp_client):
 
     app = web.Application(middlewares=[cli.error_handler_middleware])
     app.add_routes(routes)
-    _ = await aiohttp_server(app, port=8088)
     return app
 
 
