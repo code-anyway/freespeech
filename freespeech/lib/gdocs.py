@@ -115,11 +115,20 @@ def extract(url: str) -> str:
         scopes=["https://www.googleapis.com/auth/documents.readonly"]
     )
 
-    with gdocs_client(credentials) as client:
-        documents = client.documents()
-        document = documents.get(documentId=document_id).execute()
+    try:
+        with gdocs_client(credentials) as client:
+            documents = client.documents()
+            document = documents.get(documentId=document_id).execute()
 
-    return _read_structural_elements(document.get("body").get("content"))
+        return _read_structural_elements(document.get("body").get("content"))
+    except googleapiclient.errors.HttpError as e:
+        match e.status_code:
+            case 403:
+                raise PermissionError(e.error_details) from e
+            case 404:
+                raise RuntimeError(e.error_details) from e
+            case _:
+                raise e
 
 
 def parse_properties(text: str) -> Page:
@@ -147,7 +156,9 @@ def parse_properties(text: str) -> Page:
     keys = properties.keys()
     for attribute in page_attributes:
         if attribute not in keys and attribute != "video":
-            raise TypeError(f"{attribute} must be defined")
+            raise AttributeError(
+                f"Error reading doc properties: {attribute} must be defined"
+            )
 
     properties["original_audio_level"] = int(properties["original_audio_level"])
     properties["video"] = None if "video" not in keys else properties["video"] or None
