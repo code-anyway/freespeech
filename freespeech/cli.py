@@ -48,16 +48,11 @@ async def error_handler_middleware(request, handler):
     try:
         resp = await handler(request)
         return resp
-    except (
-        AttributeError,
-        NameError,
-        ValueError,
-        PermissionError,
-    ) as e:
-        logger.warning(f"Caught user input error: {e}")
+    except (AttributeError, NameError, ValueError, PermissionError, RuntimeError) as e:
+        logger.warning(f"User input error: {e}")
         raise web.HTTPBadRequest(reason=str(e)) from e
     except ClientResponseError as e:
-        logger.warning(f"Caught downstream api call error: {e}")
+        logger.warning(f"Downstream api call error: {e}")
         raise web.HTTPBadRequest(reason=e.message) from e
 
 

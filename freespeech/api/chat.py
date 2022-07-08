@@ -44,13 +44,14 @@ def normalize_speech(
     )
 
 
+def _raise_unknown_query(intent: str | None = None):
+    raise aiohttp.web.HTTPBadRequest(
+        reason=f"Don't know how to handle {intent or 'this'}. Try /help?"
+    )
+
+
 @routes.post("/say")
 async def say(request):
-    def _raise_unknown_query(unhandled_intent: str | None = None):
-        raise aiohttp.web.HTTPBadRequest(
-            reason=f"I don't know how to handle {unhandled_intent or 'this'}. Try /help?"
-        )
-
     params = await request.json()
 
     text = params["text"]
@@ -97,8 +98,8 @@ async def say(request):
                 }
             )
 
-        case other_intent:
-            _raise_unknown_query(unhandled_intent=other_intent)
+        case _:
+            _raise_unknown_query(intent=intent)
 
 
 def get_dub_arguments(state: Dict[str, Any]) -> Tuple[url, Character | None]:

@@ -122,7 +122,13 @@ def extract(url: str) -> str:
 
         return _read_structural_elements(document.get("body").get("content"))
     except googleapiclient.errors.HttpError as e:
-        raise PermissionError(e.error_details) from e
+        match e.status_code:
+            case 403:
+                raise PermissionError(e.error_details) from e
+            case 404:
+                raise RuntimeError(e.error_details) from e
+            case _:
+                raise e
 
 
 def parse_properties(text: str) -> Page:

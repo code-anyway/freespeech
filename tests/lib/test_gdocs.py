@@ -51,7 +51,7 @@ def test_extract():
     res = gdocs.extract(correct_url)
     assert res == "Hello World\n\nNew Paragraph\n"
 
-    with pytest.raises(PermissionError, match=r"Requested entity was not found."):
+    with pytest.raises(RuntimeError, match=r"Requested entity was not found."):
         gdocs.extract("https://docs.google.com/document/d/INVALID_ID/edit")
 
     with pytest.raises(PermissionError, match=r"The caller does not have permission"):
