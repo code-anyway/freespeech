@@ -64,21 +64,40 @@ async def _message(message: tg_types.Message):
         return
 
     async with get_chat_client() as _client:
-        from_user = (
-            message.from_user.username
-            or f"{message.from_user.full_name} id {message.from_user.id}"
-        )
         try:
-            text, response, state = await client.say(_client, message.text)
-            logger.warning(
-                f"Chat with {from_user} | User: {message.text} | Bot:  {text}"
-            )
+            logger.info(f"user_says: {message.text}", extra={
+                "client": "telegram_1",
+                "user_id": message.from_user.id,
+                "username": message.from_user.username,
+                "full_name": message.from_user.full_name,
+                "text": message.text
+            })
+
+            text, result, state = await client.say(_client, message.text)
+
+            logger.info(f"conversation_success: {text}", extra={
+                "client": "telegram_1",
+                "user_id": message.from_user.id,
+                "username": message.from_user.username,
+                "full_name": message.from_user.full_name,
+                "request": message.text,
+                "reply": text,
+                "result": result,
+                "state": state
+            })
+
             await message.reply(text)
         except ClientResponseError as e:
-            logger.error(
-                f"Error with {from_user} | User: {message.text} | Bot:  {e.message}"
-            )
-            await message.reply(f"Error :{e.message}")
+            logger.error(f"conversation_error: {e.message}", extra={
+                "client": "telegram_1",
+                "user_id": message.from_user.id,
+                "username": message.from_user.username,
+                "full_name": message.from_user.full_name,
+                "request": message.text,
+                "error_details": str(e),
+            })
+            await message.reply("Ooops. Something went wrong.")
+            await message.reply(e.message)
 
 
 def start_bot(port: int):
