@@ -20,4 +20,6 @@ def test_training_data():
     data = chat.training_data(
         intents=["dub", "translate", "transcribe"], sample_sizes=[100, 100, 100]
     )
-    assert len(data) == 300
+
+    # For some of the utterances there are duplicate samples and those are removed
+    assert len(data) > 290

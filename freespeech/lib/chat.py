@@ -1,5 +1,6 @@
 import logging
 import random
+import warnings
 from dataclasses import asdict, dataclass
 from typing import (
     Any,
@@ -13,6 +14,7 @@ from typing import (
     TypeGuard,
 )
 
+import hypothesis
 from azure.ai.language.conversations.aio import ConversationAnalysisClient
 from azure.core.credentials import AzureKeyCredential
 from hypothesis.strategies import from_regex
@@ -56,9 +58,13 @@ class UtteranceRecord:
     entities: Sequence[EntityRecord]
 
 
+def random_case(s: str) -> str:
+    return "".join(c.upper() if random.random() > 0.5 else c.lower() for c in s)
+
+
 ENTITIES = {
-    "language": lambda: random.choice(LANGUAGES),
-    "method": lambda: random.choice(METHODS),
+    "language": lambda: random_case(random.choice(LANGUAGES)),
+    "method": lambda: random_case(random.choice(METHODS)),
     "url": lambda: from_regex(
         r"^((https://www\.youtube\.com/watch\?v=)|(https://youtu\.be/))[A-Za-z0-9_]+$"
     )
@@ -182,16 +188,20 @@ def example(
 
 
 def create(intent: str, n: int) -> Generator[UtteranceRecord, None, None]:
-    for _ in range(n):
-        text, entities = example(
-            random.choice(PHRASES[intent]),
-            {name: func() for name, func in ENTITIES.items()},
+    with warnings.catch_warnings():
+        warnings.simplefilter(
+            "ignore", category=hypothesis.errors.NonInteractiveExampleWarning
         )
-        assert is_intent(intent)
+        for _ in range(n):
+            text, entities = example(
+                random.choice(PHRASES[intent]),
+                {name: func() for name, func in ENTITIES.items()},
+            )
+            assert is_intent(intent)
 
-        yield UtteranceRecord(
-            intent=intent, language="en-us", text=text, entities=entities
-        )
+            yield UtteranceRecord(
+                intent=intent, language="en-us", text=text, entities=entities
+            )
 
 
 def training_data(intents: Sequence[Intent], sample_sizes: List[int]) -> Sequence[Dict]:
