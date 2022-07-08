@@ -10,19 +10,22 @@ from freespeech.types import Audio, Character, Clip, Event, Language, Meta
 logger = logging.getLogger(__name__)
 
 
-async def upload(http_client: aiohttp.ClientSession, video_url: str, lang: str) -> Clip:
-    params = {
-        "url": video_url,
-        "lang": lang,
-    }
+async def _raise_if_error(resp) -> None:
+    """Raise if error response, take details from body
 
-    async with http_client.post("/clips/upload", json=params) as resp:
-        if resp.status != 200:
-            raise RuntimeError(await resp.text())
-        clip_dict = await resp.json()
-    clip = _build_clip(clip_dict)
-
-    return clip
+    This function should be used instead of a standard `raise_for_status()` since
+    we are passing exception details in response body rather than in HTTP response
+    reason.
+    """
+    if resp.ok:
+        return
+    error_message = await resp.text()
+    raise ClientResponseError(
+        status=resp.status,
+        request_info=resp.request_info,
+        message=error_message,
+        history=resp.history,
+    )
 
 
 def _build_clip(clip_dict: Dict) -> Clip:
@@ -52,16 +55,25 @@ def _build_clip(clip_dict: Dict) -> Clip:
     return clip
 
 
-async def clip(http_client: aiohttp.ClientSession, clip_id: str) -> Clip:
-    resp = await http_client.get(f"/clips/{clip_id}")
-    async with resp:
-        if resp.status != 200:
-            raise RuntimeError(await resp.text())
+async def upload(http_client: aiohttp.ClientSession, video_url: str, lang: str) -> Clip:
+    params = {
+        "url": video_url,
+        "lang": lang,
+    }
+
+    async with http_client.post("/clips/upload", json=params) as resp:
+        await _raise_if_error(resp)
         clip_dict = await resp.json()
 
-    clip = _build_clip(clip_dict)
+    return _build_clip(clip_dict)
 
-    return clip
+
+async def clip(http_client: aiohttp.ClientSession, clip_id: str) -> Clip:
+    async with http_client.get(f"/clips/{clip_id}") as resp:
+        await _raise_if_error(resp)
+        clip_dict = await resp.json()
+
+    return _build_clip(clip_dict)
 
 
 async def dub(
@@ -82,20 +94,15 @@ async def dub(
     }
 
     async with http_client.post(f"/clips/{clip_id}/dub", json=params) as resp:
-        try:
-            resp.raise_for_status()
-            clip_dict = await resp.json()
-            return _build_clip(clip_dict)
-        except ClientResponseError as e:
-            logger.error(e)
-            raise
+        await _raise_if_error(resp)
+        clip_dict = await resp.json()
+        return _build_clip(clip_dict)
 
 
 async def video(http_client: aiohttp.ClientSession, clip_id: str) -> str:
-    resp = await http_client.get(f"/clips/{clip_id}/video")
-    if resp.status != 200:
-        raise RuntimeError(await resp.text())
-    video_dict = await resp.json()
+    async with http_client.get(f"/clips/{clip_id}/video") as resp:
+        await _raise_if_error(resp)
+        video_dict = await resp.json()
     return video_dict["url"]
 
 
@@ -103,7 +110,7 @@ async def say(
     http_client: aiohttp.ClientSession, message: str
 ) -> Tuple[str, str, Dict]:
     # todo (lexaux) push state back to API
-    resp = await http_client.post("/say", json={"text": message})
-    resp.raise_for_status()
-    data = await resp.json()
-    return data["text"], data["result"], data["state"]
+    async with http_client.post("/say", json={"text": message}) as resp:
+        await _raise_if_error(resp)
+        data = await resp.json()
+        return data["text"], data["result"], data["state"]

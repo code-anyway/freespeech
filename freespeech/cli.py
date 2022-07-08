@@ -55,10 +55,10 @@ async def error_handler_middleware(request, handler):
         return resp
     except (AttributeError, NameError, ValueError, PermissionError, RuntimeError) as e:
         logger.warning(f"User input error: {e}")
-        raise web.HTTPBadRequest(reason=str(e)) from e
+        raise web.HTTPBadRequest(text=str(e)) from e
     except ClientResponseError as e:
         logger.warning(f"Downstream api call error: {e}")
-        raise web.HTTPBadRequest(reason=e.message) from e
+        raise web.HTTPBadRequest(text=e.message) from e
     except aiohttp.web.HTTPError as e:
         logger.warning(f"HTTPError: {e}")
         raise e
