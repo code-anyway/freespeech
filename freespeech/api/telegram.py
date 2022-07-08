@@ -64,19 +64,19 @@ async def _message(message: tg_types.Message):
         return
 
     async with get_chat_client() as _client:
+        from_user = (
+            message.from_user.username
+            or f"{message.from_user.full_name} id {message.from_user.id}"
+        )
         try:
             text, response, state = await client.say(_client, message.text)
             logger.warning(
-                f"Conversation with {message.from_user.username}:\n"
-                f"User: {message.text}\n"
-                f"Bot:  {text}"
+                f"Chat with {from_user} | User: {message.text} | Bot:  {text}"
             )
             await message.reply(text)
         except ClientResponseError as e:
             logger.error(
-                f"Error in conversation with {message.from_user.username}:\n"
-                f"User: {message.text}\n"
-                f"Bot:  {e.message}"
+                f"Error with {from_user} | User: {message.text} | Bot:  {e.message}"
             )
             await message.reply(f"Error :{e.message}")
 
