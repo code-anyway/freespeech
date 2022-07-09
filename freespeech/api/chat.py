@@ -26,7 +26,6 @@ from freespeech.types import (
 routes = web.RouteTableDef()
 logger = logging.getLogger(__name__)
 
-
 DUB_CLIENT_TIMEOUT = 3600
 CRUD_CLIENT_TIMEOUT = 3600
 
@@ -45,6 +44,12 @@ def normalize_speech(
     )
 
 
+def _raise_unknown_query(intent: str | None = None):
+    raise aiohttp.web.HTTPBadRequest(
+        reason=f"Don't know how to handle {intent or 'this'}. Try /help?"
+    )
+
+
 @routes.post("/say")
 async def say(request):
     params = await request.json()
@@ -52,16 +57,16 @@ async def say(request):
     text = params["text"]
     state = params.get("state", {})
 
-    intent, entities = await language.intent(text)
-    state = {**state, **entities}
+    intent: str = ""
+    try:
+        intent, entities = await language.intent(text)
+        state = {**state, **entities}
+    except ValueError:
+        _raise_unknown_query(intent)
 
     match intent:
         case "transcribe":
-            try:
-                origin, lang, method = get_transcribe_arguments(state)
-            except (AttributeError, ValueError) as e:
-                raise aiohttp.web.HTTPBadRequest(reason=str(e))
-
+            origin, lang, method = get_transcribe_arguments(state)
             document_url = await transcribe(origin, lang, method)
             return web.json_response(
                 {
@@ -70,12 +75,9 @@ async def say(request):
                     "state": state,
                 }
             )
-        case "translate":
-            try:
-                document_url, lang = get_translate_arguments(state)
-            except (AttributeError, ValueError) as e:
-                raise aiohttp.web.HTTPBadRequest(reason=str(e))
 
+        case "translate":
+            document_url, lang = get_translate_arguments(state)
             translated_url = await translate(document_url, lang)
             return web.json_response(
                 {
@@ -84,12 +86,9 @@ async def say(request):
                     "state": state,
                 }
             )
-        case "dub":
-            try:
-                document_url, voice = get_dub_arguments(state)
-            except (AttributeError, ValueError) as e:
-                raise aiohttp.web.HTTPBadRequest(reason=str(e))
 
+        case "dub":
+            document_url, voice = get_dub_arguments(state)
             video_url = await dub(document_url, voice=voice)
             return web.json_response(
                 {
@@ -98,8 +97,9 @@ async def say(request):
                     "state": state,
                 }
             )
-        case never:
-            assert_never(never)
+
+        case _:
+            _raise_unknown_query(intent=intent)
 
 
 def get_dub_arguments(state: Dict[str, Any]) -> Tuple[url, Character | None]:

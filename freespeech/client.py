@@ -102,12 +102,8 @@ async def video(http_client: aiohttp.ClientSession, clip_id: str) -> str:
 async def say(
     http_client: aiohttp.ClientSession, message: str
 ) -> Tuple[str, str, Dict]:
-    try:
-        # todo (lexaux) push state back to API
-        resp = await http_client.post("/say", json={"text": message})
-        resp.raise_for_status()
-        data = await resp.json()
-        return data["text"], data["result"], data["state"]
-    except ClientResponseError as e:
-        logger.error(e)
-        raise
+    # todo (lexaux) push state back to API
+    resp = await http_client.post("/say", json={"text": message})
+    resp.raise_for_status()
+    data = await resp.json()
+    return data["text"], data["result"], data["state"]

@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import urlparse
 
 import aiogram as tg
 import aiohttp
@@ -25,8 +26,8 @@ help_text = [
 ]
 
 bot = tg.Bot(token=env.get_telegram_bot_token())
-WEBHOOK_ROUTE = "/tg_webhook"
 WEBHOOK_URL = env.get_telegram_webhook_url()
+WEBHOOK_ROUTE = urlparse(WEBHOOK_URL).path
 dispatcher = tg.Dispatcher(bot)
 
 
@@ -44,11 +45,24 @@ async def _help(message: tg_types.Message):
         await message.answer(s, disable_web_page_preview=True)
 
 
+async def _is_message_for_bot(message: tg_types.Message) -> bool:
+    if message.chat.type == "private":
+        return True
+    if "@" in message.text:
+        bot_details = await bot.get_me()
+        if f"@{bot_details.username}" in message.text:
+            return True
+    return False
+
+
 @dispatcher.async_task
 async def _message(message: tg_types.Message):
     """
     Conversation's entry point
     """
+    if not await _is_message_for_bot(message):
+        return
+
     async with get_chat_client() as _client:
         try:
             text, response, state = await client.say(_client, message.text)
@@ -62,9 +76,9 @@ async def _message(message: tg_types.Message):
             logger.error(
                 f"Error in conversation with {message.from_user.username}:\n"
                 f"User: {message.text}\n"
-                f"Bot:  {e.message}"
+                f"Bot:  {e.message}, HTTP status = {e.status}"
             )
-            await message.reply(f"Error :{e.message}")
+            await message.reply(e.message)
 
 
 def start_bot(port: int):
@@ -82,7 +96,7 @@ def start_bot(port: int):
     )
 
 
-async def commands_list_menu(disp):
+async def set_commands_list_menu(disp):
     await disp.bot.set_my_commands(
         [
             tg_types.BotCommand("start", "Start"),
@@ -96,8 +110,8 @@ async def commands_list_menu(disp):
 
 async def on_startup(dispatcher):
     logger.warning("Setting up telegram bot...")
+    await set_commands_list_menu(dispatcher)
     await bot.set_webhook(WEBHOOK_URL)
-    await commands_list_menu(dispatcher)
     logger.warning("Telegram bot set up. ")
 
 
