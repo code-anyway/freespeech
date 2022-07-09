@@ -24,7 +24,6 @@ from freespeech import env
 logger = logging.getLogger(__name__)
 
 
-N = 100
 LANGUAGES = ["Russian", "English", "Spanish", "Ukrainian", "German", "Portuguese"]
 METHODS = ["Machine A", "Machine B", "Machine C", "R2D2", "C3PO", "BB8", "Subtitles"]
 
@@ -98,7 +97,7 @@ def parse_intent(
     intent_confidence: float,
     entity_confidence: float,
 ) -> Tuple[str, Dict[str, List]]:
-    intent, *_ = [
+    intent, *other_intents = [
         intent["category"]
         for intent in sorted(
             prediction["intents"], key=lambda p: p["confidenceScore"], reverse=True
@@ -106,9 +105,10 @@ def parse_intent(
         if intent["confidenceScore"] > intent_confidence
     ]
 
-    if _:
+    if other_intents:
+        all_intents = intent + other_intents
         logger.warn(
-            f"Multiple intents with confidence > {intent_confidence}: {intent + _}"
+            f"Multiple intents with confidence > {intent_confidence}: {all_intents}"
         )
 
     entities: Dict[str, List] = dict()
@@ -187,7 +187,7 @@ def example(
     ]
 
 
-def create(intent: str, n: int) -> Generator[UtteranceRecord, None, None]:
+def generate_examples(intent: str, n: int) -> Generator[UtteranceRecord, None, None]:
     with warnings.catch_warnings():
         warnings.simplefilter(
             "ignore", category=hypothesis.errors.NonInteractiveExampleWarning
@@ -204,12 +204,18 @@ def create(intent: str, n: int) -> Generator[UtteranceRecord, None, None]:
             )
 
 
-def training_data(intents: Sequence[Intent], sample_sizes: List[int]) -> Sequence[Dict]:
+def generate_training_data(
+    intents: Sequence[Intent], sample_sizes: List[int]
+) -> Sequence[Dict]:
     """Given list of intents and corresponding training set sample size for each intent
     generate training data that classifies intents and highlighs entities.
     """
     utterances: List[UtteranceRecord] = sum(
-        [list(create(intent, n)) for intent, n in zip(intents, sample_sizes)], []
+        [
+            list(generate_examples(intent, n))
+            for intent, n in zip(intents, sample_sizes)
+        ],
+        [],
     )
 
     unique_utterances = list(

@@ -7,7 +7,7 @@ import aiohttp
 from aiohttp import web
 
 from freespeech import client, env
-from freespeech.lib import gdocs, language, media, speech
+from freespeech.lib import chat, gdocs, language, media, speech
 from freespeech.lib.storage import obj
 from freespeech.types import (
     Audio,
@@ -59,7 +59,7 @@ async def say(request):
 
     intent: str = ""
     try:
-        intent, entities = await language.intent(text)
+        intent, entities = await chat.intent(text)
         state = {**state, **entities}
     except ValueError:
         _raise_unknown_query(intent)
