@@ -1,8 +1,7 @@
 import pytest
 from googleapiclient import errors
 
-from freespeech.lib import gdocs
-from freespeech.lib import transcript
+from freespeech.lib import gdocs, transcript
 from freespeech.types import Event, Voice
 
 EXPECTED_PAGE = transcript.Page(

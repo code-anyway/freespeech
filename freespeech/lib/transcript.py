@@ -1,9 +1,8 @@
 import logging
 import re
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Sequence, Tuple
-from dataclasses import dataclass
 
 import pytz
 
