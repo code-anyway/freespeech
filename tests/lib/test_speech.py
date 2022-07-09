@@ -40,17 +40,19 @@ def test_wrap_ssml():
 
 def test_text_to_chunks():
     f = speech.text_to_chunks
-    assert f("", 16, "Bill") == [""]
-    assert f("Hello#1.0#world!", 100, "Bill") == ['Hello<break time="1.0s" />world!']
-    assert f("Hello#1#dear #2# world!", 100, "Bill") == [
+    assert f("", 16, "Bill", 1.0) == [""]
+    assert f("Hello#1.0#world!", 100, "Bill", 1.0) == [
+        'Hello<break time="1.0s" />world!'
+    ]
+    assert f("Hello#1#dear #2# world!", 100, "Bill", 1.0) == [
         'Hello<break time="1s" />dear <break time="2s" /> world!'
     ]
     # given the big XML overhead, this one fits into the 300-char limit of chunk...
-    assert f("Hello #1# dear #2# world! How are you?", 300, "Bill") == [
+    assert f("Hello #1# dear #2# world! How are you?", 300, "Bill", 1.0) == [
         'Hello <break time="1s" /> dear <break time="2s" /> world! How are you?'
     ]
     # but not into the 100-char limit
-    assert f("Hello #1# dear #2# world! How are you?", 100, "Bill") == [
+    assert f("Hello #1# dear #2# world! How are you?", 100, "Bill", 1.0) == [
         'Hello <break time="1s" /> dear <break time="2s" /> world!',
         "How are you?",
     ]
@@ -66,7 +68,7 @@ async def test_transcribe() -> None:
         AUDIO_EN_GS, audio, "en-US", model="default", provider="Deepgram"
     )
 
-    voice = Voice(character="Alan Turing", pitch=0.0, speech_rate=None)
+    voice = Voice(character="Alan Turing", pitch=0.0, speech_rate=1.0)
     event = Event(
         time_ms=971, duration_ms=2006, chunks=["one, two three,"], voice=voice
     )
@@ -74,7 +76,11 @@ async def test_transcribe() -> None:
 
     t_en = await speech.transcribe(AUDIO_EN_GS, audio, "en-US", model="default")
 
-    event = Event(time_ms=0, duration_ms=3230, chunks=["1, 2 3."])
+    event = Event(
+        time_ms=0,
+        duration_ms=3230,
+        chunks=["1, 2 3."],
+    )
     assert t_en == [event]
 
 
@@ -83,9 +89,8 @@ async def test_synthesize_text(tmp_path) -> None:
     output, voice = await speech.synthesize_text(
         text="One. Two. #2# Three.",
         duration_ms=4_000,
-        voice="Grace Hopper",
+        voice=Voice(character="Grace Hopper"),
         lang="en-US",
-        pitch=0.0,
         output_dir=tmp_path,
     )
     (audio, *_), _ = media.probe(output)
@@ -108,11 +113,9 @@ async def test_synthesize_text(tmp_path) -> None:
     output, voice = await speech.synthesize_text(
         text="One. Two. #2# Three.",
         duration_ms=None,
-        voice="Grace Hopper",
+        voice=Voice(character="Grace Hopper"),
         lang="en-US",
-        pitch=0.0,
         output_dir=tmp_path,
-        init_rate=3.0,
     )
 
 
@@ -121,9 +124,8 @@ async def test_synthesize_azure_transcribe_google(tmp_path) -> None:
     output, voice = await speech.synthesize_text(
         text="Testing quite a long sentence. #2# Hello.",
         duration_ms=5_000,
-        voice="Bill",
+        voice=Voice(character="Bill"),
         lang="en-US",
-        pitch=0.0,
         output_dir=tmp_path,
     )
     (audio, *_), _ = media.probe(output)
@@ -139,12 +141,17 @@ async def test_synthesize_azure_transcribe_google(tmp_path) -> None:
 @pytest.mark.asyncio
 async def test_synthesize_events(tmp_path) -> None:
     events = [
-        Event(time_ms=1_000, duration_ms=2_000, chunks=["One hen.", "Two ducks."]),
+        Event(
+            time_ms=1_000,
+            duration_ms=2_000,
+            chunks=["One hen.", "Two ducks."],
+            voice=Voice(character="Alan Turing"),
+        ),
         Event(
             time_ms=5_000,
             duration_ms=2_000,
             chunks=["Three squawking geese."],
-            voice=Voice("Grace Hopper"),
+            voice=Voice(character="Grace Hopper"),
         ),
     ]
 
@@ -160,9 +167,18 @@ async def test_synthesize_events(tmp_path) -> None:
 
     t_en = await speech.transcribe(output_gs, audio, "en-US", model="default")
 
+    print(t_en)
     assert t_en == [
-        Event(time_ms=0, duration_ms=3270, chunks=["One hen two ducks."]),
-        Event(time_ms=3270, duration_ms=3720, chunks=[" Three, squawking geese."]),
+        Event(
+            time_ms=0,
+            duration_ms=3270,
+            chunks=["One hen two ducks."],
+        ),
+        Event(
+            time_ms=3270,
+            duration_ms=3720,
+            chunks=[" Three, squawking geese."],
+        ),
     ]
 
     voice_1, voice_2 = voices
@@ -180,7 +196,7 @@ async def test_synthesize_events(tmp_path) -> None:
             time_ms=5_000,
             duration_ms=0,
             chunks=[""],
-            voice=Voice("Grace Hopper"),
+            voice=Voice(character="Grace Hopper"),
         ),
     ]
 
@@ -216,7 +232,6 @@ async def test_synthesize_long_event(tmp_path) -> None:
             "Delegation and the embassies of friendly countries resumed "
             "work in Kyiv."
         ],
-        voice=None,
     )
 
     _, voices = await speech.synthesize_events(
@@ -317,7 +332,6 @@ async def test_synthesize_azure(tmp_path) -> None:
         time_ms=0,
         duration_ms=5000,
         chunks=["Hello this is Bill speaking #1# Nice to meet you."],
-        voice=None,
     )
 
     _, voices = await speech.synthesize_events(

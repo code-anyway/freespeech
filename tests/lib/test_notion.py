@@ -9,7 +9,12 @@ from freespeech.types import Event, Meta, Voice
 
 TRANSCRIPT_DATABASE_ID = "da8013c44f6f4809b3e7ed53dfbfb461"
 
-SHORT_EVENT_1_EN = Event(time_ms=1001, duration_ms=1000, chunks=["One hen. Two ducks."])
+SHORT_EVENT_1_EN = Event(
+    time_ms=1001,
+    duration_ms=1000,
+    chunks=["One hen. Two ducks."],
+    voice=Voice(character="Alonzo Church"),
+)
 LONG_EVENT_1_EN = Event(
     time_ms=4001,
     duration_ms=2000,
@@ -18,7 +23,10 @@ LONG_EVENT_1_EN = Event(
 )
 
 SHORT_EVENT_1_RU = Event(
-    time_ms=1001, duration_ms=1000, chunks=["Одна курица. Две утки."]
+    time_ms=1001,
+    duration_ms=1000,
+    chunks=["Одна курица. Две утки."],
+    voice=Voice(character="Alonzo Church"),
 )
 LONG_EVENT_1_RU = Event(
     time_ms=4001,

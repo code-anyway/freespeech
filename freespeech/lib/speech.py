@@ -330,18 +330,19 @@ def text_to_chunks(
 async def synthesize_text(
     text: str,
     duration_ms: int | None,
-    voice: Character,
+    voice: Voice,
     lang: Language,
-    pitch: float,
     output_dir: Path | str,
 ) -> Tuple[Path, Voice]:
-    if voice not in VOICES:
-        raise ValueError(f"Unsupported voice: {voice}\n" f"Supported voices: {VOICES}")
+    character = voice.character
 
-    if lang not in VOICES[voice]:
+    if character not in VOICES:
+        raise ValueError(f"Unsupported voice: {character}\n" f"Supported voices: {VOICES}")
+
+    if lang not in VOICES[character]:
         raise ValueError(f"Unsupported lang {lang} for {voice}\n")
 
-    provider, provider_voice = VOICES[voice][lang]
+    provider, provider_voice = VOICES[character][lang]
     match provider:
         case "Google":
             all_voices = supported_google_voices()
@@ -356,7 +357,7 @@ async def synthesize_text(
         text,
         chunk_length=MAX_CHUNK_LENGTH,
         voice=provider_voice,
-        speech_rate=init_rate,
+        speech_rate=voice.speech_rate,
     )
 
     # eyeballing duration?
@@ -395,7 +396,7 @@ async def synthesize_text(
                 ),
                 audio_config=google_tts.AudioConfig(
                     audio_encoding=google_tts.AudioEncoding.LINEAR16,
-                    pitch=pitch,
+                    pitch=voice.pitch,
                 ),
             )
             return result.audio_content
@@ -450,7 +451,11 @@ async def synthesize_text(
         (audio, *_), _ = media.probe(audio_file)
         assert isinstance(audio, Audio)
 
-        if retries is None or abs(audio.duration_ms - duration_ms) < SYNTHESIS_ERROR_MS:
+        if (
+            duration_ms is None
+            or retries is None
+            or abs(audio.duration_ms - duration_ms) < SYNTHESIS_ERROR_MS
+        ):
             return Path(audio_file), rate
         else:
             logger.warning(
@@ -460,10 +465,12 @@ async def synthesize_text(
             return await _synthesize_step(rate, retries - 1)
 
     output_file, speech_rate = await _synthesize_step(
-        rate=1.0, retries=SYNTHESIS_RETRIES
+        rate=voice.speech_rate, retries=SYNTHESIS_RETRIES
     )
 
-    return output_file, Voice(speech_rate=speech_rate, character=voice, pitch=pitch)
+    return output_file, Voice(
+        speech_rate=speech_rate, character=voice.character, pitch=voice.pitch
+    )
 
 
 async def synthesize_events(
@@ -483,10 +490,8 @@ async def synthesize_events(
         clip, voice_info = await synthesize_text(
             text=" ".join(event.chunks),
             duration_ms=event.duration_ms,
-            init_rate=event.speech_rate,
-            voice=voice if event.voice is None else event.voice.character,
+            voice=event.voice,
             lang=lang,
-            pitch=pitch if event.voice is None else event.voice.pitch,
             output_dir=output_dir,
         )
         (audio, *_), _ = media.probe(clip)
@@ -504,6 +509,10 @@ async def synthesize_events(
 
 def concat_events(e1: Event, e2: Event, break_sentence: bool) -> Event:
     shift_ms = e2.time_ms - e1.time_ms
+
+    if e1.duration_ms is None or e2.duration_ms is None:
+        raise TypeError("this should never be raised")
+
     gap_sec = (shift_ms - e1.duration_ms) / 1000.0
 
     if break_sentence:
@@ -534,17 +543,18 @@ def normalize_speech(
         for e in events
     ]
 
-    gaps = [
-        e2.time_ms - e1.time_ms - e1.duration_ms
-        for e1, e2 in zip(scrubbed_events[:-1], scrubbed_events[1:])
-    ]
-
     first_event, *events = scrubbed_events
     acc = [first_event]
 
-    for event, gap in zip(events, gaps):
+    for event in events:
         last_event = acc.pop()
         last_text = (" ".join(last_event.chunks)).strip()
+
+        if last_event.duration_ms is None:
+            acc += [last_event, event]
+            continue
+
+        gap = event.time_ms - last_event.time_ms - last_event.duration_ms
 
         if gap > gap_ms:
             acc += [last_event, event]
