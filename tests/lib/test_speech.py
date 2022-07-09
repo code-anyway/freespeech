@@ -110,13 +110,26 @@ async def test_synthesize_text(tmp_path) -> None:
     assert first.chunks == ["One, two."]
     assert second.chunks == [" 3."]
 
-    output, voice = await speech.synthesize_text(
+    fast_output, voice = await speech.synthesize_text(
         text="One. Two. #2# Three.",
         duration_ms=None,
-        voice=Voice(character="Grace Hopper"),
+        voice=Voice(character="Grace Hopper", speech_rate=20),
         lang="en-US",
         output_dir=tmp_path,
     )
+    assert voice.speech_rate == 20  # making sure that this ignores maximum
+    slow_output, voice = await speech.synthesize_text(
+        text="One. Two. #2# Three.",
+        duration_ms=None,
+        voice=Voice(character="Grace Hopper", speech_rate=0.3),
+        lang="en-US",
+        output_dir=tmp_path,
+    )
+
+    (fast_audio, *_), _ = media.probe(fast_output)
+    (slow_audio, *_), _ = media.probe(slow_output)
+    assert voice.speech_rate == 0.3  # making sure that this ignores minimum
+    assert slow_audio.duration_ms > fast_audio.duration_ms  # slow is slower than fast 🧠
 
 
 @pytest.mark.asyncio
@@ -156,7 +169,7 @@ async def test_synthesize_events(tmp_path) -> None:
     ]
 
     output, voices = await speech.synthesize_events(
-        events=events, voice="Alan Turing", lang="en-US", pitch=0.0, output_dir=tmp_path
+        events=events, lang="en-US", output_dir=tmp_path
     )
     (audio, *_), _ = media.probe(output)
 
@@ -167,7 +180,6 @@ async def test_synthesize_events(tmp_path) -> None:
 
     t_en = await speech.transcribe(output_gs, audio, "en-US", model="default")
 
-    print(t_en)
     assert t_en == [
         Event(
             time_ms=0,
@@ -201,7 +213,7 @@ async def test_synthesize_events(tmp_path) -> None:
     ]
 
     output, voices = await speech.synthesize_events(
-        events=events, voice="Alan Turing", lang="en-US", pitch=0.0, output_dir=tmp_path
+        events=events, lang="en-US", output_dir=tmp_path
     )
     (audio, *_), _ = media.probe(output)
 
@@ -236,9 +248,7 @@ async def test_synthesize_long_event(tmp_path) -> None:
 
     _, voices = await speech.synthesize_events(
         events=[event_en_us],
-        voice="Alan Turing",
         lang="en-US",
-        pitch=0.0,
         output_dir=tmp_path,
     )
 
@@ -311,7 +321,27 @@ def test_normalize_speech() -> None:
             ),
         ]
 
+    def test_rate_pipeline(method: speech.Normalization):
+        events = [
+            Event(time_ms=100, duration_ms=300, chunks=["one"]),  # gap: 100ms
+            Event(time_ms=500, duration_ms=400, chunks=["two."]),
+            Event(time_ms=2_100, duration_ms=None, chunks=["three"]),
+            Event(time_ms=2_500, duration_ms=None, chunks=["four"]),
+            Event(time_ms=2_900, duration_ms=400, chunks=["five"]),  # gap: 1200ms
+            Event(time_ms=4_500, duration_ms=400, chunks=["six."]),
+        ]
+        normalized = speech.normalize_speech(
+            events=events, gap_ms=2000, length=6, method=method
+        )
+        assert normalized == [
+            Event(time_ms=100, duration_ms=800, chunks=["one. #0.10# Two."]),
+            Event(time_ms=2_100, duration_ms=None, chunks=["three"]),
+            Event(time_ms=2_500, duration_ms=None, chunks=["four"]),
+            Event(time_ms=2_900, duration_ms=2000, chunks=["five. #1.20# Six."]),
+        ]
+
     test_pipeline("break_ends_sentence")
+    test_rate_pipeline("break_ends_sentence")
     # test_pipeline("extract_breaks_from_sentence")
 
 
@@ -336,9 +366,7 @@ async def test_synthesize_azure(tmp_path) -> None:
 
     _, voices = await speech.synthesize_events(
         events=[event_en_us],
-        voice="Bill",
         lang="en-US",
-        pitch=0.0,
         output_dir=tmp_path,
     )
 
