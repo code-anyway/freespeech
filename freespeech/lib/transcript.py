@@ -32,6 +32,11 @@ def to_milliseconds(s: str) -> int:
     )
 
 
+def ms_to_iso_time(ms: int) -> str:
+    t = datetime.fromtimestamp(ms / 1000.0, tz=pytz.UTC).time()
+    return t.isoformat()
+
+
 def parse_time_interval(interval: str) -> Tuple[int, int, Character | None]:
     """Parses HH:MM:SS.fff/HH:MM:SS.fff (Character) into (start_ms, duration_ms, Character).
 
@@ -84,11 +89,7 @@ def unparse_time_interval(time_ms: int, duration_ms: int, voice: Voice | None) -
     start_ms = time_ms
     finish_ms = time_ms + duration_ms
 
-    def _ms_to_iso_time(ms: int) -> str:
-        t = datetime.fromtimestamp(ms / 1000.0, tz=pytz.UTC).time()
-        return t.isoformat()
-
-    res = f"{_ms_to_iso_time(start_ms)}/{_ms_to_iso_time(finish_ms)}"
+    res = f"{ms_to_iso_time(start_ms)}/{ms_to_iso_time(finish_ms)}"
 
     if voice:
         res = f"{res} ({voice.character})"
@@ -138,9 +139,22 @@ def parse_srt(text: str) -> Sequence[Event]:
         Event(
             time_ms=(start_ms := to_milliseconds(start.replace(",", "."))),
             duration_ms=(to_milliseconds(finish.replace(",", ".")) - start_ms),
-            chunks=[(" ".join(text.split("\n"))).strip()],
+            chunks=text.split("\n")[:-1],  # there is an extra newline in .srt format
         )
         for start, finish, text, _ in match
     ]
 
     return result
+
+
+def srt(events: Sequence[Event]) -> str:
+    text = ""
+    for i, e in enumerate(events):
+        start = ms_to_iso_time(e.time_ms)
+        start = start.replace(".", ",")[:-3]
+        finish = ms_to_iso_time(e.time_ms + e.duration_ms or 0)
+        finish = finish.replace(".", ",")[:-3]
+        body = "\n".join(e.chunks)
+        text += f"{i + 1}\n{start} --> {finish}\n{body}\n\n"
+
+    return text

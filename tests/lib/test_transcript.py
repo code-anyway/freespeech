@@ -81,20 +81,12 @@ def test_parse_time_interval():
 
 
 def test_srt():
-    SRT_FILE = "tests/lib/data/transcript/karlsson.srt"
-
-    with open(SRT_FILE) as lines:
-        res = transcript.parse_srt("".join(lines))
-
-    expected = [
-        Event(
-            time_ms=8484,
-            duration_ms=5205,
-            chunks=["Inspired by Astrid Lindgren's fairy tale."],
-            voice=None,
-        ),
-        Event(
-            time_ms=15383, duration_ms=4373, chunks=["Karlsson and The Kid"], voice=None
-        ),
+    files = [
+        "tests/lib/data/transcript/karlsson.srt",
+        "tests/lib/data/transcript/fmj.srt"
     ]
-    assert res == expected
+
+    for file in files:
+        with open(file) as lines:
+            text = "".join(lines)
+            assert transcript.srt(transcript.parse_srt(text)) == text
