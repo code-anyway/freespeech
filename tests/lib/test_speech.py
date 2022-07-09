@@ -362,6 +362,7 @@ async def test_synthesize_azure(tmp_path) -> None:
         time_ms=0,
         duration_ms=5000,
         chunks=["Hello this is Bill speaking #1# Nice to meet you."],
+        voice=Voice("Bill"),
     )
 
     _, voices = await speech.synthesize_events(
