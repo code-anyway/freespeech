@@ -1,7 +1,6 @@
 import logging
 import re
 from contextlib import contextmanager
-from dataclasses import dataclass
 from typing import List, Sequence, Tuple
 
 import google.auth
@@ -9,20 +8,10 @@ import googleapiclient.discovery
 from google.oauth2 import service_account
 
 from freespeech.lib import transcript
-from freespeech.types import Character, Event, Language, Source, Voice
+from freespeech.lib.transcript import Page
+from freespeech.types import Event
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class Page:
-    origin: str
-    language: Language
-    voice: Character
-    clip_id: str
-    method: Source
-    original_audio_level: int
-    video: str | None
 
 
 def _read_paragraph_element(element):
@@ -150,7 +139,9 @@ def parse_properties(text: str) -> Page:
             raise TypeError(f"{attribute} must be defined")
 
     properties["original_audio_level"] = int(properties["original_audio_level"])
-    properties["video"] = None if "video" not in keys else properties["video"] or None
+
+    if "video" not in keys or properties["video"] == "":
+        properties["video"] = None
 
     return Page(**properties)
 
@@ -165,10 +156,7 @@ def parse(text: str) -> Tuple[Page, Sequence[Event]]:
     properties = text[:transcript_start]
     page = parse_properties(properties)
 
-    events = transcript.parse_events(
-        text=text[transcript_start:],
-        default_character=page.voice,  # needs a hard default
-    )
+    events = transcript.parse_events(text=text[transcript_start:], context=page)
 
     return page, events
 

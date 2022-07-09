@@ -3,11 +3,11 @@ import re
 from dataclasses import replace
 from datetime import datetime
 from typing import Sequence, Tuple
+from dataclasses import dataclass
 
 import pytz
-from freespeech.lib import speech
 
-from freespeech.types import Character, Event, Voice, is_character
+from freespeech.types import Character, Event, Language, Source, Voice, is_character
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,20 @@ timecode_parser = re.compile(
 )
 
 
-def parse_time_interval(interval: str) -> Tuple[int, int, Character | None, float]:
+@dataclass
+class Page:
+    origin: str
+    language: Language
+    voice: Character
+    clip_id: str
+    method: Source
+    original_audio_level: int
+    video: str | None
+
+
+def parse_time_interval(
+    interval: str,
+) -> Tuple[int, int, Character | None, float | None]:
     """Parses HH:MM:SS.fff/HH:MM:SS.fff (Character) into (start_ms, duration_ms, Character).
 
     Args:
@@ -62,7 +75,7 @@ def parse_time_interval(interval: str) -> Tuple[int, int, Character | None, floa
         character = None
 
     start_ms = _to_milliseconds(start)
-    speech_rate = 1.0
+    speech_rate = None
 
     match qualifier:
         case "/":
@@ -113,22 +126,24 @@ def unparse_time_interval(time_ms: int, duration_ms: int | None, voice: Voice) -
     return res
 
 
-def parse_events(text: str, default_character: Character) -> Sequence[Event]:
+def parse_events(text: str, context: Page) -> Sequence[Event]:
     events = []
     lines = [line for line in text.split("\n") if line]
 
     for line in lines:
         if timecode_parser.fullmatch(line):
             start_ms, duration_ms, character, speech_rate = parse_time_interval(line)
+            character = character or context.voice
+            # TODO: look below, 1.0 should be a default in context. same for character!
+            speech_rate = (
+                speech_rate or 1.0
+            )  # this feels wrong but that's the entrypoint
             events += [
                 Event(
                     start_ms,
                     duration_ms,
                     chunks=[],
-                    voice=Voice(
-                        character if character else default_character,
-                        speech_rate=speech_rate,
-                    ),
+                    voice=Voice(character=character, speech_rate=speech_rate),
                 )
             ]
         else:
