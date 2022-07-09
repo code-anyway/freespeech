@@ -371,7 +371,9 @@ async def synthesize_text(
             )
         )
 
-    async def _synthesize_step(rate: float, retries: int | None) -> Tuple[Path, float]:
+    async def _synthesize_step(
+        rate: float, retries: int | None, override: bool
+    ) -> Tuple[Path, float]:
         if retries is not None and retries < 0:
             raise RuntimeError(
                 (
@@ -381,11 +383,16 @@ async def synthesize_text(
                 )
             )
 
-        if rate < SPEECH_RATE_MINIMUM:
-            return await _synthesize_step(SPEECH_RATE_MINIMUM, retries=None)
+        if not override:
+            if rate < SPEECH_RATE_MINIMUM:
+                return await _synthesize_step(
+                    SPEECH_RATE_MINIMUM, retries=None, override=False
+                )
 
-        if rate > SPEECH_RATE_MAXIMUM:
-            return await _synthesize_step(SPEECH_RATE_MAXIMUM, retries=None)
+            if rate > SPEECH_RATE_MAXIMUM:
+                return await _synthesize_step(
+                    SPEECH_RATE_MAXIMUM, retries=None, override=False
+                )
 
         def _google_api_call(ssml_phrase: str) -> bytes:
             client = google_tts.TextToSpeechClient()
@@ -462,10 +469,10 @@ async def synthesize_text(
                 f"retrying delta={audio.duration_ms - duration_ms} rate={rate}"
             )
             rate *= audio.duration_ms / duration_ms
-            return await _synthesize_step(rate, retries - 1)
+            return await _synthesize_step(rate, retries - 1, override=False)
 
     output_file, speech_rate = await _synthesize_step(
-        rate=voice.speech_rate, retries=SYNTHESIS_RETRIES
+        rate=voice.speech_rate, retries=SYNTHESIS_RETRIES, override=duration_ms is None
     )
 
     return output_file, Voice(
@@ -475,9 +482,7 @@ async def synthesize_text(
 
 async def synthesize_events(
     events: Sequence[Event],
-    voice: Character,
     lang: Language,
-    pitch: float,
     output_dir: Path | str,
 ) -> Tuple[Path, Sequence[Voice]]:
     output_dir = Path(output_dir)
@@ -550,7 +555,7 @@ def normalize_speech(
         last_event = acc.pop()
         last_text = (" ".join(last_event.chunks)).strip()
 
-        if last_event.duration_ms is None:
+        if last_event.duration_ms is None or event.duration_ms is None:
             acc += [last_event, event]
             continue
 
