@@ -479,9 +479,7 @@ async def synthesize_text(
 
 async def synthesize_events(
     events: Sequence[Event],
-    voice: Character,
     lang: Language,
-    pitch: float,
     output_dir: Path | str,
 ) -> Tuple[Path, Sequence[Voice]]:
     output_dir = Path(output_dir)

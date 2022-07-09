@@ -28,7 +28,7 @@ class Page:
 
 def parse_time_interval(
     interval: str,
-) -> Tuple[int, int, Character | None, float | None]:
+) -> Tuple[int, int | None, Character | None, float | None]:
     """Parses HH:MM:SS.fff/HH:MM:SS.fff (Character) into (start_ms, duration_ms, Character).
 
     Args:
@@ -36,7 +36,8 @@ def parse_time_interval(
             two ISO 8601 formatted timestamps separated by "/"
 
     Returns:
-        Event start time and duration in milliseconds and optional character.
+        Event start time, optional duration in milliseconds, optional character,
+        and optional speech rate.
     """
 
     # TODO (astaff): couldn't find a sane way to do that

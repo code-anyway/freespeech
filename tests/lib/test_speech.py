@@ -156,7 +156,7 @@ async def test_synthesize_events(tmp_path) -> None:
     ]
 
     output, voices = await speech.synthesize_events(
-        events=events, voice="Alan Turing", lang="en-US", pitch=0.0, output_dir=tmp_path
+        events=events, lang="en-US", output_dir=tmp_path
     )
     (audio, *_), _ = media.probe(output)
 
@@ -201,7 +201,7 @@ async def test_synthesize_events(tmp_path) -> None:
     ]
 
     output, voices = await speech.synthesize_events(
-        events=events, voice="Alan Turing", lang="en-US", pitch=0.0, output_dir=tmp_path
+        events=events, lang="en-US", output_dir=tmp_path
     )
     (audio, *_), _ = media.probe(output)
 
@@ -236,9 +236,7 @@ async def test_synthesize_long_event(tmp_path) -> None:
 
     _, voices = await speech.synthesize_events(
         events=[event_en_us],
-        voice="Alan Turing",
         lang="en-US",
-        pitch=0.0,
         output_dir=tmp_path,
     )
 
@@ -332,13 +330,12 @@ async def test_synthesize_azure(tmp_path) -> None:
         time_ms=0,
         duration_ms=5000,
         chunks=["Hello this is Bill speaking #1# Nice to meet you."],
+        voice=Voice("Bill"),
     )
 
     _, voices = await speech.synthesize_events(
         events=[event_en_us],
-        voice="Bill",
         lang="en-US",
-        pitch=0.0,
         output_dir=tmp_path,
     )
 
