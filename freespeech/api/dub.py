@@ -1,3 +1,4 @@
+import logging
 from dataclasses import asdict, replace
 from tempfile import TemporaryDirectory
 from typing import List, Tuple
@@ -10,6 +11,7 @@ from freespeech.lib.storage import doc, obj
 from freespeech.types import Clip, Event, Language, Voice
 
 routes = web.RouteTableDef()
+logger = logging.getLogger(__name__)
 
 
 @routes.post("/clips/{clip_id}/dub")
