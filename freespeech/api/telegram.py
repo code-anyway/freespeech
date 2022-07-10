@@ -65,37 +65,52 @@ async def _message(message: tg_types.Message):
 
     async with get_chat_client() as _client:
         try:
-            logger.info(f"user_says: {message.text}", extra={
-                "client": "telegram_1",
-                "user_id": message.from_user.id,
-                "username": message.from_user.username,
-                "full_name": message.from_user.full_name,
-                "text": message.text
-            })
+            logger.info(
+                f"user_says: {message.text}",
+                extra={
+                    "json_fields": {
+                        "client": "telegram_1",
+                        "user_id": message.from_user.id,
+                        "username": message.from_user.username,
+                        "full_name": message.from_user.full_name,
+                        "text": message.text,
+                    }
+                },
+            )
 
             text, result, state = await client.say(_client, message.text)
 
-            logger.info(f"conversation_success: {text}", extra={
-                "client": "telegram_1",
-                "user_id": message.from_user.id,
-                "username": message.from_user.username,
-                "full_name": message.from_user.full_name,
-                "request": message.text,
-                "reply": text,
-                "result": result,
-                "state": state
-            })
+            logger.info(
+                f"conversation_success: {text}",
+                extra={
+                    "json_fields": {
+                        "client": "telegram_1",
+                        "user_id": message.from_user.id,
+                        "username": message.from_user.username,
+                        "full_name": message.from_user.full_name,
+                        "request": message.text,
+                        "reply": text,
+                        "result": result,
+                        "state": state,
+                    }
+                },
+            )
 
             await message.reply(text)
         except ClientResponseError as e:
-            logger.error(f"conversation_error: {e.message}", extra={
-                "client": "telegram_1",
-                "user_id": message.from_user.id,
-                "username": message.from_user.username,
-                "full_name": message.from_user.full_name,
-                "request": message.text,
-                "error_details": str(e),
-            })
+            logger.error(
+                f"conversation_error: {e.message}",
+                extra={
+                    "json_fields": {
+                        "client": "telegram_1",
+                        "user_id": message.from_user.id,
+                        "username": message.from_user.username,
+                        "full_name": message.from_user.full_name,
+                        "request": message.text,
+                        "error_details": str(e),
+                    }
+                },
+            )
             await message.reply("Ooops. Something went wrong.")
             await message.reply(e.message)
 

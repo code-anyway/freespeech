@@ -31,7 +31,7 @@ LOGGING_CONFIG = {
             "formatter": "default",
             "stream": "ext://sys.stdout",
         },
-        "google": {"class": "freespeech.logging.GoogleCloudLoggingHandler"},
+        "google": {"class": "google.cloud.logging.handlers.StructuredLogHandler"},
     },
     "loggers": {
         "freespeech": {"level": logging.INFO, "handlers": ["console", "google"]},
