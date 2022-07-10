@@ -68,13 +68,14 @@ async def _message(message: tg_types.Message):
             logger.info(
                 f"user_says: {message.text}",
                 extra={
+                    "labels": {"interface": "conversation_telegram"},
                     "json_fields": {
                         "client": "telegram_1",
                         "user_id": message.from_user.id,
                         "username": message.from_user.username,
                         "full_name": message.from_user.full_name,
                         "text": message.text,
-                    }
+                    },
                 },
             )
 
@@ -83,6 +84,7 @@ async def _message(message: tg_types.Message):
             logger.info(
                 f"conversation_success: {text}",
                 extra={
+                    "labels": {"interface": "conversation_telegram"},
                     "json_fields": {
                         "client": "telegram_1",
                         "user_id": message.from_user.id,
@@ -92,7 +94,7 @@ async def _message(message: tg_types.Message):
                         "reply": text,
                         "result": result,
                         "state": state,
-                    }
+                    },
                 },
             )
 
@@ -101,6 +103,7 @@ async def _message(message: tg_types.Message):
             logger.error(
                 f"conversation_error: {e.message}",
                 extra={
+                    "labels": {"interface": "conversation_telegram"},
                     "json_fields": {
                         "client": "telegram_1",
                         "user_id": message.from_user.id,
@@ -108,7 +111,7 @@ async def _message(message: tg_types.Message):
                         "full_name": message.from_user.full_name,
                         "request": message.text,
                         "error_details": str(e),
-                    }
+                    },
                 },
             )
             await message.reply("Ooops. Something went wrong.")
