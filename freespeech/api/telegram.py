@@ -114,8 +114,7 @@ async def _message(message: tg_types.Message):
                     },
                 },
             )
-            await message.reply("Ooops. Something went wrong.")
-            await message.reply(e.message)
+            await message.reply("\n".join(["Ooops. Something went wrong.", e.message]))
 
 
 def start_bot(port: int):
