@@ -144,9 +144,7 @@ def parse_intent(
     return intent, entities
 
 
-async def intent(
-    text: str, intent_confidence: float = 0.95, entity_confidence: float = 0.95
-) -> Tuple[str, Dict[str, List]]:
+async def _intent_api_call(text: str) -> MutableMapping[str, Any]:
     # Inspired by:
     # https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/cognitivelanguage/azure-ai-language-conversations/samples/sample_analyze_conversation_app.py  # noqa: E501
     token = env.get_azure_conversations_token()
@@ -182,11 +180,36 @@ async def intent(
             }
         )
 
-    return parse_intent(
-        result["result"]["prediction"],
+    return result["result"]["prediction"]
+
+
+async def intent(
+    text: str, intent_confidence: float = 0.95, entity_confidence: float = 0.95
+) -> Tuple[str, Dict[str, List]]:
+    # Take normal case text and extract all URLs in their
+    # original case
+    prediction = await _intent_api_call(text)
+    _, entities = parse_intent(
+        prediction,
         intent_confidence=intent_confidence,
         entity_confidence=entity_confidence,
     )
+    urls = entities.get("url", None)
+
+    # Make it lower case, detect command and get all
+    # entities in lower case
+    prediction = await _intent_api_call(text.lower())
+    command, entities = parse_intent(
+        prediction,
+        intent_confidence=intent_confidence,
+        entity_confidence=entity_confidence,
+    )
+    # If there is a URL, replace it with original case URLs
+    # that start with "http"
+    if urls:
+        entities["url"] = [url for url in urls if url.startswith("http")]
+
+    return command, entities
 
 
 def example(
