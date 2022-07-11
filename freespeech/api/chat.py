@@ -124,7 +124,7 @@ async def say(request):
                 document_url, voice = get_dub_arguments(state)
             except (AttributeError, ValueError) as e:
                 raise web.HTTPBadRequest(
-                    text=f"{str(e)}\n{USER_EXAMPLES['translate']}"
+                    text=f"{str(e)}\n{USER_EXAMPLES['dub']}"
                 ) from e
 
             video_url = await dub(document_url, voice=voice)
