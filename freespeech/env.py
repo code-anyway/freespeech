@@ -27,12 +27,12 @@ def is_in_cloud_run() -> bool:
             url=PROJECT_ID_URL, headers={"Metadata-Flavor": "Google"}
         )
         if response.ok:
-            logger.warning("Detected running in Google environment")
+            logger.info("Detected running in Google environment")
             return True
         else:
             return False
-    except OSError:
-        logger.warning("Detected running in local environment")
+    except requests.exceptions.ConnectionError:
+        logger.info("Detected running in local environment")
         return False
 
 
@@ -46,11 +46,7 @@ def get_project_id() -> str:
     else:
         file = get_service_account_file()
         if not file:
-            logger.error(
-                "I am outside of Google infrastructure and no service account "
-                "file is set. Aborting. "
-            )
-            raise RuntimeError
+            raise RuntimeError("No Google credentials file on local environment")
         with open(file) as fd:
             return str(json.load(fd)["project_id"])
 
