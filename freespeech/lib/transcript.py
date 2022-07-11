@@ -20,7 +20,6 @@ class Page:
     origin: str
     language: Language
     voice: Character
-    clip_id: str
     method: Source
     original_audio_level: int
     video: str | None
