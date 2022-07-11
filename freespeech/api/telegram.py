@@ -132,7 +132,7 @@ async def _message(message: tg_types.Message):
                 },
             )
             await message.reply(
-                "\n".join(["Ooops. Something went wrong.", e.message]),
+                e.message,
                 parse_mode="Markdown",
             )
 
