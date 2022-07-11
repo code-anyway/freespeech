@@ -65,20 +65,56 @@ async def _message(message: tg_types.Message):
 
     async with get_chat_client() as _client:
         try:
-            text, response, state = await client.say(_client, message.text)
-            logger.warning(
-                f"Conversation with {message.from_user.username}:\n"
-                f"User: {message.text}\n"
-                f"Bot:  {text}"
+            logger.info(
+                f"user_says: {message.text}",
+                extra={
+                    "labels": {"interface": "conversation_telegram"},
+                    "json_fields": {
+                        "client": "telegram_1",
+                        "user_id": message.from_user.id,
+                        "username": message.from_user.username,
+                        "full_name": message.from_user.full_name,
+                        "text": message.text,
+                    },
+                },
             )
+
+            text, result, state = await client.say(_client, message.text)
+
+            logger.info(
+                f"conversation_success: {text}",
+                extra={
+                    "labels": {"interface": "conversation_telegram"},
+                    "json_fields": {
+                        "client": "telegram_1",
+                        "user_id": message.from_user.id,
+                        "username": message.from_user.username,
+                        "full_name": message.from_user.full_name,
+                        "request": message.text,
+                        "reply": text,
+                        "result": result,
+                        "state": state,
+                    },
+                },
+            )
+
             await message.reply(text)
         except ClientResponseError as e:
             logger.error(
-                f"Error in conversation with {message.from_user.username}:\n"
-                f"User: {message.text}\n"
-                f"Bot:  {e.message}, HTTP status = {e.status}"
+                f"conversation_error: {e.message}",
+                extra={
+                    "labels": {"interface": "conversation_telegram"},
+                    "json_fields": {
+                        "client": "telegram_1",
+                        "user_id": message.from_user.id,
+                        "username": message.from_user.username,
+                        "full_name": message.from_user.full_name,
+                        "request": message.text,
+                        "error_details": str(e),
+                    },
+                },
             )
-            await message.reply(e.message)
+            await message.reply("\n".join(["Ooops. Something went wrong.", e.message]))
 
 
 def start_bot(port: int):
