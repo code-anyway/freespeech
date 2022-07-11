@@ -6,13 +6,38 @@ from freespeech.lib import chat
 @pytest.mark.asyncio
 async def test_intent():
     intent, entities = await chat.intent(
-        "load https://youtube.com/a and https://youtube.com/b using English and Russian subtitles"  # noqa: E501
+        "load https://youtube.com/a and https://youTUBE.com/b using english and RuSSian subtitles and maCHINe a"  # noqa: E501
     )
-    intent == "load"
+    assert intent == "transcribe"
     assert entities == {
-        "url": ["https://youtube.com/a", "https://youtube.com/b"],
+        "url": ["https://youtube.com/a", "https://youTUBE.com/b"],
         "language": ["en-US", "ru-RU"],
-        "method": ["subtitles"],
+        "method": ["Subtitles", "Machine A"],
+    }
+
+    intent, entities = await chat.intent(
+        "translate https://googledoc.COM/foo to engLISH"  # noqa: E501
+    )
+    assert intent == "translate"
+    assert entities == {
+        "url": ["https://googledoc.COM/foo"],
+        "language": ["en-US"],
+    }
+
+    intent, entities = await chat.intent("dub https://googledoc.COM/foo")  # noqa: E501
+    assert intent == "dub"
+    assert entities == {
+        "url": ["https://googledoc.COM/foo"],
+    }
+
+    intent, entities = await chat.intent(
+        "transcribe https://youtube.com/a and https://youTUBE.com/b from EnGlISH"  # noqa: E501
+    )
+    assert intent == "transcribe"
+    assert entities == {
+        "url": ["https://youtube.com/a", "https://youTUBE.com/b"],
+        "language": ["en-US"],
+        "method": ["Machine B"],
     }
 
 
