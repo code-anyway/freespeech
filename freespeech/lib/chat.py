@@ -209,6 +209,9 @@ async def intent(
     if urls:
         entities["url"] = [url for url in urls if url.startswith("http")]
 
+    if command == "transcribe" and "method" not in entities:
+        entities["method"] = ["Machine B"]
+
     return command, entities
 
 
