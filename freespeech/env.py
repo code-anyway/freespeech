@@ -26,7 +26,11 @@ def is_in_cloud_run() -> bool:
         response = requests.get(
             url=PROJECT_ID_URL, headers={"Metadata-Flavor": "Google"}
         )
-        return response.ok
+        if response.ok:
+            logger.warning("Detected running in Google environment")
+            return True
+        else:
+            return False
     except OSError:
         logger.warning("Detected running in local environment")
         return False
