@@ -124,6 +124,23 @@ def parse_intent(
             ]
             entities[category] = entities.get(category, []) + (key or [entity["text"]])
 
+    def _fix_method(method: str) -> str:
+        match method.lower().strip():
+            case "subtitles":
+                return "Subtitles"
+            case "machine a":
+                return "Machine A"
+            case "machine b":
+                return "Machine B"
+            case "machine c":
+                return "Machine C"
+            case _:
+                return method
+
+    # TODO (astaff): refactor this to user types/validation when cleaning up the API
+    if "method" in entities:
+        entities["method"] = [_fix_method(method) for method in entities["method"]]
+
     return intent, entities
 
 

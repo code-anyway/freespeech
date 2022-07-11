@@ -6,13 +6,13 @@ from freespeech.lib import chat
 @pytest.mark.asyncio
 async def test_intent():
     intent, entities = await chat.intent(
-        "load https://youtube.com/a and https://youtube.com/b using English and Russian subtitles"  # noqa: E501
+        "load https://youtube.com/a and https://youtube.com/b using english and russian subtitles and machine a"  # noqa: E501
     )
     intent == "load"
     assert entities == {
         "url": ["https://youtube.com/a", "https://youtube.com/b"],
         "language": ["en-US", "ru-RU"],
-        "method": ["subtitles"],
+        "method": ["Subtitles", "Machine A"],
     }
 
 
