@@ -38,7 +38,7 @@ video:
 Hello, Bill!
 How are you?
 
-00:00:02.000000/00:00:04.000000
+00:00:02.000000@1.4 (Alonzo Church)
 It was a huge mistake.
 """
 

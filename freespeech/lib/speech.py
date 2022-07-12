@@ -337,7 +337,9 @@ async def synthesize_text(
     character = voice.character
 
     if character not in VOICES:
-        raise ValueError(f"Unsupported voice: {character}\n" f"Supported voices: {VOICES}")
+        raise ValueError(
+            f"Unsupported voice: {character}\n" f"Supported voices: {VOICES}"
+        )
 
     if lang not in VOICES[character]:
         raise ValueError(f"Unsupported lang {lang} for {voice}\n")

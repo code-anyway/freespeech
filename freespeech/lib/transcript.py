@@ -79,6 +79,7 @@ def parse_time_interval(
     start_ms = to_milliseconds(start)
     speech_rate = None
 
+    duration_ms = None
     match qualifier:
         case "/":
             finish_ms = to_milliseconds(value)
@@ -86,7 +87,6 @@ def parse_time_interval(
         case "#":
             duration_ms = round(float(value) * 1000)
         case "@":
-            duration_ms = None
             speech_rate = float(value)
         case _:
             pass
