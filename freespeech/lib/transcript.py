@@ -34,7 +34,7 @@ def to_milliseconds(s: str) -> int:
 
 def ms_to_iso_time(ms: int) -> str:
     t = datetime.fromtimestamp(ms / 1000.0, tz=pytz.UTC).time()
-    return t.isoformat()
+    return t.isoformat(timespec="microseconds")
 
 
 def parse_time_interval(interval: str) -> Tuple[int, int, Character | None]:
@@ -121,7 +121,7 @@ def parse_events(text: str) -> Sequence[Event]:
     return events
 
 
-def parse_srt(text: str) -> Sequence[Event]:
+def srt_to_events(text: str) -> Sequence[Event]:
     """Generates sequence of Events from subtitles stored in .srt format.
 
     Args:
@@ -147,12 +147,12 @@ def parse_srt(text: str) -> Sequence[Event]:
     return result
 
 
-def srt(events: Sequence[Event]) -> str:
+def events_to_srt(events: Sequence[Event]) -> str:
     text = ""
     for i, e in enumerate(events):
         start = ms_to_iso_time(e.time_ms)
         start = start.replace(".", ",")[:-3]
-        finish = ms_to_iso_time(e.time_ms + e.duration_ms or 0)
+        finish = ms_to_iso_time(e.time_ms + (e.duration_ms or 0))
         finish = finish.replace(".", ",")[:-3]
         body = "\n".join(e.chunks)
         text += f"{i + 1}\n{start} --> {finish}\n{body}\n\n"

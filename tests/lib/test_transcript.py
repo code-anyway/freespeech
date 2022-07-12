@@ -83,10 +83,9 @@ def test_parse_time_interval():
 def test_srt():
     files = [
         "tests/lib/data/transcript/karlsson.srt",
-        "tests/lib/data/transcript/fmj.srt"
     ]
 
     for file in files:
         with open(file) as lines:
             text = "".join(lines)
-            assert transcript.srt(transcript.parse_srt(text)) == text
+            assert transcript.events_to_srt(transcript.srt_to_events(text)) == text
