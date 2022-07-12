@@ -17,7 +17,7 @@ def test_unparse_time_interval():
         time.tzset()
         assert (
             up(0, 1000, Voice(character="Grace Hopper"))
-            == "00:00:00/00:00:01 (Grace Hopper)"
+            == "00:00:00.000000/00:00:01.000000 (Grace Hopper)"
         )
     finally:
         # cleaning up the timezone
