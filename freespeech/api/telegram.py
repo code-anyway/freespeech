@@ -40,8 +40,7 @@ help_text = (
 )
 
 walkthrough_text = (
-    "Also, check out a "
-    "[quick walkthrough](https://youtu.be/3rCE5_OxuUo)."
+    "Also, check out a " "[quick walkthrough](https://youtu.be/3rCE5_OxuUo)."
 )
 
 
