@@ -2,7 +2,7 @@ import os
 import time
 
 from freespeech.lib import transcript
-from freespeech.types import Event, Voice
+from freespeech.types import Voice
 
 
 def test_unparse_time_interval():
