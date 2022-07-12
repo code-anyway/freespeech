@@ -15,6 +15,28 @@ timecode_parser = re.compile(
 )
 
 
+def to_milliseconds(s: str) -> int:
+    if s.find(".") == -1:
+        timestamp, after_dot = (s.replace(" ", ""), "0")
+    else:
+        timestamp, after_dot = s.replace(" ", "").split(".", 1)
+
+    t = datetime.strptime(timestamp, "%H:%M:%S")
+    extra_micros = int(after_dot[:6].ljust(6, "0"))
+    return (
+        t.hour * 60 * 60 * 1_000
+        + t.minute * 60 * 1_000
+        + t.second * 1_000
+        + t.microsecond // 1_000
+        + extra_micros // 1_000
+    )
+
+
+def ms_to_iso_time(ms: int) -> str:
+    t = datetime.fromtimestamp(ms / 1000.0, tz=pytz.UTC).time()
+    return t.isoformat(timespec="microseconds")
+
+
 def parse_time_interval(interval: str) -> Tuple[int, int, Character | None]:
     """Parses HH:MM:SS.fff/HH:MM:SS.fff (Character) into (start_ms, duration_ms, Character).
 
@@ -25,26 +47,6 @@ def parse_time_interval(interval: str) -> Tuple[int, int, Character | None]:
     Returns:
         Event start time and duration in milliseconds and optional character.
     """
-
-    # TODO (astaff): couldn't find a sane way to do that
-    # other than parsing it as datetime from a custom
-    # ISO format that ingores date. Hence this.
-    def _to_milliseconds(s: str):
-        if s.find(".") == -1:
-            timestamp, after_dot = (s.replace(" ", ""), "0")
-        else:
-            timestamp, after_dot = s.replace(" ", "").split(".", 1)
-
-        t = datetime.strptime(timestamp, "%H:%M:%S")
-        extra_micros = int(after_dot[:6].ljust(6, "0"))
-        return (
-            t.hour * 60 * 60 * 1_000
-            + t.minute * 60 * 1_000
-            + t.second * 1_000
-            + t.microsecond // 1_000
-            + extra_micros // 1_000
-        )
-
     match = timecode_parser.search(interval)
 
     if not match:
@@ -60,9 +62,9 @@ def parse_time_interval(interval: str) -> Tuple[int, int, Character | None]:
     else:
         character = None
 
-    start_ms = _to_milliseconds(start)
+    start_ms = to_milliseconds(start)
     if qualifier == "/":
-        finish_ms = _to_milliseconds(value)
+        finish_ms = to_milliseconds(value)
         duration_ms = finish_ms - start_ms
     elif qualifier == "#":
         duration_ms = round(float(value) * 1000)
@@ -87,11 +89,7 @@ def unparse_time_interval(time_ms: int, duration_ms: int, voice: Voice | None) -
     start_ms = time_ms
     finish_ms = time_ms + duration_ms
 
-    def _ms_to_iso_time(ms: int) -> str:
-        t = datetime.fromtimestamp(ms / 1000.0, tz=pytz.UTC).time()
-        return t.isoformat()
-
-    res = f"{_ms_to_iso_time(start_ms)}/{_ms_to_iso_time(finish_ms)}"
+    res = f"{ms_to_iso_time(start_ms)}/{ms_to_iso_time(finish_ms)}"
 
     if voice:
         res = f"{res} ({voice.character})"
@@ -121,3 +119,42 @@ def parse_events(text: str) -> Sequence[Event]:
                 events += [replace(event := events.pop(), chunks=event.chunks + [line])]
 
     return events
+
+
+def srt_to_events(text: str) -> Sequence[Event]:
+    """Generates sequence of Events from subtitles stored in .srt format.
+
+    Args:
+        text: content of .srt file.
+
+    Returns:
+        Speech events parsed from .srt.
+    """
+    if not text.endswith("\n"):
+        text += "\n"
+    parser = re.compile(r"\d+\n([\d\:\,]+)\s*-->\s*([\d\:\,]+)\n((.+\n)+)")
+    match = parser.findall(text)
+
+    result = [
+        Event(
+            time_ms=(start_ms := to_milliseconds(start.replace(",", "."))),
+            duration_ms=(to_milliseconds(finish.replace(",", ".")) - start_ms),
+            chunks=text.split("\n")[:-1],  # there is an extra newline in .srt format
+        )
+        for start, finish, text, _ in match
+    ]
+
+    return result
+
+
+def events_to_srt(events: Sequence[Event]) -> str:
+    text = ""
+    for i, e in enumerate(events):
+        start = ms_to_iso_time(e.time_ms)
+        start = start.replace(".", ",")[:-3]
+        finish = ms_to_iso_time(e.time_ms + (e.duration_ms or 0))
+        finish = finish.replace(".", ",")[:-3]
+        body = "\n".join(e.chunks)
+        text += f"{i + 1}\n{start} --> {finish}\n{body}\n\n"
+
+    return text

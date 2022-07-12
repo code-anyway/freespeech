@@ -17,7 +17,7 @@ def test_unparse_time_interval():
         time.tzset()
         assert (
             up(0, 1000, Voice(character="Grace Hopper"))
-            == "00:00:00/00:00:01 (Grace Hopper)"
+            == "00:00:00.000000/00:00:01.000000 (Grace Hopper)"
         )
     finally:
         # cleaning up the timezone
@@ -78,3 +78,14 @@ def test_parse_time_interval():
         3.5 * 60 * 1000,
         None,
     )
+
+
+def test_srt():
+    files = [
+        "tests/lib/data/transcript/karlsson.srt",
+    ]
+
+    for file in files:
+        with open(file) as lines:
+            text = "".join(lines)
+            assert transcript.events_to_srt(transcript.srt_to_events(text)) == text
