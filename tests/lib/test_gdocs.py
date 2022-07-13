@@ -1,9 +1,9 @@
 import pytest
 
-from freespeech.lib import gdocs
+from freespeech.lib import gdocs, transcript
 from freespeech.types import Event, Voice
 
-EXPECTED_PAGE = gdocs.Page(
+EXPECTED_PAGE = transcript.Page(
     origin="https://youtube.com/foo",
     language="en-US",
     voice="Alonzo Church",
@@ -17,13 +17,13 @@ EXPECTED_EVENTS = [
         time_ms=0,
         duration_ms=1000,
         chunks=["Hello, Bill!", "How are you?"],
-        voice=Voice(character="Grace Hopper", pitch=0.0, speech_rate=None),
+        voice=Voice(character="Grace Hopper", pitch=0.0, speech_rate=1.0),
     ),
     Event(
         time_ms=2000,
-        duration_ms=2000,
+        duration_ms=None,
         chunks=["It was a huge mistake."],
-        voice=None,
+        voice=Voice(character="Alonzo Church", pitch=0.0, speech_rate=1.4),
     ),
 ]
 EXPECTED_TEXT = """origin: https://youtube.com/foo
@@ -38,7 +38,7 @@ video:
 Hello, Bill!
 How are you?
 
-00:00:02.000000/00:00:04.000000
+00:00:02.000000@1.40 (Alonzo Church)
 It was a huge mistake.
 """
 
@@ -69,7 +69,7 @@ def test_parse():
     parsed_page = gdocs.parse_properties(
         """origin: https://youtube.com/foo
         language: en-US
-        voice:      Alonzo Church
+        voice: Alonzo Church
         clip_id: deadbeef239
         apple banana: orange
         method: Subtitles
@@ -83,7 +83,7 @@ def test_parse():
 
 
 def test_extract_and_parse():
-    url = "https://docs.google.com/document/d/16E56VsclHUOapBhcfEf9BzmN2pZklXZE1V1Oik2vSkM/edit?usp=sharing"  # noqa: E501
+    url = "https://docs.google.com/document/d/1wZQoh-8hlBRBJylhAkNSGAefLvQ5kqYGg2O-nW8tq_k"  # noqa: E501
     page, events = gdocs.parse(gdocs.extract(url))
 
     assert page == EXPECTED_PAGE
