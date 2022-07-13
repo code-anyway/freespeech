@@ -7,7 +7,7 @@ import aiohttp
 from aiohttp import web
 
 from freespeech import client, env
-from freespeech.lib import gdocs, language, media, speech
+from freespeech.lib import chat, gdocs, language, media, speech
 from freespeech.lib.storage import obj
 from freespeech.types import (
     Audio,
@@ -35,6 +35,26 @@ GAP_MS = 1400
 # Won't attempt concatenating events if one is longer than LENGTH.
 PHRASE_LENGTH = 600
 
+# no newlines allowed in messages - would break HTTPError contract!
+USER_EXAMPLES = {
+    "translate": (
+        "Try `translate https://docs.google.com/document/d/"
+        "1FbV0eW4Q-yKWYjPkMRCrGd2yD78n7MtswVmN9LSo4mA/edit to Ukrainian` or just /help"
+    ),
+    "dub": (
+        "Try `dub https://docs.google.com/document/d/"
+        "1FbV0eW4Q-yKWYjPkMRCrGd2yD78n7MtswVmN9LSo4mA/edit` or just /help"
+    ),
+    "transcribe": (
+        "try `Transcribe https://www.youtube.com/watch?v=N9B59PHIFbA "
+        "in English using Machine A` or just /help"
+    ),
+    "other": (
+        "To start, try following: `Transcribe https://www.youtube.com/"
+        "watch?v=N9B59PHIFbA in English using Machine A` or /help"
+    ),
+}
+
 
 def normalize_speech(
     events: Sequence[Event], method: speech.Normalization
@@ -46,7 +66,7 @@ def normalize_speech(
 
 def _raise_unknown_query(intent: str | None = None):
     raise aiohttp.web.HTTPBadRequest(
-        reason=f"Don't know how to handle {intent or 'this'}. Try /help?"
+        text=f"Don't know how to handle {intent or 'this'}.\n{USER_EXAMPLES['other']}"
     )
 
 
@@ -59,14 +79,20 @@ async def say(request):
 
     intent: str = ""
     try:
-        intent, entities = await language.intent(text)
+        intent, entities = await chat.intent(text)
         state = {**state, **entities}
     except ValueError:
         _raise_unknown_query(intent)
 
     match intent:
         case "transcribe":
-            origin, lang, method = get_transcribe_arguments(state)
+            try:
+                origin, lang, method = get_transcribe_arguments(state)
+            except (AttributeError, ValueError) as e:
+                raise web.HTTPBadRequest(
+                    text=f"{str(e)}\n{USER_EXAMPLES['transcribe']}"
+                ) from e
+
             document_url = await transcribe(origin, lang, method)
             return web.json_response(
                 {
@@ -77,7 +103,13 @@ async def say(request):
             )
 
         case "translate":
-            document_url, lang = get_translate_arguments(state)
+            try:
+                document_url, lang = get_translate_arguments(state)
+            except (AttributeError, ValueError) as e:
+                raise web.HTTPBadRequest(
+                    text=f"{str(e)}\n{USER_EXAMPLES['translate']}"
+                ) from e
+
             translated_url = await translate(document_url, lang)
             return web.json_response(
                 {
@@ -88,7 +120,13 @@ async def say(request):
             )
 
         case "dub":
-            document_url, voice = get_dub_arguments(state)
+            try:
+                document_url, voice = get_dub_arguments(state)
+            except (AttributeError, ValueError) as e:
+                raise web.HTTPBadRequest(
+                    text=f"{str(e)}\n{USER_EXAMPLES['dub']}"
+                ) from e
+
             video_url = await dub(document_url, voice=voice)
             return web.json_response(
                 {

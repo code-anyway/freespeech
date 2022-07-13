@@ -1,5 +1,5 @@
 # Inspired by: https://github.com/huggingface/transformers/blob/main/Makefile
-.PHONY: test quality style typecheck
+.PHONY: test quality style typecheck data
 
 check_dirs := tests freespeech
 
@@ -17,3 +17,7 @@ quality:
 style:
 	black $(check_dirs)
 	isort $(check_dirs)
+
+data:
+	mkdir -p data
+	python -c "from freespeech.lib import chat; import json; print(json.dumps(chat.generate_training_data(intents=['dub', 'translate', 'transcribe'], sample_sizes=[100, 100, 100]), indent=4))" > data/chat.json

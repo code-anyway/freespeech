@@ -12,18 +12,34 @@ from freespeech.api.chat import DUB_CLIENT_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
-help_text = [
-    "Hi, I am a Freespeech chat bot.\n"
-    "I can translate and dub videos to other languages.",
-    "Try this:",
-    "Transcribe https://www.youtube.com/watch?v=N9B59PHIFbA in English "
-    "using Machine B",
-    "It will give you a google doc to edit and approve.\n" "Then you can translate it:",
-    "Translate https://docs.google.com/document/d/1FbV0eW4Q-yKWYjPkMRCrGd2yD78n7MtswVmN9LSo4mA/edit to Ukrainian",  # noqa: E501
-    "Please, edit it as well. Translation might be inaccurate! And then give it a voice:",  # noqa: E501
-    "dub https://docs.google.com/document/d/1FbV0eW4Q-yKWYjPkMRCrGd2yD78n7MtswVmN9LSo4mA/edit#",  # noqa: E501,
-    "/help for this message anytime. For quality purposes this conversations are recorded.",  # noqa: E501,
-]
+help_text = (
+    "Hi, I am the Freespeech chat bot. I can transcribe, translate "
+    "and dub videos into other languages.\n"
+    "You send me instructions, and I take care of them. Let’s get started!\n"
+    "First, send me a message to transcribe your video in the original language using "
+    "the source you choose (audio or subtitles), like this:\n\n"
+    "```\n"
+    "Transcribe https://www.youtube.com/watch?v=N9B59PHIFbA "
+    "in English using Machine A\n"
+    "```\n"
+    "I will send you a Google doc with the transcription for you to edit and approve. "
+    "Then, send me the instruction to translate the doc to the language you like:\n\n"
+    "```\n"
+    "Translate https://docs.google.com/document/d/"
+    "1FbV0eW4Q-yKWYjPkMRCrGd2yD78n7MtswVmN9LSo4mA/edit to Ukrainian\n"
+    "```\n"
+    "Please check the translation - it might be inaccurate! And then, tell me to give "
+    "it a voice, like this:\n\n"
+    "```\n"
+    "dub https://docs.google.com/document/d/"
+    "1FbV0eW4Q-yKWYjPkMRCrGd2yD78n7MtswVmN9LSo4mA/edit#\n"
+    "```\n"
+    "And I will send you a link to the dubbed video.\n"
+    "Check out [our walkthrough](https://www.youtube.com/watch?v=qbYu4OPoKJM). "
+    "Type /help to resend these instructions at any time. For quality purposes, all "
+    "conversations are recorded. Enjoy!"
+)
+
 
 bot = tg.Bot(token=env.get_telegram_bot_token())
 WEBHOOK_URL = env.get_telegram_webhook_url()
@@ -41,8 +57,9 @@ def get_chat_client():
 # not using aiogram decorators to have full control over order of rules
 @dispatcher.async_task
 async def _help(message: tg_types.Message):
-    for s in help_text:
-        await message.answer(s, disable_web_page_preview=True)
+    await message.answer(
+        help_text, disable_web_page_preview=True, parse_mode="Markdown"
+    )
 
 
 async def _is_message_for_bot(message: tg_types.Message) -> bool:
@@ -65,20 +82,59 @@ async def _message(message: tg_types.Message):
 
     async with get_chat_client() as _client:
         try:
-            text, response, state = await client.say(_client, message.text)
-            logger.warning(
-                f"Conversation with {message.from_user.username}:\n"
-                f"User: {message.text}\n"
-                f"Bot:  {text}"
+            logger.info(
+                f"user_says: {message.text}",
+                extra={
+                    "labels": {"interface": "conversation_telegram"},
+                    "json_fields": {
+                        "client": "telegram_1",
+                        "user_id": message.from_user.id,
+                        "username": message.from_user.username,
+                        "full_name": message.from_user.full_name,
+                        "text": message.text,
+                    },
+                },
             )
+
+            text, result, state = await client.say(_client, message.text)
+
+            logger.info(
+                f"conversation_success: {text}",
+                extra={
+                    "labels": {"interface": "conversation_telegram"},
+                    "json_fields": {
+                        "client": "telegram_1",
+                        "user_id": message.from_user.id,
+                        "username": message.from_user.username,
+                        "full_name": message.from_user.full_name,
+                        "request": message.text,
+                        "reply": text,
+                        "result": result,
+                        "state": state,
+                    },
+                },
+            )
+
             await message.reply(text)
         except ClientResponseError as e:
             logger.error(
-                f"Error in conversation with {message.from_user.username}:\n"
-                f"User: {message.text}\n"
-                f"Bot:  {e.message}, HTTP status = {e.status}"
+                f"conversation_error: {e.message}",
+                extra={
+                    "labels": {"interface": "conversation_telegram"},
+                    "json_fields": {
+                        "client": "telegram_1",
+                        "user_id": message.from_user.id,
+                        "username": message.from_user.username,
+                        "full_name": message.from_user.full_name,
+                        "request": message.text,
+                        "error_details": str(e),
+                    },
+                },
             )
-            await message.reply(e.message)
+            await message.reply(
+                e.message,
+                parse_mode="Markdown",
+            )
 
 
 def start_bot(port: int):

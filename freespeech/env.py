@@ -21,16 +21,32 @@ def get_service_account_file() -> str | None:
 
 
 @functools.cache
-def get_project_id() -> str:
-    file = get_service_account_file()
+def is_in_cloud_run() -> bool:
+    try:
+        response = requests.get(
+            url=PROJECT_ID_URL, headers={"Metadata-Flavor": "Google"}
+        )
+        if response.ok:
+            logger.info("Detected running in Google environment")
+            return True
+        else:
+            return False
+    except requests.exceptions.ConnectionError:
+        logger.info("Detected running in local environment")
+        return False
 
-    if not file:
-        logger.warning(f"Service account file is not set. Will use {PROJECT_ID_URL}")
+
+@functools.cache
+def get_project_id() -> str:
+    if is_in_cloud_run():
         response = requests.get(
             url=PROJECT_ID_URL, headers={"Metadata-Flavor": "Google"}
         )
         return response.text
     else:
+        file = get_service_account_file()
+        if not file:
+            raise RuntimeError("No Google credentials file on local environment")
         with open(file) as fd:
             return str(json.load(fd)["project_id"])
 

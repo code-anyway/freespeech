@@ -26,6 +26,28 @@ class Page:
     video: str | None
 
 
+def to_milliseconds(s: str) -> int:
+    if s.find(".") == -1:
+        timestamp, after_dot = (s.replace(" ", ""), "0")
+    else:
+        timestamp, after_dot = s.replace(" ", "").split(".", 1)
+
+    t = datetime.strptime(timestamp, "%H:%M:%S")
+    extra_micros = int(after_dot[:6].ljust(6, "0"))
+    return (
+        t.hour * 60 * 60 * 1_000
+        + t.minute * 60 * 1_000
+        + t.second * 1_000
+        + t.microsecond // 1_000
+        + extra_micros // 1_000
+    )
+
+
+def ms_to_iso_time(ms: int) -> str:
+    t = datetime.fromtimestamp(ms / 1000.0, tz=pytz.UTC).time()
+    return t.isoformat(timespec="microseconds")
+
+
 def parse_time_interval(
     interval: str,
 ) -> Tuple[int, int | None, Character | None, float | None]:
@@ -39,26 +61,6 @@ def parse_time_interval(
         Event start time, optional duration in milliseconds, optional character,
         and optional speech rate.
     """
-
-    # TODO (astaff): couldn't find a sane way to do that
-    # other than parsing it as datetime from a custom
-    # ISO format that ingores date. Hence this.
-    def _to_milliseconds(s: str):
-        if s.find(".") == -1:
-            timestamp, after_dot = (s.replace(" ", ""), "0")
-        else:
-            timestamp, after_dot = s.replace(" ", "").split(".", 1)
-
-        t = datetime.strptime(timestamp, "%H:%M:%S")
-        extra_micros = int(after_dot[:6].ljust(6, "0"))
-        return (
-            t.hour * 60 * 60 * 1_000
-            + t.minute * 60 * 1_000
-            + t.second * 1_000
-            + t.microsecond // 1_000
-            + extra_micros // 1_000
-        )
-
     match = timecode_parser.search(interval)
 
     if not match:
@@ -74,17 +76,17 @@ def parse_time_interval(
     else:
         character = None
 
-    start_ms = _to_milliseconds(start)
+    start_ms = to_milliseconds(start)
     speech_rate = None
+    duration_ms = None
 
     match qualifier:
         case "/":
-            finish_ms = _to_milliseconds(value)
+            finish_ms = to_milliseconds(value)
             duration_ms = finish_ms - start_ms
         case "#":
             duration_ms = round(float(value) * 1000)
         case "@":
-            duration_ms = None
             speech_rate = float(value)
         case _:
             pass
@@ -107,18 +109,14 @@ def unparse_time_interval(time_ms: int, duration_ms: int | None, voice: Voice) -
        voice info added.
     """
 
-    def _ms_to_iso_time(ms: int) -> str:
-        t = datetime.fromtimestamp(ms / 1000.0, tz=pytz.UTC).time()
-        return t.isoformat()
-
     start_ms = time_ms
-    res = f"{_ms_to_iso_time(start_ms)}"
+    res = f"{ms_to_iso_time(start_ms)}"
 
     if duration_ms is None:
         res += f"@{float(voice.speech_rate):.2f}"  # should I round here?
     else:
         finish_ms = time_ms + duration_ms
-        res += f"/{_ms_to_iso_time(finish_ms)}"
+        res += f"/{ms_to_iso_time(finish_ms)}"
 
     if voice:
         res = f"{res} ({voice.character})"
@@ -153,3 +151,42 @@ def parse_events(text: str, context: Page) -> Sequence[Event]:
                 events += [replace(event := events.pop(), chunks=event.chunks + [line])]
 
     return events
+
+
+def srt_to_events(text: str) -> Sequence[Event]:
+    """Generates sequence of Events from subtitles stored in .srt format.
+
+    Args:
+        text: content of .srt file.
+
+    Returns:
+        Speech events parsed from .srt.
+    """
+    if not text.endswith("\n"):
+        text += "\n"
+    parser = re.compile(r"\d+\n([\d\:\,]+)\s*-->\s*([\d\:\,]+)\n((.+\n)+)")
+    match = parser.findall(text)
+
+    result = [
+        Event(
+            time_ms=(start_ms := to_milliseconds(start.replace(",", "."))),
+            duration_ms=(to_milliseconds(finish.replace(",", ".")) - start_ms),
+            chunks=text.split("\n")[:-1],  # there is an extra newline in .srt format
+        )
+        for start, finish, text, _ in match
+    ]
+
+    return result
+
+
+def events_to_srt(events: Sequence[Event]) -> str:
+    text = ""
+    for i, e in enumerate(events):
+        start = ms_to_iso_time(e.time_ms)
+        start = start.replace(".", ",")[:-3]
+        finish = ms_to_iso_time(e.time_ms + (e.duration_ms or 0))
+        finish = finish.replace(".", ",")[:-3]
+        body = "\n".join(e.chunks)
+        text += f"{i + 1}\n{start} --> {finish}\n{body}\n\n"
+
+    return text

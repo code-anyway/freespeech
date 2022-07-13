@@ -34,11 +34,11 @@ method: Subtitles
 original_audio_level: 2
 video:
 
-00:00:00/00:00:01 (Grace Hopper)
+00:00:00.000000/00:00:01.000000 (Grace Hopper)
 Hello, Bill!
 How are you?
 
-00:00:02@1.40 (Alonzo Church)
+00:00:02.000000@1.40 (Alonzo Church)
 It was a huge mistake.
 """
 

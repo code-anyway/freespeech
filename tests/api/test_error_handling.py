@@ -8,6 +8,7 @@ from aiohttp import ClientResponseError, web
 from aiohttp.pytest_plugin import AiohttpClient
 
 from freespeech import cli
+from freespeech.client import _raise_if_error
 
 logger = logging.getLogger(__name__)
 
@@ -59,9 +60,9 @@ async def test_success(client):
 
 @pytest.mark.asyncio
 async def test_handled_exception_should_be_4XX(client):
-    result = await client.get("/handled_exception")
+    resp = await client.get("/handled_exception")
     try:
-        result.raise_for_status()
+        await _raise_if_error(resp)
         assert False, "Should have raised an exception"
     except ClientResponseError as e:
         assert e.status == 400
@@ -69,7 +70,7 @@ async def test_handled_exception_should_be_4XX(client):
 
     result = await client.get("permission_error")
     try:
-        result.raise_for_status()
+        await _raise_if_error(result)
         assert False, "Should have raised an exception"
     except ClientResponseError as e:
         assert e.status == 400
@@ -78,20 +79,20 @@ async def test_handled_exception_should_be_4XX(client):
 
 @pytest.mark.asyncio
 async def test_500_exception(client):
-    result = await client.get("/unhandled_exception")
+    resp = await client.get("/unhandled_exception")
     try:
-        result.raise_for_status()
+        await _raise_if_error(resp)
         assert False, "Should have raised an exception"
     except ClientResponseError as e:
         assert e.status == 500
-        assert e.message == "Internal Server Error"
+        assert e.message == "500 Internal Server Error\n\nServer got itself in trouble"
 
 
 @pytest.mark.asyncio
 async def test_downstream_http_error(client):
     try:
-        result = await client.get("/downstream_client_error")
-        result.raise_for_status()
+        resp = await client.get("/downstream_client_error")
+        await _raise_if_error(resp)
     except ClientResponseError as e:
         assert e.status == 400
         assert e.message == "Not Found"

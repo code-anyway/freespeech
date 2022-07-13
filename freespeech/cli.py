@@ -4,6 +4,7 @@ import aiohttp.web
 import click
 from aiohttp import ClientResponseError, web
 
+from freespeech import env
 from freespeech.api import chat, crud, dub, language, notion, pub, speech
 from freespeech.lib import youtube
 
@@ -16,6 +17,7 @@ SERVICE_ROUTES = {
     "speech": speech.routes,
     "chat": chat.routes,
 }
+logging_handler = ["google" if env.is_in_cloud_run() else "console"]
 
 LOGGING_CONFIG = {
     "version": 1,
@@ -32,11 +34,11 @@ LOGGING_CONFIG = {
             "formatter": "default",
             "stream": "ext://sys.stdout",
         },
-        "google": {"class": "freespeech.logging.GoogleCloudLoggingHandler"},
+        "google": {"class": "google.cloud.logging.handlers.StructuredLogHandler"},
     },
     "loggers": {
-        "freespeech": {"level": logging.INFO, "handlers": ["console", "google"]},
-        "aiohttp": {"level": logging.INFO, "handlers": ["console", "google"]},
+        "freespeech": {"level": logging.INFO, "handlers": logging_handler},
+        "aiohttp": {"level": logging.INFO, "handlers": logging_handler},
     },
 }
 logging.config.dictConfig(LOGGING_CONFIG)
@@ -53,10 +55,10 @@ async def error_handler_middleware(request, handler):
         return resp
     except (AttributeError, NameError, ValueError, PermissionError, RuntimeError) as e:
         logger.warning(f"User input error: {e}")
-        raise web.HTTPBadRequest(reason=str(e)) from e
+        raise web.HTTPBadRequest(text=str(e)) from e
     except ClientResponseError as e:
         logger.warning(f"Downstream api call error: {e}")
-        raise web.HTTPBadRequest(reason=e.message) from e
+        raise web.HTTPBadRequest(text=e.message) from e
     except aiohttp.web.HTTPError as e:
         logger.warning(f"HTTPError: {e}")
         raise e
