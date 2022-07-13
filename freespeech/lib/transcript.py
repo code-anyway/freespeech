@@ -115,7 +115,7 @@ def unparse_time_interval(time_ms: int, duration_ms: int | None, voice: Voice) -
     res = f"{_ms_to_iso_time(start_ms)}"
 
     if duration_ms is None:
-        res += f"@{str(voice.speech_rate)}"  # should I round here?
+        res += f"@{float(voice.speech_rate):.2f}"  # should I round here?
     else:
         finish_ms = time_ms + duration_ms
         res += f"/{_ms_to_iso_time(finish_ms)}"

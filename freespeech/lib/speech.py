@@ -375,9 +375,7 @@ async def synthesize_text(
             )
         )
 
-    async def _synthesize_step(
-        rate: float, retries: int | None, override: bool
-    ) -> Tuple[Path, float]:
+    async def _synthesize_step(rate: float, retries: int | None) -> Tuple[Path, float]:
         if retries is not None and retries < 0:
             raise RuntimeError(
                 (
@@ -387,16 +385,12 @@ async def synthesize_text(
                 )
             )
 
-        if not override:
+        if duration_ms is not None:
             if rate < SPEECH_RATE_MINIMUM:
-                return await _synthesize_step(
-                    SPEECH_RATE_MINIMUM, retries=None, override=False
-                )
+                return await _synthesize_step(SPEECH_RATE_MINIMUM, retries=None)
 
             if rate > SPEECH_RATE_MAXIMUM:
-                return await _synthesize_step(
-                    SPEECH_RATE_MAXIMUM, retries=None, override=False
-                )
+                return await _synthesize_step(SPEECH_RATE_MAXIMUM, retries=None)
 
         def _google_api_call(ssml_phrase: str) -> bytes:
             client = google_tts.TextToSpeechClient()
@@ -473,10 +467,10 @@ async def synthesize_text(
                 f"retrying delta={audio.duration_ms - duration_ms} rate={rate}"
             )
             rate *= audio.duration_ms / duration_ms
-            return await _synthesize_step(rate, retries - 1, override=False)
+            return await _synthesize_step(rate, retries - 1)
 
     output_file, speech_rate = await _synthesize_step(
-        rate=voice.speech_rate, retries=SYNTHESIS_RETRIES, override=duration_ms is None
+        rate=voice.speech_rate, retries=SYNTHESIS_RETRIES
     )
 
     return output_file, Voice(
@@ -520,7 +514,11 @@ def concat_events(e1: Event, e2: Event, break_sentence: bool) -> Event:
     shift_ms = e2.time_ms - e1.time_ms
 
     if e1.duration_ms is None or e2.duration_ms is None:
-        raise TypeError("this should never be raised")
+        raise TypeError(
+            f"""Tried to concatenate events, one of which is missing duration_ms.
+            e1: {e1}
+            e2: {e2}"""
+        )
 
     gap_sec = (shift_ms - e1.duration_ms) / 1000.0
 
