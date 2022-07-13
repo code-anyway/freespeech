@@ -19,17 +19,13 @@ async def create_dub(request):
     clip_id = request.match_info["clip_id"]
     params = await request.json()
 
+    voice = Voice(character=params["characters"]["default"], pitch=params["pitch"])
     events = [
         Event(
             time_ms=event["time_ms"],
             duration_ms=event["duration_ms"],
             chunks=event["chunks"],
-            # TODO (astaff): refactor deserialization,
-            # this one duplicates default value from
-            # voice type definition
-            voice=Voice(**value)
-            if (value := event.get("voice", None))
-            else Voice("Alan Turing"),
+            voice=Voice(**value) if (value := event.get("voice", None)) else None,
         )
         for event in params["transcript"]
     ]
@@ -41,6 +37,7 @@ async def create_dub(request):
     dub_clip = await _dub(
         clip=clip,
         lang=params["lang"],
+        voice=voice,
         events=events,
         weights=params["weights"],
     )
@@ -53,6 +50,7 @@ async def create_dub(request):
 async def _dub(
     clip: Clip,
     lang: Language,
+    voice: Voice,
     events: List[Event],
     weights: Tuple[int, int],
 ) -> Clip:
@@ -62,7 +60,9 @@ async def _dub(
 
         synth_file, voices = await speech.synthesize_events(
             events=events,
+            voice=voice.character,
             lang=lang,
+            pitch=voice.pitch or 0.0,
             output_dir=tmp_dir,
         )
         original_weight, synth_weight = weights

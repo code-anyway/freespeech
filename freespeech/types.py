@@ -66,15 +66,15 @@ def _uuid_in_str():
 class Voice:
     character: Character
     pitch: float = 0.0
-    speech_rate: float = 1.0
+    speech_rate: float | None = None
 
 
 @dataclass(frozen=True)
 class Event:
     time_ms: int
-    duration_ms: int | None
+    duration_ms: int
     chunks: List[str]
-    voice: Voice = Voice(character="Alan Turing")
+    voice: Voice | None = None
 
 
 @dataclass(frozen=True)

@@ -9,12 +9,7 @@ from freespeech.types import Event, Meta, Voice
 
 TRANSCRIPT_DATABASE_ID = "da8013c44f6f4809b3e7ed53dfbfb461"
 
-SHORT_EVENT_1_EN = Event(
-    time_ms=1001,
-    duration_ms=1000,
-    chunks=["One hen. Two ducks."],
-    voice=Voice(character="Alonzo Church"),
-)
+SHORT_EVENT_1_EN = Event(time_ms=1001, duration_ms=1000, chunks=["One hen. Two ducks."])
 LONG_EVENT_1_EN = Event(
     time_ms=4001,
     duration_ms=2000,
@@ -23,10 +18,7 @@ LONG_EVENT_1_EN = Event(
 )
 
 SHORT_EVENT_1_RU = Event(
-    time_ms=1001,
-    duration_ms=1000,
-    chunks=["Одна курица. Две утки."],
-    voice=Voice(character="Alonzo Church"),
+    time_ms=1001, duration_ms=1000, chunks=["Одна курица. Две утки."]
 )
 LONG_EVENT_1_RU = Event(
     time_ms=4001,
@@ -41,18 +33,20 @@ EXPECTED_TRANSCRIPT = notion.Transcript(
     lang="en-US",
     source="Subtitles",
     events=[
-        Event(time_ms=1001, duration_ms=1000, chunks=["One hen. Two ducks."]),
+        Event(
+            time_ms=1001, duration_ms=1000, chunks=["One hen. Two ducks."], voice=None
+        ),
         Event(
             time_ms=3000,
             duration_ms=2000,
             chunks=["Blah"],
-            voice=Voice(character="Alonzo Church"),
+            voice=Voice(character="Alonzo Church", pitch=0.0, speech_rate=None),
         ),
         Event(
             time_ms=6001,
             duration_ms=1000,
             chunks=["Blah Blah"],
-            voice=Voice(character="Alonzo Church"),
+            voice=Voice(character="Alonzo Church", pitch=0.0, speech_rate=None),
         ),
     ],
     meta=Meta(title="", description="", tags=[]),
@@ -60,7 +54,7 @@ EXPECTED_TRANSCRIPT = notion.Transcript(
     dub_url=None,
     clip_id="",
     _id="4738b64bf29f4c98bfad98e8c2a6690a",
-    voice=Voice(character="Alan Turing"),
+    voice=Voice(character="Alan Turing", pitch=0.0, speech_rate=None),
     weights=(2, 10),
 )
 

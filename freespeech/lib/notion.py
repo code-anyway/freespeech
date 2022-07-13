@@ -9,7 +9,6 @@ import aiohttp
 
 from freespeech import env, types
 from freespeech.lib import text, transcript
-from freespeech.lib.transcript import Page
 from freespeech.types import (
     Event,
     Language,
@@ -300,7 +299,7 @@ def render_text(t: str) -> Dict:
     }
 
 
-def parse_events(blocks: List[Dict], context: Page) -> Sequence[Event]:
+def parse_events(blocks: List[Dict]) -> Sequence[Event]:
     ALLOWED_BLOCK_TYPES = ["heading_1", "heading_2", "heading_3", "paragraph"]
     text = "\n".join(
         str(_parse_value(block))
@@ -308,7 +307,7 @@ def parse_events(blocks: List[Dict], context: Page) -> Sequence[Event]:
         if block["type"] in ALLOWED_BLOCK_TYPES
     )
 
-    return transcript.parse_events(text, context=context)
+    return transcript.parse_events(text)
 
 
 def parse_transcript(
@@ -353,22 +352,12 @@ def parse_transcript(
         tags=properties[PROPERTY_NAME_TAGS],
     )
 
-    context = Page(
-        origin=str(properties[PROPERTY_NAME_ORIGIN]),
-        language=lang,
-        voice=voice.character,  # lmao
-        clip_id=properties[PROPERTY_NAME_CLIP_ID],
-        method=source,
-        original_audio_level=2,
-        video=None,
-    )
-
     return Transcript(
         title=str(properties[PROPERTY_NAME_PAGE_TITLE]),
         origin=str(properties[PROPERTY_NAME_ORIGIN]),
         lang=lang,
         source=source,
-        events=parse_events(blocks, context=context),
+        events=parse_events(blocks),
         voice=voice,
         weights=weights,
         meta=meta,

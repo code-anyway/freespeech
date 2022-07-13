@@ -97,8 +97,8 @@ def test_convert_captiions_with_no_duration():
     t = youtube.convert_captions([("en", en)])
     expected = {
         "en-US": [
-            Event(time_ms=10, duration_ms=3000, chunks=["Every human"]),
-            Event(time_ms=3010, duration_ms=1000, chunks=["Foo"]),
+            Event(time_ms=10, duration_ms=3000, chunks=["Every human"], voice=None),
+            Event(time_ms=3010, duration_ms=1000, chunks=["Foo"], voice=None),
         ]
     }
     assert t == expected
@@ -115,12 +115,7 @@ def test_auto_captions():
         expected_en_US = [Event(**item) for item in json.load(fd)]
 
     with open("tests/lib/data/youtube/auto-captions.json", encoding="utf-8") as fd:
-        expected_a_en_US = [
-            Event(
-                **item,
-            )
-            for item in json.load(fd)
-        ]
+        expected_a_en_US = [Event(**item) for item in json.load(fd)]
 
     t = youtube.convert_captions([("a.en", a_en)])
     assert t["en-US"] == expected_a_en_US

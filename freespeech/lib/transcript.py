@@ -1,29 +1,18 @@
 import logging
 import re
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from datetime import datetime
 from typing import Sequence, Tuple
 
 import pytz
 
-from freespeech.types import Character, Event, Language, Source, Voice, is_character
+from freespeech.types import Character, Event, Voice, is_character
 
 logger = logging.getLogger(__name__)
 
 timecode_parser = re.compile(
     r"^\s*(([\d\:\.]+)\s*([/#@])\s*([\d\:\.]+)(\s+\((.+)\))?\s*)$", flags=re.M
 )
-
-
-@dataclass
-class Page:
-    origin: str
-    language: Language
-    voice: Character
-    clip_id: str
-    method: Source
-    original_audio_level: int
-    video: str | None
 
 
 def to_milliseconds(s: str) -> int:
@@ -48,9 +37,7 @@ def ms_to_iso_time(ms: int) -> str:
     return t.isoformat(timespec="microseconds")
 
 
-def parse_time_interval(
-    interval: str,
-) -> Tuple[int, int | None, Character | None, float | None]:
+def parse_time_interval(interval: str) -> Tuple[int, int, Character | None]:
     """Parses HH:MM:SS.fff/HH:MM:SS.fff (Character) into (start_ms, duration_ms, Character).
 
     Args:
@@ -58,8 +45,7 @@ def parse_time_interval(
             two ISO 8601 formatted timestamps separated by "/"
 
     Returns:
-        Event start time, optional duration in milliseconds, optional character,
-        and optional speech rate.
+        Event start time and duration in milliseconds and optional character.
     """
     match = timecode_parser.search(interval)
 
@@ -77,26 +63,18 @@ def parse_time_interval(
         character = None
 
     start_ms = to_milliseconds(start)
-    speech_rate = None
-    duration_ms = None
+    if qualifier == "/":
+        finish_ms = to_milliseconds(value)
+        duration_ms = finish_ms - start_ms
+    elif qualifier == "#":
+        duration_ms = round(float(value) * 1000)
 
-    match qualifier:
-        case "/":
-            finish_ms = to_milliseconds(value)
-            duration_ms = finish_ms - start_ms
-        case "#":
-            duration_ms = round(float(value) * 1000)
-        case "@":
-            speech_rate = float(value)
-        case _:
-            pass
-
-    return start_ms, duration_ms, character, speech_rate
+    return start_ms, duration_ms, character
 
 
-def unparse_time_interval(time_ms: int, duration_ms: int | None, voice: Voice) -> str:
-    """Generates HH:MM:SS.fff/HH:MM:SS.fff (Character) or HH:MM:SS.fff@rr.rr (Character)
-    (if speechrate is set) representation for a time interval and voice.
+def unparse_time_interval(time_ms: int, duration_ms: int, voice: Voice | None) -> str:
+    """Generates HH:MM:SS.fff/HH:MM:SS.fff (Character)?
+    representation for a time interval and voice.
 
     Args:
         time_ms: interval start time in milliseconds.
@@ -108,15 +86,10 @@ def unparse_time_interval(time_ms: int, duration_ms: int | None, voice: Voice) -
        two ISO 8601 formatted timespamps separated by "/" with optional
        voice info added.
     """
-
     start_ms = time_ms
-    res = f"{ms_to_iso_time(start_ms)}"
+    finish_ms = time_ms + duration_ms
 
-    if duration_ms is None:
-        res += f"@{float(voice.speech_rate):.2f}"  # should I round here?
-    else:
-        finish_ms = time_ms + duration_ms
-        res += f"/{ms_to_iso_time(finish_ms)}"
+    res = f"{ms_to_iso_time(start_ms)}/{ms_to_iso_time(finish_ms)}"
 
     if voice:
         res = f"{res} ({voice.character})"
@@ -124,24 +97,19 @@ def unparse_time_interval(time_ms: int, duration_ms: int | None, voice: Voice) -
     return res
 
 
-def parse_events(text: str, context: Page) -> Sequence[Event]:
+def parse_events(text: str) -> Sequence[Event]:
     events = []
     lines = [line for line in text.split("\n") if line]
 
     for line in lines:
         if timecode_parser.fullmatch(line):
-            start_ms, duration_ms, character, speech_rate = parse_time_interval(line)
-            character = character or context.voice
-            # TODO: look below, 1.0 should be a default in context. same for character!
-            speech_rate = (
-                speech_rate or 1.0
-            )  # this feels wrong but that's the entrypoint
+            start_ms, duration_ms, character = parse_time_interval(line)
             events += [
                 Event(
                     start_ms,
                     duration_ms,
                     chunks=[],
-                    voice=Voice(character=character, speech_rate=speech_rate),
+                    voice=Voice(character) if character else None,
                 )
             ]
         else:
