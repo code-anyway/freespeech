@@ -9,15 +9,14 @@ import aiohttp
 
 from freespeech import env, types
 from freespeech.lib import text, transcript
-from freespeech.lib.transcript import Page
 from freespeech.types import (
+    Transcript,
     Event,
     Language,
     Meta,
     Source,
     Voice,
     assert_never,
-    is_source,
     url,
 )
 
@@ -42,22 +41,6 @@ PROPERTY_NAME_TRANSLATED_FROM = "Translate"
 
 
 HTTPVerb = Literal["GET", "PATCH", "DELETE", "POST"]
-
-
-@dataclass(frozen=True)
-class Transcript:
-    title: str
-    origin: url
-    lang: Language
-    source: Source | UUID
-    events: Sequence[Event]
-    meta: Meta | None
-    dub_timestamp: str | None
-    dub_url: url | None
-    clip_id: str
-    _id: str
-    voice: Voice = Voice(character="Grace Hopper")
-    weights: Tuple[int, int] = (2, 10)
 
 
 QueryOperator = Literal["greater_than", "equals", "after", "any"]

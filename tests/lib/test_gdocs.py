@@ -1,31 +1,30 @@
 import pytest
 
-from freespeech.lib import gdocs, transcript
-from freespeech.types import Event, Voice
+from freespeech.lib import gdocs
+from freespeech.types import Event, Settings, Source, Transcript, Voice
 
-EXPECTED_PAGE = transcript.Page(
-    origin="https://youtube.com/foo",
-    language="en-US",
-    voice="Alonzo Church",
-    clip_id="deadbeef239",
-    method="Subtitles",
-    original_audio_level=2,
+EXPECTED_TRANSCRIPT = Transcript(
+    title="test_gdocs",
+    lang="en-US",
+    origin=Source(method="Subtitles", url="https://youtube.com/foo"),
+    settings=Settings(),
     video=None,
+    audio=None,
+    events=[
+        Event(
+            time_ms=0,
+            duration_ms=1000,
+            chunks=["Hello, Bill!", "How are you?"],
+            voice=Voice(character="Grace Hopper", pitch=0.0, speech_rate=1.0),
+        ),
+        Event(
+            time_ms=2000,
+            duration_ms=None,
+            chunks=["It was a huge mistake."],
+            voice=Voice(character="Alonzo Church", pitch=0.0, speech_rate=1.4),
+        ),
+    ],
 )
-EXPECTED_EVENTS = [
-    Event(
-        time_ms=0,
-        duration_ms=1000,
-        chunks=["Hello, Bill!", "How are you?"],
-        voice=Voice(character="Grace Hopper", pitch=0.0, speech_rate=1.0),
-    ),
-    Event(
-        time_ms=2000,
-        duration_ms=None,
-        chunks=["It was a huge mistake."],
-        voice=Voice(character="Alonzo Church", pitch=0.0, speech_rate=1.4),
-    ),
-]
 EXPECTED_TEXT = """origin: https://youtube.com/foo
 language: en-US
 voice: Alonzo Church

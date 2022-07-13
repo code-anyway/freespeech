@@ -47,7 +47,7 @@ def probe(file: str | PathLike) -> Tuple[Sequence[Audio], Sequence[Video]]:
     Returns:
         Tuple of lists of `Audio` and `Video` stream information.
     """
-
+    file_path = Path(file)
     try:
         info = ffmpeg.probe(file)
     except ffmpeg.Error as e:
@@ -61,6 +61,7 @@ def probe(file: str | PathLike) -> Tuple[Sequence[Audio], Sequence[Video]]:
         match stream["codec_type"]:
             case "audio":
                 return Audio(
+                    url=f"file://{file_path.absolute}",
                     duration_ms=duration_ms,
                     encoding=ffprobe_to_audio_encoding(stream["codec_name"]),
                     sample_rate_hz=int(stream["sample_rate"]),
@@ -68,6 +69,7 @@ def probe(file: str | PathLike) -> Tuple[Sequence[Audio], Sequence[Video]]:
                 )
             case "video":
                 return Video(
+                    url=f"file://{file_path.absolute}",
                     duration_ms=duration_ms,
                     encoding=ffprobe_to_video_encoding(stream["codec_name"]),
                 )

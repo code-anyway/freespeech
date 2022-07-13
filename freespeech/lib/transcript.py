@@ -1,28 +1,18 @@
 import logging
 import re
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from datetime import datetime
 from typing import Sequence, Tuple
 
 import pytz
 
-from freespeech.types import Character, Event, Language, Source, Voice, is_character
+from freespeech.types import Character, Event, Voice, is_character
 
 logger = logging.getLogger(__name__)
 
 timecode_parser = re.compile(
     r"^\s*(([\d\:\.]+)\s*([/#@])\s*([\d\:\.]+)(\s+\((.+)\))?\s*)$", flags=re.M
 )
-
-
-@dataclass
-class Page:
-    origin: str
-    language: Language
-    voice: Character
-    method: Source
-    original_audio_level: int
-    video: str | None
 
 
 def to_milliseconds(s: str) -> int:
@@ -123,24 +113,26 @@ def unparse_time_interval(time_ms: int, duration_ms: int | None, voice: Voice) -
     return res
 
 
-def parse_events(text: str, context: Page) -> Sequence[Event]:
+def parse_events(text: str) -> Sequence[Event]:
     events = []
     lines = [line for line in text.split("\n") if line]
 
     for line in lines:
         if timecode_parser.fullmatch(line):
             start_ms, duration_ms, character, speech_rate = parse_time_interval(line)
-            character = character or context.voice
-            # TODO: look below, 1.0 should be a default in context. same for character!
-            speech_rate = (
-                speech_rate or 1.0
-            )  # this feels wrong but that's the entrypoint
+
+            voice = Voice()
+            if character is not None:
+                voice = replace(voice, character=character)
+            if speech_rate is not None:
+                voice = replace(voice, speech_rate=speech_rate)
+
             events += [
                 Event(
                     start_ms,
                     duration_ms,
                     chunks=[],
-                    voice=Voice(character=character, speech_rate=speech_rate),
+                    voice=voice,
                 )
             ]
         else:

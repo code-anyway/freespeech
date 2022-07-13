@@ -1,15 +1,15 @@
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import List, Literal, NoReturn, Sequence, Tuple, TypeGuard
+from typing import List, Literal, NoReturn, Sequence, TypeGuard
 
 AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC"]
 VideoEncoding = Literal["H264", "HEVC", "AV1"]
 ServiceProvider = Literal["Google", "Deepgram", "Azure"]
 TranscriptionModel = Literal["default", "latest_long", "general"]
-
-
+SpeechToText = Literal["C3PO", "R2D2", "BB8"]
+DocumentFormat = Literal["Google", "Notion", "SRT"]
 Language = Literal["en-US", "uk-UA", "ru-RU", "pt-PT", "es-US", "de-DE"]
+url = str
 
 
 def is_language(val: str) -> TypeGuard[Language]:
@@ -38,33 +38,9 @@ def is_character(val: str) -> TypeGuard[Character]:
     )
 
 
-Source = Literal[
-    "Machine", "Machine A", "Machine B", "Machine C", "Subtitles", "Translate"
-]
-
-
-def is_source(val: str) -> TypeGuard[Source]:
-    return val in (
-        "Machine",
-        "Machine A",
-        "Machine B",
-        "Machine C",
-        "Subtitles",
-        "Translate",
-    )
-
-
-url = str
-_last_updated = datetime.now(tz=timezone.utc).isoformat
-
-
-def _uuid_in_str():
-    return str(uuid.uuid4())
-
-
 @dataclass(frozen=True)
 class Voice:
-    character: Character
+    character: Character = "Alan Turing"
     pitch: float = 0.0
     speech_rate: float = 1.0
 
@@ -74,11 +50,18 @@ class Event:
     time_ms: int
     duration_ms: int | None
     chunks: List[str]
-    voice: Voice = Voice(character="Alan Turing")
+    voice: Voice = Voice()
+
+
+@dataclass(frozen=True)
+class Source:
+    method: Literal[SpeechToText, "Subtitles", "Translate"]
+    url: str
 
 
 @dataclass(frozen=True)
 class Audio:
+    url: str
     duration_ms: int
     encoding: AudioEncoding
     sample_rate_hz: int
@@ -87,13 +70,27 @@ class Audio:
 
 @dataclass(frozen=True)
 class Video:
+    url: str
     duration_ms: int
     encoding: VideoEncoding
     # TODO (astaff): add fps, HxW, etc
 
 
-AudioStream = Tuple[url, Audio]
-VideoStream = Tuple[url, Video]
+@dataclass(frozen=True)
+class Settings:
+    original_audio_level: int = 2
+    gaps: Literal["Crop", "Blank", "Fill"] = "Blank"
+
+
+@dataclass(frozen=True)
+class Transcript:
+    title: str | None
+    lang: Language
+    events: Sequence[Event]
+    origin: Source | None
+    audio: Audio | None
+    video: Video | None
+    settings: Settings
 
 
 @dataclass(frozen=True)
@@ -101,19 +98,6 @@ class Meta:
     title: str
     description: str
     tags: List[str]
-
-
-@dataclass(frozen=True)
-class Clip:
-    origin: url
-    lang: Language
-    audio: AudioStream
-    video: VideoStream | None
-    transcript: Sequence[Event]
-    meta: Meta
-    parent_id: str | None
-    _id: str = field(default_factory=_uuid_in_str)
-    last_updated: str = field(default_factory=_last_updated)
 
 
 @dataclass(frozen=True)
