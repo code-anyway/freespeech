@@ -35,9 +35,12 @@ help_text = (
     "1FbV0eW4Q-yKWYjPkMRCrGd2yD78n7MtswVmN9LSo4mA/edit#\n"
     "```\n"
     "And I will send you a link to the dubbed video.\n"
-    "Check out [our walkthrough](https://www.youtube.com/watch?v=qbYu4OPoKJM). "
     "Type /help to resend these instructions at any time. For quality purposes, all "
     "conversations are recorded. Enjoy!"
+)
+
+walkthrough_text = (
+    "Also, check out a " "[quick walkthrough](https://youtu.be/3rCE5_OxuUo)."
 )
 
 
@@ -59,6 +62,9 @@ def get_chat_client():
 async def _help(message: tg_types.Message):
     await message.answer(
         help_text, disable_web_page_preview=True, parse_mode="Markdown"
+    )
+    await message.answer(
+        walkthrough_text, disable_web_page_preview=False, parse_mode="Markdown"
     )
 
 
