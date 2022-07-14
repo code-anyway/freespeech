@@ -1,8 +1,6 @@
 import logging
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Sequence, Tuple
-from uuid import UUID
 from zoneinfo import ZoneInfo
 
 import aiohttp
@@ -10,13 +8,12 @@ import aiohttp
 from freespeech import env, types
 from freespeech.lib import text, transcript
 from freespeech.types import (
-    Transcript,
     Event,
-    Language,
-    Meta,
+    Settings,
     Source,
-    Voice,
+    Transcript,
     assert_never,
+    is_method,
     url,
 )
 
@@ -27,17 +24,11 @@ NOTION_RICH_TEXT_CONTENT_LIMIT = 200
 PROPERTY_NAME_PAGE_TITLE = "Name"
 PROPERTY_NAME_ORIGIN = "Origin"
 PROPERTY_NAME_LANG = "Language"
-PROPERTY_NAME_SOURCE = "Text From"
-PROPERTY_NAME_CHARACTER = "Voice"
-PROPERTY_NAME_PITCH = "Pitch"
-PROPERTY_NAME_WEIGHTS = "Weights"
+PROPERTY_NAME_METHOD = "Text From"
 PROPERTY_NAME_TITLE = "Title"
-PROPERTY_NAME_DESCRIPTION = "Description"
-PROPERTY_NAME_TAGS = "Tags"
-PROPERTY_NAME_DUB_TIMESTAMP = "Dub timestamp"
-PROPERTY_NAME_DUB_URL = "Dub URL"
-PROPERTY_NAME_CLIP_ID = "Clip ID"
-PROPERTY_NAME_TRANSLATED_FROM = "Translate"
+PROPERTY_NAME_AUDIO_URL = "Audio URL"
+PROPERTY_NAME_VIDEO_URL = "Video URL"
+PROPERTY_NAME_ORIGINAL_AUDIO_LEVEL = "Original Audio Level"
 
 
 HTTPVerb = Literal["GET", "PATCH", "DELETE", "POST"]
@@ -122,14 +113,14 @@ async def get_transcript(page_id: str) -> Transcript:
     results = await get_child_blocks(page_id)
     blocks = [r for r in results if not r["archived"]]
 
-    transcript = parse_transcript(page_id, properties=properties, blocks=blocks)
+    transcript = parse_transcript(properties=properties, blocks=blocks)
 
     return transcript
 
 
 async def get_transcripts(
     database_id: str, timestamp: datetime | None
-) -> List[Transcript]:
+) -> List[Tuple[str, Transcript]]:
     if timestamp:
         pages = await query(
             database_id=database_id,
@@ -142,10 +133,12 @@ async def get_transcripts(
         pages = await query(database_id)
 
     return [
-        parse_transcript(
-            _id=page["id"],
-            properties=page["properties"],
-            blocks=await get_child_blocks(page["id"]),
+        (
+            page["id"],
+            parse_transcript(
+                properties=page["properties"],
+                blocks=await get_child_blocks(page["id"]),
+            ),
         )
         for page in pages
     ]
@@ -223,49 +216,21 @@ def get_updated_pages(db_id: str, timestamp: str) -> List[str]:
 
 
 def render_transcript(transcript: Transcript) -> Tuple[Dict[str, Any], List[Dict]]:
-    if isinstance(transcript.source, UUID):
-        source = "Translate"
-        translated_from = str(transcript.source)
-    else:
-        source = transcript.source
-        translated_from = None
-
-    if transcript.voice is not None:
-        character = transcript.voice.character
-        pitch = transcript.voice.pitch
-    else:
-        character = None
-        pitch = None
-
-    if transcript.weights:
-        weights = ", ".join(str(w) for w in transcript.weights)
-    else:
-        weights = "2, 10"
-
-    if transcript.meta is not None:
-        title = transcript.meta.title
-        description = transcript.meta.description
-        tags = transcript.meta.tags
+    title = transcript.title or "Untitled"
+    source = transcript.origin and transcript.origin.method
+    original_audio_level = transcript.settings.original_audio_level
 
     properties = {
         PROPERTY_NAME_PAGE_TITLE: {
-            "title": [{"type": "text", "text": {"content": transcript.title}}],
+            "title": [{"type": "text", "text": {"content": title}}],
         },
-        PROPERTY_NAME_ORIGIN: {"url": transcript.origin},
+        PROPERTY_NAME_ORIGIN: {"url": transcript.origin and transcript.origin.url},
         PROPERTY_NAME_LANG: {"select": {"name": transcript.lang}},
-        PROPERTY_NAME_SOURCE: {"select": {"name": source}},
-        PROPERTY_NAME_CHARACTER: {"select": {"name": character} if character else {}},
-        PROPERTY_NAME_PITCH: {"number": pitch},
-        PROPERTY_NAME_WEIGHTS: render_text(weights),
+        PROPERTY_NAME_METHOD: {"select": {"name": source}},
+        PROPERTY_NAME_ORIGINAL_AUDIO_LEVEL: render_text(str(original_audio_level)),
         PROPERTY_NAME_TITLE: render_text(title),
-        PROPERTY_NAME_DESCRIPTION: render_text(description),
-        PROPERTY_NAME_TAGS: {"multi_select": [{"name": tag} for tag in tags or []]},
-        PROPERTY_NAME_DUB_TIMESTAMP: render_text(transcript.dub_timestamp or ""),
-        PROPERTY_NAME_DUB_URL: {"url": transcript.dub_url},
-        PROPERTY_NAME_CLIP_ID: render_text(transcript.clip_id),
-        PROPERTY_NAME_TRANSLATED_FROM: {
-            "relation": [{"id": translated_from}] if translated_from else []
-        },
+        PROPERTY_NAME_AUDIO_URL: {"url": transcript.audio_url},
+        PROPERTY_NAME_VIDEO_URL: {"url": transcript.video_url},
     }
 
     # Flatten event blocks
@@ -283,7 +248,7 @@ def render_text(t: str) -> Dict:
     }
 
 
-def parse_events(blocks: List[Dict], context: Page) -> Sequence[Event]:
+def parse_events(blocks: List[Dict]) -> Sequence[Event]:
     ALLOWED_BLOCK_TYPES = ["heading_1", "heading_2", "heading_3", "paragraph"]
     text = "\n".join(
         str(_parse_value(block))
@@ -291,74 +256,31 @@ def parse_events(blocks: List[Dict], context: Page) -> Sequence[Event]:
         if block["type"] in ALLOWED_BLOCK_TYPES
     )
 
-    return transcript.parse_events(text, context=context)
+    return transcript.parse_events(text)
 
 
-def parse_transcript(
-    _id: str, properties: Dict[str, Any], blocks: List[Dict]
-) -> Transcript:
+def parse_transcript(properties: Dict[str, Any], blocks: List[Dict]) -> Transcript:
     properties = parse_properties(properties)
-    source = properties[PROPERTY_NAME_SOURCE]
-    translated_from = properties[PROPERTY_NAME_TRANSLATED_FROM]
 
-    if not is_source(source):
-        raise ValueError(f"Invalid transcript source: {source}")
+    method = properties[PROPERTY_NAME_METHOD]
 
-    if source == "Translate":
-        source = UUID(translated_from[0]["id"]) if translated_from else source
+    if not is_method(method):
+        raise ValueError(f"Invalid transcription method: {method}")
 
     lang = properties[PROPERTY_NAME_LANG]
     if not types.is_language(lang):
         raise ValueError(f"Invalid language: {lang}")
 
-    character = properties[PROPERTY_NAME_CHARACTER]
-    if character is not None and not types.is_character(character):
-        raise ValueError(f"Invalid character name: {character}")
-
-    pitch = properties[PROPERTY_NAME_PITCH]
-    if pitch is not None:
-        pitch = float(pitch)
-    else:
-        pitch = 0.0
-
-    if character is not None:
-        voice = Voice(character=character, pitch=pitch)
-
-    weights = properties[PROPERTY_NAME_WEIGHTS]
-    if weights:
-        weights = tuple(int(w.strip()) for w in weights.split(","))
-    else:
-        weights = (2, 10)
-
-    meta = Meta(
-        title=properties[PROPERTY_NAME_TITLE],
-        description=properties[PROPERTY_NAME_DESCRIPTION],
-        tags=properties[PROPERTY_NAME_TAGS],
-    )
-
-    context = Page(
-        origin=str(properties[PROPERTY_NAME_ORIGIN]),
-        language=lang,
-        voice=voice.character,  # lmao
-        clip_id=properties[PROPERTY_NAME_CLIP_ID],
-        method=source,
-        original_audio_level=2,
-        video=None,
-    )
+    original_audio_level = properties[PROPERTY_NAME_ORIGINAL_AUDIO_LEVEL]
 
     return Transcript(
         title=str(properties[PROPERTY_NAME_PAGE_TITLE]),
-        origin=str(properties[PROPERTY_NAME_ORIGIN]),
+        origin=Source(method=method, url=str(properties[PROPERTY_NAME_ORIGIN])),
         lang=lang,
-        source=source,
-        events=parse_events(blocks, context=context),
-        voice=voice,
-        weights=weights,
-        meta=meta,
-        dub_timestamp=properties[PROPERTY_NAME_DUB_TIMESTAMP],
-        dub_url=properties[PROPERTY_NAME_DUB_URL],
-        clip_id=properties[PROPERTY_NAME_CLIP_ID],
-        _id=_id,
+        events=parse_events(blocks),
+        settings=Settings(original_audio_level=original_audio_level),
+        video_url=properties[PROPERTY_NAME_VIDEO_URL],
+        audio_url=properties[PROPERTY_NAME_AUDIO_URL],
     )
 
 
@@ -391,24 +313,16 @@ async def update_page_properties(page_id: str, properties: Dict) -> Dict:
 
 
 async def put_transcript(
-    database_id: str, transcript: Transcript, only_props: bool = False
-) -> Transcript:
+    database_id: str, transcript: Transcript
+) -> Tuple[str, Transcript]:
     properties, blocks = render_transcript(transcript)
 
-    if transcript._id is None:
-        result = await create_page(
-            database_id=database_id, properties=properties, blocks=blocks
-        )
-    else:
-        result = await update_page_properties(
-            page_id=transcript._id, properties=properties
-        )
+    result = await create_page(
+        database_id=database_id, properties=properties, blocks=blocks
+    )
 
-        if blocks and not only_props:
-            blocks = await replace_blocks(transcript._id, blocks)
-
-    return parse_transcript(
-        result["id"], properties=result["properties"], blocks=blocks
+    return result["url"], parse_transcript(
+        properties=result["properties"], blocks=blocks
     )
 
 

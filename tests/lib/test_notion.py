@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import pytest
 
 from freespeech.lib import notion
-from freespeech.types import Event, Meta, Voice
+from freespeech.types import Event, Meta, Settings, Source, Transcript, Voice
 
 TRANSCRIPT_DATABASE_ID = "da8013c44f6f4809b3e7ed53dfbfb461"
 
@@ -35,11 +35,10 @@ LONG_EVENT_1_RU = Event(
     voice=Voice(character="Alonzo Church"),
 )
 
-EXPECTED_TRANSCRIPT = notion.Transcript(
+EXPECTED_TRANSCRIPT = Transcript(
     title="[DO NOT DELETE] test_read_transcript()",
-    origin="https://youtube",
+    origin=Source(method="Subtitles", url="https://youtube"),
     lang="en-US",
-    source="Subtitles",
     events=[
         Event(time_ms=1001, duration_ms=1000, chunks=["One hen. Two ducks."]),
         Event(
@@ -55,13 +54,9 @@ EXPECTED_TRANSCRIPT = notion.Transcript(
             voice=Voice(character="Alonzo Church"),
         ),
     ],
-    meta=Meta(title="", description="", tags=[]),
-    dub_timestamp="",
-    dub_url=None,
-    clip_id="",
-    _id="4738b64bf29f4c98bfad98e8c2a6690a",
-    voice=Voice(character="Alan Turing"),
-    weights=(2, 10),
+    audio_url="https://foobar",
+    video_url="https://barbaz",
+    settings=Settings(original_audio_level=1),
 )
 
 

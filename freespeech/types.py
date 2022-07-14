@@ -2,6 +2,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import List, Literal, NoReturn, Sequence, TypeGuard
 
+url = str
 AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC"]
 VideoEncoding = Literal["H264", "HEVC", "AV1"]
 ServiceProvider = Literal["Google", "Deepgram", "Azure"]
@@ -9,7 +10,6 @@ TranscriptionModel = Literal["default", "latest_long", "general"]
 SpeechToText = Literal["C3PO", "R2D2", "BB8"]
 DocumentFormat = Literal["Google", "Notion", "SRT"]
 Language = Literal["en-US", "uk-UA", "ru-RU", "pt-PT", "es-US", "de-DE"]
-url = str
 
 
 def is_language(val: str) -> TypeGuard[Language]:
@@ -38,6 +38,13 @@ def is_character(val: str) -> TypeGuard[Character]:
     )
 
 
+Method = Literal[SpeechToText, "Subtitles", "Translate"]
+
+
+def is_method(val: str) -> TypeGuard[Method]:
+    return val in ("C3PO", "R2D2", "BB8", "Subtitles", "Translate")
+
+
 @dataclass(frozen=True)
 class Voice:
     character: Character = "Alan Turing"
@@ -55,7 +62,7 @@ class Event:
 
 @dataclass(frozen=True)
 class Source:
-    method: Literal[SpeechToText, "Subtitles", "Translate"]
+    method: Method
     url: str
 
 
@@ -88,8 +95,8 @@ class Transcript:
     lang: Language
     events: Sequence[Event]
     origin: Source | None
-    audio: Audio | None
-    video: Video | None
+    audio_url: str | None
+    video_url: str | None
     settings: Settings
 
 

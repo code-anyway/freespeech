@@ -8,8 +8,8 @@ EXPECTED_TRANSCRIPT = Transcript(
     lang="en-US",
     origin=Source(method="Subtitles", url="https://youtube.com/foo"),
     settings=Settings(),
-    video=None,
-    audio=None,
+    video_url=None,
+    audio_url=None,
     events=[
         Event(
             time_ms=0,
