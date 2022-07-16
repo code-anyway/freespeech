@@ -1,94 +1,148 @@
+import json
 import logging
-from dataclasses import asdict
-from typing import Dict, Sequence, Tuple
+from dataclasses import replace
+from typing import Tuple
 
-import aiohttp.client
-from aiohttp import ClientResponseError
+import aiohttp
+from pydantic.json import pydantic_encoder
 
-from freespeech.types import Audio, Character, Event, Language, Meta, Video
+from freespeech.lib import language
+from freespeech.types import (
+    Error,
+    Job,
+    Language,
+    Media,
+    Message,
+    Source,
+    Transcript,
+    assert_never,
+)
 
 logger = logging.getLogger(__name__)
 
 
-async def _raise_if_error(resp) -> None:
-    """Raise if error response, take details from body
+AudioVideoUrls = Tuple[str, str]
 
-    This function should be used instead of a standard `raise_for_status()` since
-    we are passing exception details in response body rather than in HTTP response
-    reason.
-    """
-    if resp.ok:
-        return
-    error_message = await resp.text()
-    raise ClientResponseError(
-        status=resp.status,
-        request_info=resp.request_info,
-        message=error_message,
-        history=resp.history,
+
+async def upload(*, session: aiohttp.ClientSession, url: str) -> Job[Media] | Error:
+    params = {
+        "url": url,
+    }
+
+    async with session.post("/upload", json=params) as resp:
+        result = await resp.json()
+
+        if resp.ok:
+            return Job[Media](**result)
+        else:
+            return Error(**result)
+
+
+async def media(*, session: aiohttp.ClientSession, url: str) -> Media | Error:
+    params = {
+        "url": url,
+    }
+
+    # astaff: Sasha, do we want to make it a GET?..\
+    # this will remove boilerplate
+    # with seriaizing/deserializing signle argument as dict
+    async with session.post("/media", json=params) as resp:
+        result = await resp.json()
+
+        if resp.ok:
+            return Media(**result)
+        else:
+            return Error(**result)
+
+
+def subtitles(*, url: str, lang: Language) -> Transcript:
+    raise NotImplementedError()
+
+
+async def synth(
+    *,
+    session: aiohttp.ClientSession,
+    transcript: Transcript,
+) -> Job[Media] | Error:
+    text = json.dumps(transcript, default=pydantic_encoder)
+
+    async with session.post("/dub", text=text) as resp:
+        result = await resp.json()
+
+        if resp.ok:
+            return Job[Media](**result)
+        else:
+            return Error(**result)
+
+
+async def translate(
+    *, session: aiohttp.ClientSession, transcript: Transcript, lang: Language
+) -> Job[Transcript] | Error:
+    events = language.translate_events(
+        transcript.events,
+        source=transcript.lang,
+        target=lang,
+    )
+
+    transcript = replace(
+        transcript, lang=lang, title=f"{transcript.title} ({lang})", events=events
+    )
+
+    return Job[Transcript](
+        op="Translate",
+        result=transcript,
+        state="Successful",
+        message=None,
+        id=None,
     )
 
 
-async def upload(
-    http_client: aiohttp.ClientSession, video_url: str, lang: str
-) -> Audio | Video:
-    params = {
-        "url": video_url,
-        "lang": lang,
-    }
+async def transcript(
+    *, session: aiohttp.ClientSession, origin: Source, lang: Language
+) -> Job[Transcript] | Error:
+    match origin.method:
+        case "Subtitles":
+            return Job[Transcript](
+                op="Transcribe",
+                result=subtitles(url=origin.url, lang=lang),
+                state="Successful",
+                message=None,
+                id=None,
+            )
+        case "Translate":
+            raise NotImplementedError("Unsupported origin.method: 'Translate'")
+        case "C3PO" | "R2D2" | "BB8":
+            text = json.dumps(
+                {"origin": origin, "lang": lang}, default=pydantic_encoder
+            )
+            async with session.post("/transcribe", text=text) as resp:
+                result = await resp.json()
 
-    async with http_client.post("/clips/upload", json=params) as resp:
-        await _raise_if_error(resp)
-        clip_dict = await resp.json()
-
-    # TODO (astaff): initialize data structures for Audio or Video
-    return None
-
-
-async def clip(http_client: aiohttp.ClientSession, clip_id: str) -> Audio | Video:
-    async with http_client.get(f"/clips/{clip_id}") as resp:
-        await _raise_if_error(resp)
-        clip_dict = await resp.json()
-
-    # TODO (astaff): initialize data structures for Audio or Video
-    return None
-
-
-async def dub(
-    http_client: aiohttp.ClientSession,
-    clip_id: str,
-    transcript: Sequence[Event],
-    default_character: Character,
-    lang: Language,
-    pitch: float,
-    weights: Tuple[int, int],
-) -> Audio | Video:
-    params = {
-        "transcript": [asdict(e) for e in transcript],
-        "characters": {"default": default_character},
-        "lang": lang,
-        "pitch": pitch,
-        "weights": weights,
-    }
-
-    async with http_client.post(f"/clips/{clip_id}/dub", json=params) as resp:
-        await _raise_if_error(resp)
-        clip_dict = await resp.json()
-        # TODO (astaff): initialize data structures for Audio or Video
-        return None
+                if resp.ok:
+                    return Job[Transcript](**result)
+                else:
+                    return Error(**result)
+        case never:
+            assert_never(never)
 
 
-async def video(http_client: aiohttp.ClientSession, clip_id: str) -> str:
-    async with http_client.get(f"/clips/{clip_id}/video") as resp:
-        await _raise_if_error(resp)
-        video_dict = await resp.json()
-    return video_dict["url"]
+async def ask(
+    *, session: aiohttp.ClientSession, request: Message
+) -> Job[Transcript] | Job[Media] | Error:
+    text = json.dumps(request, default=pydantic_encoder)
 
+    async with session.post("/ask", text=text) as resp:
+        result = await resp.json()
 
-async def say(
-    http_client: aiohttp.ClientSession, message: str
-) -> Tuple[str, str, Dict]:
-    # todo (lexaux) push state back to API
-    async with http_client.post("/say", json={"text": message}) as resp:
-        await _raise_if_error(resp)
-        data = await resp.json()
-        return data["text"], data["result"], data["state"]
+        if resp.ok:
+            match result["intent"]:
+                case "Translate" | "Transcribe":
+                    return Job[Transcript](**result)
+                case "Synth":
+                    return Job[Media](**result)
+                case intent:
+                    raise NotImplementedError(
+                        f"Don't know how to handle intent: {intent}"
+                    )
+        else:
+            return Error(**result)

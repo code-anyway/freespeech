@@ -1,6 +1,16 @@
-import uuid
-from dataclasses import dataclass, field
-from typing import List, Literal, NoReturn, Sequence, TypeGuard
+from typing import (
+    Dict,
+    Generic,
+    List,
+    Literal,
+    NoReturn,
+    Sequence,
+    Tuple,
+    TypeGuard,
+    TypeVar,
+)
+
+from pydantic.dataclasses import dataclass
 
 url = str
 AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC"]
@@ -10,6 +20,7 @@ TranscriptionModel = Literal["default", "latest_long", "general"]
 SpeechToText = Literal["C3PO", "R2D2", "BB8"]
 DocumentFormat = Literal["Google", "Notion", "SRT"]
 Language = Literal["en-US", "uk-UA", "ru-RU", "pt-PT", "es-US", "de-DE"]
+Operation = Literal["Transcribe", "Translate", "Synth"]
 
 
 def is_language(val: str) -> TypeGuard[Language]:
@@ -84,6 +95,12 @@ class Video:
 
 
 @dataclass(frozen=True)
+class Media:
+    audio: Tuple[str, Audio]
+    video: Tuple[str, Video]
+
+
+@dataclass(frozen=True)
 class Settings:
     original_audio_level: int = 2
     gaps: Literal["Crop", "Blank", "Fill"] = "Blank"
@@ -107,10 +124,47 @@ class Meta:
     tags: List[str]
 
 
+ReturnType = TypeVar("ReturnType")
+
+
 @dataclass(frozen=True)
-class Job:
-    status: Literal["Successful", "Cancelled", "Pending", "Failed"]
-    _id: uuid.UUID = field(default_factory=uuid.uuid4)
+class Job(Generic[ReturnType]):
+    op: Operation
+    result: ReturnType | None
+    state: Literal["Successful", "Cancelled", "Pending", "Failed"]
+    message: str | None
+    id: str | None
+
+
+@dataclass(frozen=True)
+class Error:
+    message: str
+    details: str
+    state: Dict | None = None
+
+
+@dataclass(frozen=True)
+class SynthRequest:
+    doc_url: str
+
+
+@dataclass(frozen=True)
+class TranslateRequest:
+    doc_url: str
+    lang: Language
+
+
+@dataclass(frozen=True)
+class TranscribeReuqest:
+    origin: Source
+    lang: Language
+
+
+@dataclass(frozen=True)
+class Message:
+    text: str
+    intent: Operation | None
+    state: Dict
 
 
 def assert_never(x: NoReturn) -> NoReturn:

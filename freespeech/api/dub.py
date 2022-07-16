@@ -8,14 +8,14 @@ from aiohttp import web
 from freespeech import env
 from freespeech.lib import media, speech
 from freespeech.lib.storage import doc, obj
-from freespeech.types import Clip, Event, Language, Voice
+from freespeech.types import Event, Language, Voice
 
 routes = web.RouteTableDef()
 logger = logging.getLogger(__name__)
 
 
-@routes.post("/clips/{clip_id}/dub")
-async def create_dub(request):
+@routes.post("/dub")
+async def dub(request):
     clip_id = request.match_info["clip_id"]
     params = await request.json()
 

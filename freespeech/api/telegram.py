@@ -7,10 +7,10 @@ import aiohttp
 from aiogram import types as tg_types
 from aiogram.utils.exceptions import RetryAfter
 from aiogram.utils.executor import start_webhook
-from aiohttp import ClientResponseError
 
 from freespeech import client, env
-from freespeech.api.chat import DUB_CLIENT_TIMEOUT
+from freespeech.api.chat import CLIENT_TIMEOUT
+from freespeech.types import Error, Message
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ MAX_RETRIES = 5
 def get_chat_client():
     return aiohttp.ClientSession(
         base_url=env.get_chat_service_url(),
-        timeout=aiohttp.ClientTimeout(DUB_CLIENT_TIMEOUT),
+        timeout=aiohttp.ClientTimeout(CLIENT_TIMEOUT),
     )
 
 
@@ -113,25 +113,28 @@ async def _handle_message(message: tg_types.Message):
         return
 
     async with get_chat_client() as _client:
-        try:
-            logger.info(
-                f"user_says: {message.text}",
-                extra={
-                    "labels": {"interface": "conversation_telegram"},
-                    "json_fields": {
-                        "client": "telegram_1",
-                        "user_id": message.from_user.id,
-                        "username": message.from_user.username,
-                        "full_name": message.from_user.full_name,
-                        "text": message.text,
-                    },
+        logger.info(
+            f"user_says: {message.text}",
+            extra={
+                "labels": {"interface": "conversation_telegram"},
+                "json_fields": {
+                    "client": "telegram_1",
+                    "user_id": message.from_user.id,
+                    "username": message.from_user.username,
+                    "full_name": message.from_user.full_name,
+                    "text": message.text,
                 },
-            )
+            },
+        )
 
-            text, result, state = await client.say(_client, message.text)
+        result = await client.ask(
+            session=_client,
+            request=Message(text=message.text, intent=None, state={}),
+        )
 
+        if not isinstance(result, Error):
             logger.info(
-                f"conversation_success: {text}",
+                f"conversation_success: {result.message}",
                 extra={
                     "labels": {"interface": "conversation_telegram"},
                     "json_fields": {
@@ -140,17 +143,17 @@ async def _handle_message(message: tg_types.Message):
                         "username": message.from_user.username,
                         "full_name": message.from_user.full_name,
                         "request": message.text,
-                        "reply": text,
+                        "reply": result.message,
                         "result": result,
-                        "state": state,
+                        "state": result.state,
                     },
                 },
             )
 
-            await _reply(message, text)
-        except ClientResponseError as e:
+            await message.reply(result.message)
+        else:
             logger.error(
-                f"conversation_error: {e.message}",
+                f"conversation_error: {result.message}",
                 extra={
                     "labels": {"interface": "conversation_telegram"},
                     "json_fields": {
@@ -159,13 +162,12 @@ async def _handle_message(message: tg_types.Message):
                         "username": message.from_user.username,
                         "full_name": message.from_user.full_name,
                         "request": message.text,
-                        "error_details": str(e),
+                        "error_details": result.details,
                     },
                 },
             )
-            await _reply(
-                message,
-                e.message,
+            await message.reply(
+                result.message,
                 parse_mode="Markdown",
             )
 

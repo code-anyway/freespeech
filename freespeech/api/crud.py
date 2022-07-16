@@ -7,7 +7,6 @@ from aiohttp import web
 from freespeech import env
 from freespeech.lib import media, youtube
 from freespeech.lib.storage import doc, obj
-from freespeech.types import Clip
 
 logger = logging.getLogger(__name__)
 
