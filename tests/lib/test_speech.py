@@ -1,8 +1,10 @@
 import json
+import tempfile
 from typing import Sequence, get_args
 
 import pytest
 
+from freespeech import env
 from freespeech.lib import media, speech
 from freespeech.lib.storage import obj
 from freespeech.types import Character, Event, Language, Voice, assert_never
@@ -412,3 +414,38 @@ def test_voices_and_languages_completeness() -> None:
                     raise ValueError("Deepgram can not be a ")
                 case never:
                     assert_never(never)
+
+
+@pytest.mark.asyncio
+async def test_azure_speech_quality():
+    azure_key, azure_region = env.get_azure_config()
+    sample_ssml = (
+        '<speak xmlns="http://www.w3.org/2001/10/synthesis" '
+        'xmlns:mstts="http://www.w3.org/2001/mstts" '
+        'xmlns:emo="http://www.w3.org/2009/10/emotionml" '
+        'version="1.0" xml:lang="en-US">'
+        '<voice name="en-US-JennyNeural">'
+        '<prosody rate="0%" pitch="0%"> '
+        "You can replace this text with any text you wish.You can either write in this "
+        "text box or paste your own text here. Enjoy using Text to Speech! "
+        "</prosody> </voice> </speak>"
+    )
+    import azure.cognitiveservices.speech as azure_tts
+
+    with tempfile.NamedTemporaryFile() as output:
+        speech_config = azure_tts.SpeechConfig(
+            subscription=azure_key, region=azure_region
+        )
+        speech_config.set_speech_synthesis_output_format(
+            azure_tts.SpeechSynthesisOutputFormat.Riff44100Hz16BitMonoPcm
+        )
+        audio_config = azure_tts.audio.AudioOutputConfig(filename=output.name)
+        speech_synthesizer = azure_tts.SpeechSynthesizer(
+            speech_config=speech_config, audio_config=audio_config
+        )
+        result = speech_synthesizer.speak_ssml(sample_ssml)
+        assert result.reason == azure_tts.ResultReason.SynthesizingAudioCompleted
+        ((audio, *_), _) = media.probe(output.name)
+        assert audio.num_channels == 1
+        assert audio.sample_rate_hz == 44100
+        assert audio.encoding == "LINEAR16"
