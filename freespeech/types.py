@@ -1,14 +1,4 @@
-from typing import (
-    Dict,
-    Generic,
-    List,
-    Literal,
-    NoReturn,
-    Sequence,
-    Tuple,
-    TypeGuard,
-    TypeVar,
-)
+from typing import Dict, List, Literal, NoReturn, Sequence, TypeGuard
 
 from pydantic.dataclasses import dataclass
 
@@ -17,10 +7,10 @@ AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC"]
 VideoEncoding = Literal["H264", "HEVC", "AV1"]
 ServiceProvider = Literal["Google", "Deepgram", "Azure"]
 TranscriptionModel = Literal["default", "latest_long", "general"]
-SpeechToText = Literal["C3PO", "R2D2", "BB8"]
-DocumentFormat = Literal["Google", "Notion", "SRT"]
+SpeechToTextBackend = Literal["C3PO", "R2D2", "BB8"]
+TranscriptBackend = Literal["Google", "Notion", "SRT", "SSMD"]
 Language = Literal["en-US", "uk-UA", "ru-RU", "pt-PT", "es-US", "de-DE"]
-Operation = Literal["Transcribe", "Translate", "Synth"]
+Operation = Literal["Transcribe", "Translate", "Synthesize"]
 
 
 def is_language(val: str) -> TypeGuard[Language]:
@@ -45,11 +35,10 @@ def is_character(val: str) -> TypeGuard[Character]:
         "Grace Hopper",
         "Ada Lovelace",
         "Alonzo Church",
-        "Original",
     )
 
 
-Method = Literal[SpeechToText, "Subtitles", "Translate"]
+Method = Literal[SpeechToTextBackend, TranscriptBackend, "Subtitles", "Translate"]
 
 
 def is_method(val: str) -> TypeGuard[Method]:
@@ -79,7 +68,6 @@ class Source:
 
 @dataclass(frozen=True)
 class Audio:
-    url: str
     duration_ms: int
     encoding: AudioEncoding
     sample_rate_hz: int
@@ -88,16 +76,14 @@ class Audio:
 
 @dataclass(frozen=True)
 class Video:
-    url: str
     duration_ms: int
     encoding: VideoEncoding
-    # TODO (astaff): add fps, HxW, etc
 
 
 @dataclass(frozen=True)
 class Media:
-    audio: Tuple[str, Audio]
-    video: Tuple[str, Video]
+    url: str
+    info: Audio | Video | None
 
 
 @dataclass(frozen=True)
@@ -111,9 +97,8 @@ class Transcript:
     title: str | None
     lang: Language
     events: Sequence[Event]
-    origin: Source | None
-    audio_url: str | None
-    video_url: str | None
+    source: Source | None
+    media: Sequence[Media] | None
     settings: Settings
 
 
@@ -124,40 +109,19 @@ class Meta:
     tags: List[str]
 
 
-ReturnType = TypeVar("ReturnType")
-
-
 @dataclass(frozen=True)
-class Job(Generic[ReturnType]):
+class Job:
     op: Operation
-    result: ReturnType | None
-    state: Literal["Successful", "Cancelled", "Pending", "Failed"]
+    state: Literal["Done", "Cancelled", "Running", "Pending", "Failed"]
     message: str | None
     id: str | None
 
 
 @dataclass(frozen=True)
 class Error:
+    state: Dict
     message: str
-    details: str
-    state: Dict | None = None
-
-
-@dataclass(frozen=True)
-class SynthRequest:
-    doc_url: str
-
-
-@dataclass(frozen=True)
-class TranslateRequest:
-    doc_url: str
-    lang: Language
-
-
-@dataclass(frozen=True)
-class TranscribeReuqest:
-    origin: Source
-    lang: Language
+    details: str | None = None
 
 
 @dataclass(frozen=True)
@@ -165,6 +129,24 @@ class Message:
     text: str
     intent: Operation | None
     state: Dict
+
+
+@dataclass(frozen=True)
+class SynthRequest:
+    transcript: str | Transcript
+
+
+@dataclass(frozen=True)
+class TranslateRequest:
+    transcript: str | Transcript
+    lang: Language
+
+
+@dataclass(frozen=True)
+class TranscriptReuqest:
+    url: str
+    method: Method
+    lang: Language
 
 
 def assert_never(x: NoReturn) -> NoReturn:
