@@ -32,6 +32,7 @@ setup(
         "freespeech.lib",
         "freespeech.lib.storage",
         "freespeech.api",
+        "freespeech.client",
     ],
     entry_points="""
         [console_scripts]

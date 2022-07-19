@@ -1,4 +1,4 @@
-from typing import Dict, List, Literal, NoReturn, Sequence, TypeGuard
+from typing import Dict, List, Literal, NoReturn, Sequence, Tuple, TypeGuard
 
 from pydantic.dataclasses import dataclass
 
@@ -82,8 +82,8 @@ class Video:
 
 @dataclass(frozen=True)
 class Media:
-    url: str
-    info: Audio | Video | None
+    video: Tuple[str, Video | None] | None
+    audio: Tuple[str, Audio | None] | None
 
 
 @dataclass(frozen=True)
@@ -98,7 +98,7 @@ class Transcript:
     lang: Language
     events: Sequence[Event]
     source: Source | None
-    media: Sequence[Media] | None
+    media: Media | None
     settings: Settings
 
 
@@ -132,13 +132,13 @@ class Message:
 
 
 @dataclass(frozen=True)
-class SynthRequest:
-    transcript: str | Transcript
+class SynthesizeRequest:
+    transcript: Transcript
 
 
 @dataclass(frozen=True)
 class TranslateRequest:
-    transcript: str | Transcript
+    transcript: Transcript
     lang: Language
 
 
