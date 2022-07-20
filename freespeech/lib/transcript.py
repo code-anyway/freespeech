@@ -2,11 +2,28 @@ import logging
 import re
 from dataclasses import replace
 from datetime import datetime
-from typing import Sequence, Tuple
+from typing import Dict, Sequence, Tuple
 
 import pytz
 
-from freespeech.types import Character, Event, Voice, is_character
+from freespeech.types import (
+    BLANK_METHODS,
+    LANGUAGES,
+    METHODS,
+    Audio,
+    Character,
+    Event,
+    Media,
+    Settings,
+    Source,
+    Transcript,
+    Video,
+    Voice,
+    is_blank_method,
+    is_character,
+    is_language,
+    is_method,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +159,110 @@ def parse_events(text: str) -> Sequence[Event]:
                 events += [replace(event := events.pop(), chunks=event.chunks + [line])]
 
     return events
+
+
+def parse_properties(text: str) -> Dict[str, str]:
+    return {
+        k.lower(): v for k, v in re.findall(r"\s*(\w+)\s*:\s*(.*)$", text, flags=re.M)
+    }
+
+
+def parse_transcript(text: str) -> Transcript:
+    match = timecode_parser.search(text)
+
+    if not match:
+        raise ValueError(
+            "Invalid document content: expected at least one timecode in the beginning of a paragraph."  # noqa: E501
+        )
+
+    transcript_start = match.start()
+    properties = parse_properties(text[:transcript_start])
+    events = parse_events(text=text[transcript_start:])
+
+    lang = properties.get("language", None)
+    if not lang:
+        raise ValueError(f"'language' is not set. Supported values: {LANGUAGES}")
+    if not is_language(lang):
+        raise ValueError(
+            f"Invalid value for 'language': {lang}. Supported values: {LANGUAGES}"
+        )
+
+    method = properties.get("method", None)
+    if method and not is_method(method):
+        raise ValueError(
+            f"Invalid value for 'method': {method}. Supported values: {METHODS}"
+        )
+
+    origin = properties.get("origin", None)
+    if origin and not method:
+        raise ValueError(f"'method' is not set. Supported values: {METHODS}")
+
+    if method and is_method(method) and origin:
+        source = Source(method=method, url=origin)
+    else:
+        source = None
+
+    settings = Settings()
+    blanks = properties.get("blanks", None)
+    if blanks is not None:
+        if not is_blank_method(blanks):
+            raise ValueError(
+                f"Invalid value for 'blanks'. Supported Values: {BLANK_METHODS}"
+            )
+        settings = replace(settings, space_between_events=blanks)
+
+    original_audio_level = properties.get("original_audio_level", None)
+    if original_audio_level is not None:
+        if not str(original_audio_level).isnumeric():
+            raise ValueError(
+                "Invalid value for 'original_audio_level'. Expected numeric: 1, 2, 3, etc."  # noqa: E501
+            )
+        settings = replace(settings, original_audio_level=int(original_audio_level))
+
+    video = properties.get("video", None)
+    audio = properties.get("audio", None)
+
+    return Transcript(
+        title=None,
+        lang=lang,
+        events=events,
+        source=source,
+        video=Media[Video](url=video, info=None) if video else None,
+        audio=Media[Audio](url=audio, info=None) if audio else None,
+        settings=settings,
+    )
+
+
+def render_transcript(transcript: Transcript) -> str:
+    # putting up properties
+    properties = {
+        "language": transcript.lang,
+        "method": transcript.source and transcript.source.method,
+        "origin": transcript.source and transcript.source.url,
+        "blanks": transcript.settings.space_between_events,
+        "audio": transcript.audio and transcript.audio.url,
+        "video": transcript.video and transcript.video.url,
+        "original_audio_level": transcript.settings.original_audio_level
+    }
+
+    output = "\n".join(
+        f"{key}: {value}" for key, value in properties.items() if value
+    )
+
+    # putting up events
+    for event in transcript.events:
+        output += "\n"
+        output += (
+            unparse_time_interval(
+                event.time_ms,
+                event.duration_ms,
+                event.voice,
+            )
+            + "\n"
+        )
+        output += "\n".join(event.chunks) + "\n"
+
+    return output
 
 
 def srt_to_events(text: str) -> Sequence[Event]:

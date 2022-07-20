@@ -7,7 +7,7 @@ from pydantic.json import pydantic_encoder
 
 from freespeech.client import chat, transcript
 from freespeech.lib import speech
-from freespeech.types import AskRequest, Error, Event, Task, TranscriptReuqest
+from freespeech.types import AskRequest, Error, Event, Task, TranscriptRequest
 
 routes = web.RouteTableDef()
 logger = logging.getLogger(__name__)

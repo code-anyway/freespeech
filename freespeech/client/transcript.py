@@ -11,7 +11,7 @@ from freespeech.types import (
     SynthesizeRequest,
     Task,
     Transcript,
-    TranscriptReuqest,
+    TranscriptRequest,
     TranslateRequest,
 )
 
@@ -23,7 +23,7 @@ async def load(
     lang: Language | None,
     session: aiohttp.ClientSession,
 ) -> Awaitable[Transcript | Error] | Error:
-    request = TranscriptReuqest(source=source, method=method, lang=lang)
+    request = TranscriptRequest(source=source, method=method, lang=lang)
 
     async with session.post("/transcript", json=pydantic_encoder(request)) as resp:
         result = await resp.json()

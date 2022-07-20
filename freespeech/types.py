@@ -1,4 +1,14 @@
-from typing import Dict, Generic, List, Literal, NoReturn, Sequence, TypeGuard, TypeVar
+from typing import (
+    Dict,
+    Generic,
+    List,
+    Literal,
+    NoReturn,
+    Sequence,
+    Type,
+    TypeGuard,
+    TypeVar,
+)
 
 from pydantic.dataclasses import dataclass
 
@@ -7,11 +17,19 @@ AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC"]
 VideoEncoding = Literal["H264", "HEVC", "AV1"]
 ServiceProvider = Literal["Google", "Deepgram", "Azure"]
 TranscriptionModel = Literal["default", "latest_long", "general"]
+
 SpeechToTextBackend = Literal["C3PO", "R2D2", "BB8"]
+SPEECH_BACKENDS = ["C3PO", "R2D2", "BB8"]
+
 TranscriptBackend = Literal["Google", "Notion", "SRT", "SSMD"]
+TRANSCRIPT_BACKENDS = ["Google", "Notion", "SRT", "SSMD"]
+
 Language = Literal["en-US", "uk-UA", "ru-RU", "pt-PT", "es-US", "de-DE"]
+LANGUAGES = ["en-US", "uk-UA", "ru-RU", "pt-PT", "es-US", "de-DE"]
+
 Operation = Literal["Transcribe", "Translate", "Synthesize"]
-MediaContentType = Literal["Audio", "Video"]
+OPERATIONS = ["Transcribe", "Translate", "Synthesize"]
+
 Character = Literal[
     "Alan Turing",
     "Grace Hopper",
@@ -20,35 +38,45 @@ Character = Literal[
     "Bill",
     "Melinda",
 ]
+CHARACTERS = [
+    "Alan Turing",
+    "Grace Hopper",
+    "Ada Lovelace",
+    "Alonzo Church",
+    "Bill",
+    "Melinda",
+]
+
 Method = Literal[SpeechToTextBackend, TranscriptBackend, "Subtitles", "Translate"]
+METHODS = SPEECH_BACKENDS + TRANSCRIPT_BACKENDS + ["Subtitles", "Translate"]
+
+BlankMethod = Literal["Crop", "Fill"]
+BLANK_METHODS = ["Crop", "Fill"]
 
 
 def is_language(val: str) -> TypeGuard[Language]:
-    return val in ("en-US", "uk-UA", "ru-RU", "pt-PT", "es-US", "de-DE")
+    return val in LANGUAGES
 
 
 def is_operation(val: str) -> TypeGuard[Operation]:
-    return val in ("Transcribe", "Translate", "Synthesize")
+    return val in OPERATIONS
 
 
 def is_character(val: str) -> TypeGuard[Character]:
-    return val in (
-        "Bill",
-        "Melinda",
-        "Alan Turing",
-        "Grace Hopper",
-        "Ada Lovelace",
-        "Alonzo Church",
-    )
+    return val in CHARACTERS
 
 
 def is_method(val: str) -> TypeGuard[Method]:
-    return val in ("C3PO", "R2D2", "BB8", "Subtitles", "Translate")
+    return val in METHODS
+
+
+def is_blank_method(val: str) -> TypeGuard[BlankMethod]:
+    return val in BLANK_METHODS
 
 
 @dataclass(frozen=True)
 class Voice:
-    character: Character = "Alan Turing"
+    character: Character = "Ada Lovelace"
     pitch: float = 0.0
     speech_rate: float = 1.0
 
@@ -93,7 +121,7 @@ class Media(Generic[MediaType]):
 @dataclass(frozen=True)
 class Settings:
     original_audio_level: int = 2
-    gaps: Literal["Crop", "Blank", "Fill"] = "Blank"
+    space_between_events: BlankMethod | None = None
 
 
 @dataclass(frozen=True)
@@ -133,7 +161,7 @@ class TranslateRequest:
 
 
 @dataclass(frozen=True)
-class TranscriptReuqest:
+class TranscriptRequest:
     source: str | None
     method: Method
     lang: Language | None
@@ -142,7 +170,7 @@ class TranscriptReuqest:
 @dataclass(frozen=True)
 class IngestRequest:
     source: str | None
-    streams: Sequence[Audio | Video]
+    output_types: Sequence[Type[Audio] | Type[Video]]
 
 
 @dataclass(frozen=True)
