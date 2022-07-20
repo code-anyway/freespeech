@@ -1,22 +1,24 @@
-import json
+from typing import Dict
 
 import aiohttp
 from pydantic.json import pydantic_encoder
 
-from freespeech.types import (
-    Error,
-    Job,
-    Message,
-)
+from freespeech.types import AskRequest, Error, Operation, Task
 
 
-async def ask(*, request: Message, session: aiohttp.ClientSession) -> Job | Error:
-    text = json.dumps(request, default=pydantic_encoder)
+async def ask(
+    *,
+    message: str,
+    intent: Operation | None,
+    state: Dict,
+    session: aiohttp.ClientSession
+) -> Task | Error:
+    request = AskRequest(message=message, intent=intent, state=state)
 
-    async with session.post("/ask", text=text) as resp:
+    async with session.post("/ask", json=pydantic_encoder(request)) as resp:
         result = await resp.json()
 
         if resp.ok:
-            return Job(**result)
+            return Task(**result)
         else:
             return Error(**result)

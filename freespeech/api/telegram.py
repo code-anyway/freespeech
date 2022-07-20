@@ -8,9 +8,10 @@ from aiogram import types as tg_types
 from aiogram.utils.exceptions import RetryAfter
 from aiogram.utils.executor import start_webhook
 
-from freespeech import client, env
+from freespeech import env
 from freespeech.api.chat import CLIENT_TIMEOUT
-from freespeech.types import Error, Message
+from freespeech.client import chat, tasks
+from freespeech.types import AskResponse, Error, Task
 
 logger = logging.getLogger(__name__)
 
@@ -127,49 +128,49 @@ async def _handle_message(message: tg_types.Message):
             },
         )
 
-        result = await client.ask(
+        result = await chat.ask(
+            message=message.text,
+            intent=None,
+            state={},
             session=_client,
-            request=Message(text=message.text, intent=None, state={}),
         )
+        await message.reply(result.message, parse_mode="Markdown")
 
-        if not isinstance(result, Error):
-            logger.info(
-                f"conversation_success: {result.message}",
-                extra={
-                    "labels": {"interface": "conversation_telegram"},
-                    "json_fields": {
-                        "client": "telegram_1",
-                        "user_id": message.from_user.id,
-                        "username": message.from_user.username,
-                        "full_name": message.from_user.full_name,
-                        "request": message.text,
-                        "reply": result.message,
-                        "result": result,
-                        "state": result.state,
+        match result:
+            case Task():
+                response = await tasks.future(result, return_type=AskResponse)
+                logger.info(
+                    f"conversation_success: {response.message}",
+                    extra={
+                        "labels": {"interface": "conversation_telegram"},
+                        "json_fields": {
+                            "client": "telegram_1",
+                            "user_id": message.from_user.id,
+                            "username": message.from_user.username,
+                            "full_name": message.from_user.full_name,
+                            "request": message.text,
+                            "reply": response.message,
+                            "result": result,
+                            "state": response.state,
+                        },
                     },
-                },
-            )
-
-            await message.reply(result.message)
-        else:
-            logger.error(
-                f"conversation_error: {result.message}",
-                extra={
-                    "labels": {"interface": "conversation_telegram"},
-                    "json_fields": {
-                        "client": "telegram_1",
-                        "user_id": message.from_user.id,
-                        "username": message.from_user.username,
-                        "full_name": message.from_user.full_name,
-                        "request": message.text,
-                        "error_details": result.details,
+                )
+                await message.reply(response.message)
+            case Error():
+                logger.error(
+                    f"conversation_error: {result.message}",
+                    extra={
+                        "labels": {"interface": "conversation_telegram"},
+                        "json_fields": {
+                            "client": "telegram_1",
+                            "user_id": message.from_user.id,
+                            "username": message.from_user.username,
+                            "full_name": message.from_user.full_name,
+                            "request": message.text,
+                            "error_details": result.details,
+                        },
                     },
-                },
-            )
-            await message.reply(
-                result.message,
-                parse_mode="Markdown",
-            )
+                )
 
 
 def start_bot(port: int):

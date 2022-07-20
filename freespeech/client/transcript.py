@@ -1,14 +1,15 @@
-import json
+from typing import Awaitable
 
 import aiohttp
 from pydantic.json import pydantic_encoder
 
+from freespeech.client import tasks
 from freespeech.types import (
     Error,
-    Job,
     Language,
-    Media,
     Method,
+    SynthesizeRequest,
+    Task,
     Transcript,
     TranscriptReuqest,
     TranslateRequest,
@@ -16,21 +17,19 @@ from freespeech.types import (
 
 
 async def load(
-    *,
     source: str,  # This can also be BinaryIO
+    *,
     method: Method,
-    lang: Language,
+    lang: Language | None,
     session: aiohttp.ClientSession,
-) -> Job[Transcript] | Error:
-    text = json.dumps(
-        TranscriptReuqest(url=source, method=method, lang=lang),
-        default=pydantic_encoder,
-    )
-    async with session.post("/transcript", text=text) as resp:
+) -> Awaitable[Transcript | Error] | Error:
+    request = TranscriptReuqest(source=source, method=method, lang=lang)
+
+    async with session.post("/transcript", json=pydantic_encoder(request)) as resp:
         result = await resp.json()
 
         if resp.ok:
-            return Job(**result)
+            return tasks.future(Task(**result), return_type=Transcript)
         else:
             return Error(**result)
 
@@ -39,29 +38,27 @@ async def synthesize(
     transcript: Transcript,
     *,
     session: aiohttp.ClientSession,
-) -> Job[Media] | Error:
-    text = json.dumps(transcript, default=pydantic_encoder)
+) -> Awaitable[Transcript | Error] | Error:
+    request = SynthesizeRequest(transcript=transcript)
 
-    async with session.post("/synthesize", text=text) as resp:
+    async with session.post("/synthesize", json=pydantic_encoder(request)) as resp:
         result = await resp.json()
 
         if resp.ok:
-            return Job(**result)
+            return tasks.future(Task(**result), return_type=Transcript)
         else:
             return Error(**result)
 
 
 async def translate(
     transcript: Transcript, *, lang: Language, session: aiohttp.ClientSession
-) -> Job[Transcript] | Error:
-    text = json.dumps(
-        TranslateRequest(transcript=transcript, lang=lang), default=pydantic_encoder
-    )
+) -> Awaitable[Transcript | Error] | Error:
+    request = TranslateRequest(transcript=transcript, lang=lang)
 
-    async with session.post("/translate", text=text) as resp:
+    async with session.post("/translate", json=pydantic_encoder(request)) as resp:
         result = await resp.json()
 
         if resp.ok:
-            return Job(**result)
+            return tasks.future(Task(**result), return_type=Transcript)
         else:
             return Error(**result)

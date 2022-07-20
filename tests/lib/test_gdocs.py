@@ -6,10 +6,10 @@ from freespeech.types import Event, Settings, Source, Transcript, Voice
 EXPECTED_TRANSCRIPT = Transcript(
     title="test_gdocs",
     lang="en-US",
-    origin=Source(method="Subtitles", url="https://youtube.com/foo"),
+    source=Source(method="Subtitles", url="https://youtube.com/foo"),
     settings=Settings(),
-    video_url=None,
-    audio_url=None,
+    video=None,
+    audio=None,
     events=[
         Event(
             time_ms=0,

@@ -8,7 +8,7 @@ from aiohttp import ClientResponseError, web
 from aiohttp.pytest_plugin import AiohttpClient
 
 from freespeech import cli
-from freespeech.client import _raise_if_error
+from freespeech.client.errors import _raise_if_error
 
 logger = logging.getLogger(__name__)
 

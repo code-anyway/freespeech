@@ -1,4 +1,3 @@
-import json
 import logging
 from typing import Sequence
 
@@ -6,9 +5,9 @@ import aiohttp
 from aiohttp import web
 from pydantic.json import pydantic_encoder
 
-from freespeech import client
-from freespeech.lib import chat, speech
-from freespeech.types import Error, Event, Job, Message, Source
+from freespeech.client import chat, transcript
+from freespeech.lib import speech
+from freespeech.types import AskRequest, Error, Event, Task, TranscriptReuqest
 
 routes = web.RouteTableDef()
 logger = logging.getLogger(__name__)
@@ -50,14 +49,12 @@ def normalize_speech(
     )
 
 
-def handle_response(response: Job | Error) -> web.Response:
-    text = json.dumps(response, default=pydantic_encoder)
-
+def handle_response(response: Task | Error) -> web.Response:
     match response:
         case Error():
-            raise web.HTTPBadRequest(text=text, content_type="application/json")
-        case Job():
-            return web.Response(text=text, content_type="application/json")
+            raise web.HTTPBadRequest(body=pydantic_encoder(response))
+        case Task():
+            return web.Response(body=pydantic_encoder(response))
 
 
 def _raise_unknown_query(intent: str | None = None):
@@ -69,16 +66,16 @@ def _raise_unknown_query(intent: str | None = None):
 @routes.post("/ask")
 async def ask(request):
     params = await request.json()
-    message = Message(**params)
+    request = AskRequest(**params)
 
-    if not message.intent:
+    if request.intent:
+        intent = request.intent
+    else:
         try:
-            intent, entities = await chat.intent(message.text)
-            state = {**message.state, **entities}
+            intent, entities = await chat.intent(request.text)
+            state = {**request.state, **entities}
         except ValueError:
             _raise_unknown_query(intent)
-    else:
-        intent = message.intent
 
     lang = state.get("lang", None)
     url = state.get("url", None)
@@ -90,22 +87,27 @@ async def ask(request):
     )
 
     match intent:
-        case "transcribe":
-            response = await client.transcript(
-                session=session, origin=Source(state), lang=lang
+        case "Transcribe":
+            request = TranscriptReuqest(state)
+            response = await transcript.load(
+                source=request.source,
+                method=request.method,
+                lang=request.lang,
+                session=session,
             )
             return handle_response(response)
 
-        case "translate":
-            response = await client.translate(
-                transcript=await client.load(url=url),
+        case "Translate":
+            response = await transcript.translate(
+                transcript=await transcript.load(source=url, method="Google"),
                 lang=lang,
+                session=session,
             )
             return handle_response(response)
 
-        case "synth":
-            response = await client.synth(
-                transcript=await client.load(url=url),
+        case "Synthesize":
+            response = await transcript.synthesize(
+                transcript=await transcript.load(source=url, method="Google"),
             )
             return handle_response(response)
 

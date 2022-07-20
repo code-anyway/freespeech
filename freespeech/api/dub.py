@@ -1,100 +1,44 @@
 import logging
-from dataclasses import asdict, replace
+from dataclasses import replace
 from tempfile import TemporaryDirectory
-from typing import List, Tuple
 
 from aiohttp import web
+from pydantic.json import pydantic_encoder
 
-from freespeech import env
-from freespeech.lib import media, speech
-from freespeech.lib.storage import doc, obj
-from freespeech.types import Event, Language, Voice
+from freespeech import env, lib
+from freespeech.lib.storage import obj
+from freespeech.types import Media, SynthesizeRequest, Video
 
 routes = web.RouteTableDef()
 logger = logging.getLogger(__name__)
 
 
-@routes.post("/dub")
-async def dub(request):
-    clip_id = request.match_info["clip_id"]
+@routes.post("/synthesize")
+async def synthesize(request):
     params = await request.json()
-
-    events = [
-        Event(
-            time_ms=event["time_ms"],
-            duration_ms=event["duration_ms"],
-            chunks=event["chunks"],
-            # TODO (astaff): refactor deserialization,
-            # this one duplicates default value from
-            # voice type definition
-            voice=Voice(**value)
-            if (value := event.get("voice", None))
-            else Voice("Alan Turing"),
-        )
-        for event in params["transcript"]
-    ]
-
-    db = doc.google_firestore_client()
-    clip = await doc.get(db, "clips", clip_id)
-    clip = Clip(**clip)
-
-    dub_clip = await _dub(
-        clip=clip,
-        lang=params["lang"],
-        events=events,
-        weights=params["weights"],
-    )
-    await doc.put(db, "clips", dub_clip._id, asdict(dub_clip))
-
-    return web.json_response(asdict(dub_clip))
-
-
-# TODO (astaff): this should go into API eventually.
-async def _dub(
-    clip: Clip,
-    lang: Language,
-    events: List[Event],
-    weights: Tuple[int, int],
-) -> Clip:
+    request = SynthesizeRequest(**params)
     with TemporaryDirectory() as tmp_dir:
-        if not clip.video:
-            raise ValueError(f"Clip _id={clip._id} has no video.")
-
-        synth_file, voices = await speech.synthesize_events(
-            events=events,
-            lang=lang,
+        synth_file, _ = await lib.speech.synthesize_events(
+            events=request.transcript.events,
+            lang=request.transcript.lang,
             output_dir=tmp_dir,
         )
-        original_weight, synth_weight = weights
-
-        audio_url, _ = clip.audio
-        audio_file = await obj.get(audio_url, tmp_dir)
-        mixed_file = await media.mix(
+        audio_file = request.transcript.audio and await obj.get(
+            request.transcript.audio.url, output_dir=tmp_dir
+        )
+        video_file = request.transcript.video and await obj.get(
+            request.transcript.video.url, output_dir=tmp_dir
+        )
+        mixed_file = await lib.media.mix(
             files=(audio_file, synth_file),
-            weights=(original_weight, synth_weight),
+            weights=(request.transcript.settings.original_audio_level, 10),
             output_dir=tmp_dir,
         )
-
-        video_url, _ = clip.video
-        video_file = await obj.get(video_url, tmp_dir)
-        dub_file = await media.dub(
+        dub_file = await lib.media.dub(
             video=video_file, audio=mixed_file, output_dir=tmp_dir
         )
-
-        ((dub_audio, *_), (dub_video, *_)) = media.probe(dub_file)
-        dub_url = f"{env.get_storage_url()}/clips/{dub_file.name}"
-
-        events_with_voices = [replace(e, voice=v) for e, v in zip(events, voices)]
-        dub_clip = Clip(
-            origin=clip.origin,
-            lang=lang,
-            audio=(dub_url, dub_audio),
-            video=(dub_url, dub_video),
-            transcript=events_with_voices,
-            meta=clip.meta,
-            parent_id=clip._id,
-        )
-
+        dub_url = f"{env.get_storage_url()}/output/{dub_file.name}"
         await obj.put(dub_file, dub_url)
+        transcript = replace(request.transcript, video=Media[Video](url=dub_url))
 
-        return dub_clip
+    return web.json_response(pydantic_encoder(transcript))

@@ -1,21 +1,33 @@
-from typing import BinaryIO
+from typing import Awaitable, BinaryIO, Sequence
 
 import aiohttp
+from pydantic.json import pydantic_encoder
 
-from freespeech.types import Error, Job, Media
+from freespeech.client import tasks
+from freespeech.types import Audio, Error, IngestRequest, Media, Task, Video
 
 
 async def ingest(
-    *, source: str | BinaryIO, session: aiohttp.ClientSession
-) -> Job[Media] | Error:
-    params = {
-        "url": source,
-    }
+    *,
+    source: str | BinaryIO,
+    streams: Sequence[Audio | Video],
+    session: aiohttp.ClientSession
+) -> Awaitable[list[Media] | Error] | Error:
+    request = IngestRequest(
+        source=source if isinstance(source, str) else None,
+        streams=streams,
+    )
 
-    async with session.post("/ingest", json=params) as resp:
-        result = await resp.json()
+    with aiohttp.MultipartWriter("mixed") as mpwriter:
+        mpwriter.append_json(pydantic_encoder(request))
 
-        if resp.ok:
-            return Job(**result)
-        else:
-            return Error(**result)
+        if isinstance(source, BinaryIO):
+            mpwriter.append(source)
+
+        async with session.post("/ingest", data=mpwriter) as resp:
+            result = await resp.json()
+
+            if resp.ok:
+                return tasks.future(Task(**result), return_type=list[Media])
+            else:
+                return Error(**result)

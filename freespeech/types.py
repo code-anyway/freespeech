@@ -1,4 +1,4 @@
-from typing import Dict, List, Literal, NoReturn, Sequence, Tuple, TypeGuard
+from typing import Dict, Generic, List, Literal, NoReturn, Sequence, TypeGuard, TypeVar
 
 from pydantic.dataclasses import dataclass
 
@@ -11,12 +11,7 @@ SpeechToTextBackend = Literal["C3PO", "R2D2", "BB8"]
 TranscriptBackend = Literal["Google", "Notion", "SRT", "SSMD"]
 Language = Literal["en-US", "uk-UA", "ru-RU", "pt-PT", "es-US", "de-DE"]
 Operation = Literal["Transcribe", "Translate", "Synthesize"]
-
-
-def is_language(val: str) -> TypeGuard[Language]:
-    return val in ("en-US", "uk-UA", "ru-RU", "pt-PT", "es-US", "de-DE")
-
-
+MediaContentType = Literal["Audio", "Video"]
 Character = Literal[
     "Alan Turing",
     "Grace Hopper",
@@ -25,6 +20,15 @@ Character = Literal[
     "Bill",
     "Melinda",
 ]
+Method = Literal[SpeechToTextBackend, TranscriptBackend, "Subtitles", "Translate"]
+
+
+def is_language(val: str) -> TypeGuard[Language]:
+    return val in ("en-US", "uk-UA", "ru-RU", "pt-PT", "es-US", "de-DE")
+
+
+def is_operation(val: str) -> TypeGuard[Operation]:
+    return val in ("Transcribe", "Translate", "Synthesize")
 
 
 def is_character(val: str) -> TypeGuard[Character]:
@@ -36,9 +40,6 @@ def is_character(val: str) -> TypeGuard[Character]:
         "Ada Lovelace",
         "Alonzo Church",
     )
-
-
-Method = Literal[SpeechToTextBackend, TranscriptBackend, "Subtitles", "Translate"]
 
 
 def is_method(val: str) -> TypeGuard[Method]:
@@ -80,10 +81,13 @@ class Video:
     encoding: VideoEncoding
 
 
+MediaType = TypeVar("MediaType", Audio, Video)
+
+
 @dataclass(frozen=True)
-class Media:
-    video: Tuple[str, Video | None] | None
-    audio: Tuple[str, Audio | None] | None
+class Media(Generic[MediaType]):
+    url: str
+    info: MediaType | None
 
 
 @dataclass(frozen=True)
@@ -98,7 +102,8 @@ class Transcript:
     lang: Language
     events: Sequence[Event]
     source: Source | None
-    media: Media | None
+    video: Media[Video] | None
+    audio: Media[Audio] | None
     settings: Settings
 
 
@@ -110,25 +115,10 @@ class Meta:
 
 
 @dataclass(frozen=True)
-class Job:
-    op: Operation
-    state: Literal["Done", "Cancelled", "Running", "Pending", "Failed"]
-    message: str | None
-    id: str | None
-
-
-@dataclass(frozen=True)
 class Error:
     state: Dict
     message: str
     details: str | None = None
-
-
-@dataclass(frozen=True)
-class Message:
-    text: str
-    intent: Operation | None
-    state: Dict
 
 
 @dataclass(frozen=True)
@@ -144,9 +134,39 @@ class TranslateRequest:
 
 @dataclass(frozen=True)
 class TranscriptReuqest:
-    url: str
+    source: str | None
     method: Method
-    lang: Language
+    lang: Language | None
+
+
+@dataclass(frozen=True)
+class IngestRequest:
+    source: str | None
+    streams: Sequence[Audio | Video]
+
+
+@dataclass(frozen=True)
+class Task:
+    op: Operation
+    state: Literal["Done", "Cancelled", "Running", "Pending", "Failed"]
+    message: str | None
+    id: str
+
+
+@dataclass(frozen=True)
+class AskRequest:
+    message: str
+    intent: Operation | None
+    state: Dict
+
+
+@dataclass(frozen=True)
+class AskResponse:
+    message: str
+    state: Dict
+
+
+TaskReturnType = TypeVar("TaskReturnType", Transcript, List[Media], AskResponse, str)
 
 
 def assert_never(x: NoReturn) -> NoReturn:

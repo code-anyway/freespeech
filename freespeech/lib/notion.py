@@ -8,10 +8,13 @@ import aiohttp
 from freespeech import env, types
 from freespeech.lib import text, transcript
 from freespeech.types import (
+    Audio,
     Event,
+    Media,
     Settings,
     Source,
     Transcript,
+    Video,
     assert_never,
     is_method,
     url,
@@ -217,20 +220,20 @@ def get_updated_pages(db_id: str, timestamp: str) -> List[str]:
 
 def render_transcript(transcript: Transcript) -> Tuple[Dict[str, Any], List[Dict]]:
     title = transcript.title or "Untitled"
-    source = transcript.origin and transcript.origin.method
+    source = transcript.source and transcript.source.method
     original_audio_level = transcript.settings.original_audio_level
 
     properties = {
         PROPERTY_NAME_PAGE_TITLE: {
             "title": [{"type": "text", "text": {"content": title}}],
         },
-        PROPERTY_NAME_ORIGIN: {"url": transcript.origin and transcript.origin.url},
+        PROPERTY_NAME_ORIGIN: {"url": transcript.source and transcript.source.url},
         PROPERTY_NAME_LANG: {"select": {"name": transcript.lang}},
         PROPERTY_NAME_METHOD: {"select": {"name": source}},
         PROPERTY_NAME_ORIGINAL_AUDIO_LEVEL: render_text(str(original_audio_level)),
         PROPERTY_NAME_TITLE: render_text(title),
-        PROPERTY_NAME_AUDIO_URL: {"url": transcript.audio_url},
-        PROPERTY_NAME_VIDEO_URL: {"url": transcript.video_url},
+        PROPERTY_NAME_AUDIO_URL: {"url": transcript.audio and transcript.audio.url},
+        PROPERTY_NAME_VIDEO_URL: {"url": transcript.video and transcript.video.url},
     }
 
     # Flatten event blocks
@@ -275,12 +278,12 @@ def parse_transcript(properties: Dict[str, Any], blocks: List[Dict]) -> Transcri
 
     return Transcript(
         title=str(properties[PROPERTY_NAME_PAGE_TITLE]),
-        origin=Source(method=method, url=str(properties[PROPERTY_NAME_ORIGIN])),
+        source=Source(method=method, url=str(properties[PROPERTY_NAME_ORIGIN])),
         lang=lang,
         events=parse_events(blocks),
         settings=Settings(original_audio_level=original_audio_level),
-        video_url=properties[PROPERTY_NAME_VIDEO_URL],
-        audio_url=properties[PROPERTY_NAME_AUDIO_URL],
+        video=Media[Video](properties[PROPERTY_NAME_VIDEO_URL], info=None),
+        audio=Media[Audio](properties[PROPERTY_NAME_AUDIO_URL], info=None),
     )
 
 
