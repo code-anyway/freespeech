@@ -5,9 +5,10 @@ from tempfile import TemporaryDirectory
 from aiohttp import web
 from pydantic.json import pydantic_encoder
 
-from freespeech import env, lib
+from freespeech import env
+from freespeech.lib import speech, media
 from freespeech.lib.storage import obj
-from freespeech.types import Media, SynthesizeRequest, Video
+from freespeech.types import Audio, Media, SynthesizeRequest, Video
 
 routes = web.RouteTableDef()
 logger = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ async def synthesize(request):
     params = await request.json()
     request = SynthesizeRequest(**params)
     with TemporaryDirectory() as tmp_dir:
-        synth_file, _ = await lib.speech.synthesize_events(
+        synth_file, _ = await speech.synthesize_events(
             events=request.transcript.events,
             lang=request.transcript.lang,
             output_dir=tmp_dir,
@@ -29,16 +30,26 @@ async def synthesize(request):
         video_file = request.transcript.video and await obj.get(
             request.transcript.video.url, output_dir=tmp_dir
         )
-        mixed_file = await lib.media.mix(
+        mixed_file = await media.mix(
             files=(audio_file, synth_file),
             weights=(request.transcript.settings.original_audio_level, 10),
             output_dir=tmp_dir,
         )
-        dub_file = await lib.media.dub(
+        dub_file = await media.dub(
             video=video_file, audio=mixed_file, output_dir=tmp_dir
         )
         dub_url = f"{env.get_storage_url()}/output/{dub_file.name}"
         await obj.put(dub_file, dub_url)
-        transcript = replace(request.transcript, video=Media[Video](url=dub_url))
+        transcript = replace(
+            request.transcript,
+            video=Media[Video](
+                url=dub_url,
+                info=None,
+            ),
+            audio=Media[Audio](
+                url=dub_url,
+                info=None,
+            )
+        )
 
     return web.json_response(pydantic_encoder(transcript))

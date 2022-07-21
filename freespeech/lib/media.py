@@ -181,7 +181,12 @@ async def mix(
     Returns:
         Audio file with all files normalized and mixed according to weights.
     """
-    audio_streams = [ffmpeg.input(file).audio for file in files]
+    files = [file for file in files if file]
+    if len(files) == 1:
+        return Path(files[0])
+
+    audio_streams = [ffmpeg.input(file).audio for file in files if file]
+
     mixed_audio = ffmpeg.filter(
         audio_streams,
         filter_name="amix",
@@ -199,6 +204,9 @@ async def mix(
 async def dub(
     video: str | PathLike, audio: str | PathLike, output_dir: str | PathLike
 ) -> Path:
+    if not video:
+        return Path(audio)
+
     streams = (ffmpeg.input(audio).audio, ffmpeg.input(video).video)
 
     video = Path(video)
