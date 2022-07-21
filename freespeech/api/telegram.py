@@ -45,12 +45,7 @@ walkthrough_text = (
     "Also, check out a " "[quick walkthrough](https://youtu.be/3rCE5_OxuUo)."
 )
 
-
-bot = tg.Bot(token=env.get_telegram_bot_token())
-WEBHOOK_URL = env.get_telegram_webhook_url()
-WEBHOOK_ROUTE = urlparse(WEBHOOK_URL).path
 MAX_RETRIES = 5
-dispatcher = tg.Dispatcher(bot)
 
 
 def get_chat_client():
@@ -81,21 +76,16 @@ def handle_ratelimit(func):
 
 
 @handle_ratelimit
-async def _answer(
-    message: tg_types.Message, text: str, *, retries: int = MAX_RETRIES, **kwargs
-):
+async def _answer(message: tg_types.Message, text: str, **kwargs):
     await message.answer(text, **kwargs)
 
 
 @handle_ratelimit
-async def _reply(
-    message: tg_types.Message, text: str, *, retries: int = MAX_RETRIES, **kwargs
-):
+async def _reply(message: tg_types.Message, text: str, **kwargs):
     await message.reply(text, **kwargs)
 
 
 # not using aiogram decorators to have full control over order of rules
-@dispatcher.async_task
 async def _help(message: tg_types.Message):
     await _answer(
         message, help_text, disable_web_page_preview=True, parse_mode="Markdown"
@@ -109,13 +99,12 @@ async def _is_message_for_bot(message: tg_types.Message) -> bool:
     if message.chat.type == "private":
         return True
     if "@" in message.text:
-        bot_details = await bot.get_me()
+        bot_details = await message.bot.get_me()
         if f"@{bot_details.username}" in message.text:
             return True
     return False
 
 
-@dispatcher.async_task
 async def _handle_message(message: tg_types.Message):
     """
     Conversation's entry point
@@ -182,14 +171,21 @@ async def _handle_message(message: tg_types.Message):
 
 
 def start_bot(port: int):
+    webhook_route = urlparse(env.get_telegram_webhook_url()).path
+
+    bot = tg.Bot(token=env.get_telegram_bot_token())
+    dispatcher = tg.Dispatcher(bot)
+
     # order is important here, think of it as a filter chain.
-    dispatcher.register_message_handler(_help, commands=["start", "help"])
-    dispatcher.register_message_handler(_handle_message)
+    dispatcher.register_message_handler(
+        dispatcher.async_task(_help), commands=["start", "help"]
+    )
+    dispatcher.register_message_handler(dispatcher.async_task(_handle_message))
     logger.info(f"Going to start telegram bot webhook on port {port}. ")
 
     start_webhook(
         dispatcher=dispatcher,
-        webhook_path=WEBHOOK_ROUTE,
+        webhook_path=webhook_route,
         on_shutdown=on_shutdown,
         on_startup=on_startup,
         port=port,
@@ -211,17 +207,17 @@ async def set_commands_list_menu(disp):
 async def on_startup(dispatcher):
     @handle_ratelimit
     async def _set_webhook(url: str):
-        await bot.set_webhook(url)
+        await dispatcher.bot.set_webhook(url)
 
     logger.info("Setting up telegram bot...")
     await set_commands_list_menu(dispatcher)
-    await _set_webhook(WEBHOOK_URL)
+    await _set_webhook(env.get_telegram_webhook_url())
 
     logger.info("Telegram bot set up. ")
 
 
 async def on_shutdown(dispatcher):
-    # The webook is not unset on a purpose. In a multi-node environment,
+    # The webhook is not unset on a purpose. In a multi-node environment,
     # such as Google Cloud Run, having the webhook deregister in on_shutdown
     # would lead to a situation when the entire webhook stops receiving Telegram
     # updates, even if a single container was decommissioned.
