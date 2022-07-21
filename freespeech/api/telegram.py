@@ -66,7 +66,7 @@ def handle_ratelimit(func):
                 f"Could not complete after {MAX_RETRIES} retries. Halting."
             )
         try:
-            await func(*args, **kwargs)
+            return await func(*args, **kwargs)
         except RetryAfter as e:
             logger.info(f"Telegram rate limit detected, waiting for {e.timeout}s")
             await asyncio.sleep(e.timeout)
