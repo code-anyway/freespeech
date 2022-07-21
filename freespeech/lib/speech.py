@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import re
+import tempfile
 import xml.etree.ElementTree as ET
 from dataclasses import replace
 from functools import cache
@@ -91,7 +92,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
     },
     "Melinda": {
         "ru-RU": ("Azure", "ru-RU-DariyaNeural"),
-        "en-US": ("Azure", "en-US-AriaNeural"),
+        "en-US": ("Azure", "en-US-JennyNeural"),
         "pt-PT": ("Azure", "pt-PT-RaquelNeural"),
         "de-DE": ("Azure", "de-DE-KlarissaNeural"),
         "es-US": ("Azure", "es-US-PalomaNeural"),
@@ -405,24 +406,32 @@ async def synthesize_text(
             return result.audio_content
 
         def _azure_api_call(ssml_phrase: str) -> bytes:
-            azure_key, azure_region = env.get_azure_config()
-            speech_config = azure_tts.SpeechConfig(
-                subscription=azure_key, region=azure_region
-            )
-            speech_synthesizer = azure_tts.SpeechSynthesizer(
-                speech_config=speech_config, audio_config=None
-            )
-            result = speech_synthesizer.speak_ssml(ssml_phrase)
-            if not result.reason == azure_tts.ResultReason.SynthesizingAudioCompleted:
-                logger.error(
-                    f"Error synthesizing voice with Azure provider."
-                    f" {result.reason}, {result.cancellation_details}"
+            with tempfile.NamedTemporaryFile() as output_file:
+                azure_key, azure_region = env.get_azure_config()
+                speech_config = azure_tts.SpeechConfig(
+                    subscription=azure_key, region=azure_region
                 )
-                raise RuntimeError(
-                    f"Error synthesizing voice with Azure. {result.reason}"
+                speech_config.set_speech_synthesis_output_format(
+                    azure_tts.SpeechSynthesisOutputFormat.Riff44100Hz16BitMonoPcm
                 )
+                audio_config = azure_tts.audio.AudioOutputConfig(
+                    filename=output_file.name
+                )
+                speech_synthesizer = azure_tts.SpeechSynthesizer(
+                    speech_config=speech_config, audio_config=audio_config
+                )
+                result = speech_synthesizer.speak_ssml(ssml_phrase)
+                if result.reason != azure_tts.ResultReason.SynthesizingAudioCompleted:
+                    logger.error(
+                        f"Error synthesizing voice with Azure provider."
+                        f" {result.reason}, {result.cancellation_details}"
+                    )
+                    raise RuntimeError(
+                        f"Error synthesizing voice with Azure. {result.reason}"
+                    )
 
-            return result.audio_data
+                with open(output_file.name, "rb") as result_stream:
+                    return result_stream.read()
 
         match provider:
             case "Azure":
