@@ -88,7 +88,7 @@ async def ask(request):
 
     match intent:
         case "Transcribe":
-            request = TranscriptReuqest(state)
+            request = TranscriptRequest(state)
             response = await transcript.load(
                 source=request.source,
                 method=request.method,

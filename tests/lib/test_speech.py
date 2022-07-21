@@ -246,7 +246,7 @@ async def test_synthesize_long_event(tmp_path) -> None:
             "Delegation and the embassies of friendly countries resumed "
             "work in Kyiv."
         ],
-        voice=Voice(character="Alan Turing")
+        voice=Voice(character="Alan Turing"),
     )
 
     _, voices = await speech.synthesize_events(

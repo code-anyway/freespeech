@@ -50,8 +50,8 @@ CHARACTERS = [
 Method = Literal[SpeechToTextBackend, TranscriptBackend, "Subtitles", "Translate"]
 METHODS = SPEECH_BACKENDS + TRANSCRIPT_BACKENDS + ["Subtitles", "Translate"]
 
-BlankMethod = Literal["Crop", "Fill"]
-BLANK_METHODS = ["Crop", "Fill"]
+BlankFillMethod = Literal["Crop", "Blank", "Fill"]
+BLANK_FILL_METHODS = ["Crop", "Blank", "Fill"]
 
 
 def is_language(val: str) -> TypeGuard[Language]:
@@ -70,8 +70,8 @@ def is_method(val: str) -> TypeGuard[Method]:
     return val in METHODS
 
 
-def is_blank_method(val: str) -> TypeGuard[BlankMethod]:
-    return val in BLANK_METHODS
+def is_blank_fill_method(val: str) -> TypeGuard[BlankFillMethod]:
+    return val in BLANK_FILL_METHODS
 
 
 @dataclass(frozen=True)
@@ -121,7 +121,7 @@ class Media(Generic[MediaType]):
 @dataclass(frozen=True)
 class Settings:
     original_audio_level: int = 2
-    space_between_events: BlankMethod | None = None
+    space_between_events: BlankFillMethod = "Blank"
 
 
 @dataclass(frozen=True)

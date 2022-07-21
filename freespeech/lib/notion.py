@@ -1,4 +1,5 @@
 import logging
+from dataclasses import replace
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Sequence, Tuple
 from zoneinfo import ZoneInfo
@@ -27,11 +28,11 @@ NOTION_RICH_TEXT_CONTENT_LIMIT = 200
 PROPERTY_NAME_PAGE_TITLE = "Name"
 PROPERTY_NAME_ORIGIN = "Origin"
 PROPERTY_NAME_LANG = "Language"
-PROPERTY_NAME_METHOD = "Text From"
-PROPERTY_NAME_TITLE = "Title"
-PROPERTY_NAME_AUDIO_URL = "Audio URL"
-PROPERTY_NAME_VIDEO_URL = "Video URL"
+PROPERTY_NAME_METHOD = "Method"
+PROPERTY_NAME_AUDIO_URL = "Audio"
+PROPERTY_NAME_VIDEO_URL = "Video"
 PROPERTY_NAME_ORIGINAL_AUDIO_LEVEL = "Original Audio Level"
+PROPERTY_NAME_BLANK_FILL_METHOD = "Blanks"
 
 
 HTTPVerb = Literal["GET", "PATCH", "DELETE", "POST"]
@@ -104,7 +105,7 @@ async def get_properties(page_id: str) -> Dict:
 
 
 async def get_transcript(page_id: str) -> Transcript:
-    """Parse Notion page and generate transcript.
+    """Parse Notion page and create a Transcript.
 
     Args:
         page_id: Notion page ID.
@@ -119,6 +120,20 @@ async def get_transcript(page_id: str) -> Transcript:
     transcript = parse_transcript(properties=properties, blocks=blocks)
 
     return transcript
+
+
+async def load(url: str) -> Transcript:
+    """Parse Notion page by URL and create a transcript.
+
+    Args:
+        url: Notion page URL.
+
+    Returns:
+        Transcript created from page properties and content.
+    """
+    # Last 32 symbols of a valid notion page URL are page UUID
+    page_id = url[-32:]
+    return await get_transcript(page_id)
 
 
 async def get_transcripts(
@@ -222,6 +237,7 @@ def render_transcript(transcript: Transcript) -> Tuple[Dict[str, Any], List[Dict
     title = transcript.title or "Untitled"
     source = transcript.source and transcript.source.method
     original_audio_level = transcript.settings.original_audio_level
+    blank_fill_method = transcript.settings.space_between_events
 
     properties = {
         PROPERTY_NAME_PAGE_TITLE: {
@@ -230,8 +246,8 @@ def render_transcript(transcript: Transcript) -> Tuple[Dict[str, Any], List[Dict
         PROPERTY_NAME_ORIGIN: {"url": transcript.source and transcript.source.url},
         PROPERTY_NAME_LANG: {"select": {"name": transcript.lang}},
         PROPERTY_NAME_METHOD: {"select": {"name": source}},
-        PROPERTY_NAME_ORIGINAL_AUDIO_LEVEL: render_text(str(original_audio_level)),
-        PROPERTY_NAME_TITLE: render_text(title),
+        PROPERTY_NAME_BLANK_FILL_METHOD: {"select": {"name": blank_fill_method}},
+        PROPERTY_NAME_ORIGINAL_AUDIO_LEVEL: {"number": original_audio_level},
         PROPERTY_NAME_AUDIO_URL: {"url": transcript.audio and transcript.audio.url},
         PROPERTY_NAME_VIDEO_URL: {"url": transcript.video and transcript.video.url},
     }
@@ -274,16 +290,27 @@ def parse_transcript(properties: Dict[str, Any], blocks: List[Dict]) -> Transcri
     if not types.is_language(lang):
         raise ValueError(f"Invalid language: {lang}")
 
+    settings = Settings()
+
     original_audio_level = properties[PROPERTY_NAME_ORIGINAL_AUDIO_LEVEL]
+    if original_audio_level is not None:
+        settings = replace(settings, original_audio_level=original_audio_level)
+
+    blank_fill_method = properties[PROPERTY_NAME_BLANK_FILL_METHOD]
+    if blank_fill_method is not None:
+        settings = replace(settings, space_between_events=blank_fill_method)
+
+    video = properties[PROPERTY_NAME_VIDEO_URL]
+    audio = properties[PROPERTY_NAME_AUDIO_URL]
 
     return Transcript(
         title=str(properties[PROPERTY_NAME_PAGE_TITLE]),
         source=Source(method=method, url=str(properties[PROPERTY_NAME_ORIGIN])),
         lang=lang,
         events=parse_events(blocks),
-        settings=Settings(original_audio_level=original_audio_level),
-        video=Media[Video](properties[PROPERTY_NAME_VIDEO_URL], info=None),
-        audio=Media[Audio](properties[PROPERTY_NAME_AUDIO_URL], info=None),
+        settings=settings,
+        video=video and Media[Video](video, info=None),
+        audio=audio and Media[Audio](audio, info=None),
     )
 
 
@@ -315,16 +342,28 @@ async def update_page_properties(page_id: str, properties: Dict) -> Dict:
     return result
 
 
-async def put_transcript(
-    database_id: str, transcript: Transcript
-) -> Tuple[str, Transcript]:
+async def create(
+    transcript: Transcript, *, database_id: str
+) -> Tuple[str, str, Transcript]:
+    """Creates transcript page in Notion database.
+
+    Args:
+        database_id (str): Notion Database ID.
+            The GUID that follows https://notion.so/" in the Database URL.
+        transcript (Transcript): Instance of transcript.
+
+    Returns:
+        Tuple containing id, url and Transcript representing a newly created
+        transcript page.
+    """
+
     properties, blocks = render_transcript(transcript)
 
     result = await create_page(
         database_id=database_id, properties=properties, blocks=blocks
     )
 
-    return result["url"], parse_transcript(
+    return result["id"], result["url"], parse_transcript(
         properties=result["properties"], blocks=blocks
     )
 

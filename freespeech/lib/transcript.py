@@ -7,7 +7,7 @@ from typing import Dict, Sequence, Tuple
 import pytz
 
 from freespeech.types import (
-    BLANK_METHODS,
+    BLANK_FILL_METHODS,
     LANGUAGES,
     METHODS,
     Audio,
@@ -19,7 +19,7 @@ from freespeech.types import (
     Transcript,
     Video,
     Voice,
-    is_blank_method,
+    is_blank_fill_method,
     is_character,
     is_language,
     is_method,
@@ -163,7 +163,8 @@ def parse_events(text: str) -> Sequence[Event]:
 
 def parse_properties(text: str) -> Dict[str, str]:
     return {
-        k.lower(): v for k, v in re.findall(r"\s*(\w+)\s*:\s*(.*)$", text, flags=re.M)
+        k.lower(): v
+        for k, v in re.findall(r"\s*(\w+)\s*:\s*(.*)\s*$", text, flags=re.M)
     }
 
 
@@ -205,9 +206,9 @@ def parse_transcript(text: str) -> Transcript:
     settings = Settings()
     blanks = properties.get("blanks", None)
     if blanks is not None:
-        if not is_blank_method(blanks):
+        if not is_blank_fill_method(blanks):
             raise ValueError(
-                f"Invalid value for 'blanks'. Supported Values: {BLANK_METHODS}"
+                f"Invalid value for 'blanks'. Supported Values: {BLANK_FILL_METHODS}"
             )
         settings = replace(settings, space_between_events=blanks)
 
@@ -239,15 +240,13 @@ def render_transcript(transcript: Transcript) -> str:
         "language": transcript.lang,
         "method": transcript.source and transcript.source.method,
         "origin": transcript.source and transcript.source.url,
-        "blanks": transcript.settings.space_between_events,
         "audio": transcript.audio and transcript.audio.url,
         "video": transcript.video and transcript.video.url,
-        "original_audio_level": transcript.settings.original_audio_level
+        "original_audio_level": transcript.settings.original_audio_level,
+        "blanks": transcript.settings.space_between_events,
     }
 
-    output = "\n".join(
-        f"{key}: {value}" for key, value in properties.items() if value
-    )
+    output = "\n".join(f"{key}: {value}" for key, value in properties.items() if value)
 
     # putting up events
     for event in transcript.events:
