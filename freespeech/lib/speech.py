@@ -421,10 +421,7 @@ async def synthesize_text(
                     speech_config=speech_config, audio_config=audio_config
                 )
                 result = speech_synthesizer.speak_ssml(ssml_phrase)
-                if (
-                    not result.reason
-                    == azure_tts.ResultReason.SynthesizingAudioCompleted
-                ):
+                if result.reason != azure_tts.ResultReason.SynthesizingAudioCompleted:
                     logger.error(
                         f"Error synthesizing voice with Azure provider."
                         f" {result.reason}, {result.cancellation_details}"
