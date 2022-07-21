@@ -18,6 +18,11 @@ jobs:
       DEEPGRAM_TOKEN: ${{ secrets.DEEPGRAM_TOKEN }}
       FREESPEECH_STORAGE_BUCKET: freespeech-tests
       NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      # following key is required, but for integration tests it is required to have the
+      # externally accessible public endpoint which we don't have in this scenarios
+      # so for now setting an arbitrary URL to enable unit-level tests
+      TELEGRAM_WEBHOOK_URL: ""
     steps:
     - uses: actions/checkout@v3
     - name: Write Google Application Credentials JSON

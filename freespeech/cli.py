@@ -5,7 +5,7 @@ import click
 from aiohttp import ClientResponseError, web
 
 from freespeech import env
-from freespeech.api import chat, crud, dub, language, notion, pub, speech
+from freespeech.api import chat, crud, dub, language, notion, pub, speech, telegram
 from freespeech.lib import youtube
 
 SERVICE_ROUTES = {
@@ -151,10 +151,6 @@ def upload(video_file, meta_file, credentials_file):
 )
 @cli.command(name="start-telegram")
 def start_telegram(port: int):
-    # We are doing this so telegram module doesn't evaluate
-    # trying to access environment variables that might be not set.
-    from freespeech.api import telegram
-
     telegram.start_bot(port)
 
 
