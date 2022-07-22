@@ -363,8 +363,10 @@ async def create(
         database_id=database_id, properties=properties, blocks=blocks
     )
 
-    return result["id"], result["url"], parse_transcript(
-        properties=result["properties"], blocks=blocks
+    return (
+        result["id"],
+        result["url"],
+        parse_transcript(properties=result["properties"], blocks=blocks),
     )
 
 

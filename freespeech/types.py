@@ -84,8 +84,8 @@ class Voice:
 @dataclass(frozen=True)
 class Event:
     time_ms: int
-    duration_ms: int | None
     chunks: List[str]
+    duration_ms: int | None = None
     voice: Voice = Voice()
 
 
@@ -126,13 +126,13 @@ class Settings:
 
 @dataclass(frozen=True)
 class Transcript:
-    title: str | None
     lang: Language
     events: Sequence[Event]
-    source: Source | None
-    video: Media[Video] | None
-    audio: Media[Audio] | None
-    settings: Settings
+    title: str | None = None
+    source: Source | None = None
+    video: Media[Video] | None = None
+    audio: Media[Audio] | None = None
+    settings: Settings = Settings()
 
 
 @dataclass(frozen=True)
@@ -144,7 +144,6 @@ class Meta:
 
 @dataclass(frozen=True)
 class Error:
-    state: Dict
     message: str
     details: str | None = None
 
@@ -170,15 +169,12 @@ class TranscriptRequest:
 @dataclass(frozen=True)
 class IngestRequest:
     source: str | None
-    output_types: Sequence[Type[Audio] | Type[Video]]
 
 
 @dataclass(frozen=True)
-class Task:
-    op: Operation
-    state: Literal["Done", "Cancelled", "Running", "Pending", "Failed"]
-    message: str | None
-    id: str
+class IngestResponse:
+    audio: str
+    video: str
 
 
 @dataclass(frozen=True)
@@ -192,9 +188,6 @@ class AskRequest:
 class AskResponse:
     message: str
     state: Dict
-
-
-TaskReturnType = TypeVar("TaskReturnType", Transcript, List[Media], AskResponse, str)
 
 
 def assert_never(x: NoReturn) -> NoReturn:

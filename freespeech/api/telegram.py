@@ -11,7 +11,7 @@ from aiogram.utils.executor import start_webhook
 from freespeech import env
 from freespeech.api.chat import CLIENT_TIMEOUT
 from freespeech.client import chat, tasks
-from freespeech.types import AskResponse, Error, Task
+from freespeech.types import Error
 
 logger = logging.getLogger(__name__)
 
@@ -137,10 +137,10 @@ async def _handle_message(message: tg_types.Message):
         await message.reply(result.message, parse_mode="Markdown")
 
         match result:
-            case Task():
-                response = await tasks.future(result, return_type=AskResponse)
+            case tasks.Task():
+                task_result = await tasks.future(result)
                 logger.info(
-                    f"conversation_success: {response.message}",
+                    f"conversation_success: {task_result.message}",
                     extra={
                         "labels": {"interface": "conversation_telegram"},
                         "json_fields": {
@@ -149,13 +149,12 @@ async def _handle_message(message: tg_types.Message):
                             "username": message.from_user.username,
                             "full_name": message.from_user.full_name,
                             "request": message.text,
-                            "reply": response.message,
+                            "reply": task_result.message,
                             "result": result,
-                            "state": response.state,
                         },
                     },
                 )
-                await message.reply(response.message)
+                await message.reply(task_result.message)
             case Error():
                 logger.error(
                     f"conversation_error: {result.message}",

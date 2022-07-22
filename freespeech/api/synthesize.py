@@ -3,12 +3,13 @@ from dataclasses import replace
 from tempfile import TemporaryDirectory
 
 from aiohttp import web
+from pydantic import ValidationError
 from pydantic.json import pydantic_encoder
 
 from freespeech import env
-from freespeech.lib import speech, media
+from freespeech.lib import media, speech
 from freespeech.lib.storage import obj
-from freespeech.types import Audio, Media, SynthesizeRequest, Video
+from freespeech.types import Audio, Error, Media, SynthesizeRequest, Video
 
 routes = web.RouteTableDef()
 logger = logging.getLogger(__name__)
@@ -17,7 +18,13 @@ logger = logging.getLogger(__name__)
 @routes.post("/synthesize")
 async def synthesize(request):
     params = await request.json()
-    request = SynthesizeRequest(**params)
+
+    try:
+        request = SynthesizeRequest(**params)
+    except ValidationError as e:
+        error = Error(message=str(e), state={})
+        raise web.HTTPBadRequest(body=pydantic_encoder(error))
+
     with TemporaryDirectory() as tmp_dir:
         synth_file, _ = await speech.synthesize_events(
             events=request.transcript.events,
@@ -49,7 +56,7 @@ async def synthesize(request):
             audio=Media[Audio](
                 url=dub_url,
                 info=None,
-            )
+            ),
         )
 
     return web.json_response(pydantic_encoder(transcript))

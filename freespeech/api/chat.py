@@ -6,8 +6,9 @@ from aiohttp import web
 from pydantic.json import pydantic_encoder
 
 from freespeech.client import chat, transcript
+from freespeech.client.tasks import Task
 from freespeech.lib import speech
-from freespeech.types import AskRequest, Error, Event, Task, TranscriptRequest
+from freespeech.types import AskRequest, Error, Event, TranscriptRequest
 
 routes = web.RouteTableDef()
 logger = logging.getLogger(__name__)

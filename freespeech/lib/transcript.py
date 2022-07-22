@@ -146,10 +146,10 @@ def parse_events(text: str) -> Sequence[Event]:
 
             events += [
                 Event(
-                    start_ms,
-                    duration_ms,
+                    time_ms=start_ms,
                     chunks=[],
                     voice=voice,
+                    duration_ms=duration_ms,
                 )
             ]
         else:

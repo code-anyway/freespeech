@@ -1,15 +1,15 @@
-from typing import Awaitable
+import json
 
 import aiohttp
 from pydantic.json import pydantic_encoder
 
-from freespeech.client import tasks
+from freespeech.client.tasks import Task
+from freespeech.lib import hash
 from freespeech.types import (
     Error,
     Language,
     Method,
     SynthesizeRequest,
-    Task,
     Transcript,
     TranscriptRequest,
     TranslateRequest,
@@ -22,47 +22,68 @@ async def load(
     method: Method,
     lang: Language | None,
     session: aiohttp.ClientSession,
-) -> Awaitable[Transcript | Error] | Error:
+) -> Task[Transcript] | Error:
     request = TranscriptRequest(source=source, method=method, lang=lang)
 
-    async with session.post("/transcript", json=pydantic_encoder(request)) as resp:
-        result = await resp.json()
+    async def _future() -> Transcript | Error:
+        async with session.post("/transcript", json=pydantic_encoder(request)) as resp:
+            result = await resp.json()
 
-        if resp.ok:
-            return tasks.future(Task(**result), return_type=Transcript)
-        else:
-            return Error(**result)
+            if resp.ok:
+                return Transcript(**result)
+            else:
+                return Error(**result)
+
+    return Task[Transcript](
+        state="Running",
+        op="Transcribe",
+        id=hash.string(json.dumps(request)),
+        message="Estimated wait time: 10 minutes",
+        _future=_future(),
+    )
 
 
 async def synthesize(
     transcript: Transcript,
     *,
     session: aiohttp.ClientSession,
-) -> Awaitable[Transcript | Error] | Error:
+) -> Task[Transcript] | Error:
     request = SynthesizeRequest(transcript=transcript)
 
-    async with session.post("/synthesize", json=pydantic_encoder(request)) as resp:
-        result = await resp.json()
+    async def _future() -> Transcript | Error:
+        async with session.post("/synthesize", json=pydantic_encoder(request)) as resp:
+            result = await resp.json()
+            if resp.ok:
+                return Transcript(**result)
+            else:
+                return Error(**result)
 
-        async def _future():
-            return Transcript(**result)
-
-        if resp.ok:
-            return _future()
-            # return tasks.future(Task(**result), return_type=Transcript)
-        else:
-            return Error(**result)
+    return Task[Transcript](
+        state="Running",
+        op="Synthesize",
+        message="Estimated wait time: 5 minutes",
+        id=hash.string(json.dumps(pydantic_encoder(request))),
+        _future=_future(),
+    )
 
 
 async def translate(
     transcript: Transcript, *, lang: Language, session: aiohttp.ClientSession
-) -> Awaitable[Transcript | Error] | Error:
+) -> Task[Transcript] | Error:
     request = TranslateRequest(transcript=transcript, lang=lang)
 
-    async with session.post("/translate", json=pydantic_encoder(request)) as resp:
-        result = await resp.json()
+    async def _future() -> Transcript | Error:
+        async with session.post("/translate", json=pydantic_encoder(request)) as resp:
+            result = await resp.json()
+            if resp.ok:
+                return Transcript(**result)
+            else:
+                return Error(**result)
 
-        if resp.ok:
-            return tasks.future(Task(**result), return_type=Transcript)
-        else:
-            return Error(**result)
+    return Task[Transcript](
+        state="Running",
+        op="Translate",
+        message="Estimated wait time: 2 minutes",
+        id=hash.string(json.dumps(pydantic_encoder(request))),
+        _future=_future(),
+    )

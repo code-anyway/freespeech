@@ -3,7 +3,8 @@ from typing import Dict
 import aiohttp
 from pydantic.json import pydantic_encoder
 
-from freespeech.types import AskRequest, Error, Operation, Task
+from freespeech.client.tasks import Task
+from freespeech.types import AskRequest, Error, Operation
 
 
 async def ask(

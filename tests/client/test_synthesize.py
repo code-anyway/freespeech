@@ -1,4 +1,4 @@
-from typing import Generator
+from typing import Any, Generator
 
 import pytest
 import pytest_asyncio
@@ -6,13 +6,10 @@ from aiohttp import web
 from aiohttp.pytest_plugin import AiohttpClient
 
 from freespeech.api import synthesize
-from freespeech.client import transcript
-from freespeech.types import Settings, Transcript, Event, Voice, Error
-
+from freespeech.client import tasks, transcript
+from freespeech.types import Error, Event, Settings, Transcript, Voice
 
 ANNOUNCERS_TEST_TRANSCRIPT_RU = Transcript(
-    title=None,
-    source=None,
     settings=Settings(),
     lang="ru-RU",
     events=[
@@ -32,8 +29,6 @@ ANNOUNCERS_TEST_TRANSCRIPT_RU = Transcript(
             ],
         )
     ],
-    video=None,
-    audio=None,
 )
 
 
@@ -46,28 +41,27 @@ async def client(aiohttp_client) -> Generator[AiohttpClient, None, None]:
 
 
 @pytest.mark.asyncio
-async def test_synthesize_basic(client):
-    hello_ru = Transcript(
+async def test_synthesize_basic(client: Any) -> None:
+    test_ru = Transcript(
         lang="ru-RU",
         events=[
             Event(
                 time_ms=0,
-                chunks=["Привет!"],
-                duration_ms=None,
+                chunks=["Путин хуйло!"],
             )
         ],
-        settings=Settings(),
-        title=None,
-        source=None,
-        video=None,
-        audio=None,
     )
 
-    result = await transcript.synthesize(hello_ru, session=client)
-
+    result = await transcript.synthesize(test_ru, session=client)
     if isinstance(result, Error):
         assert False, result.message
 
-    new_transcript = await result
+    assert result.message == "Estimated wait time: 5 minutes"
 
-    assert new_transcript.audio == ""
+    task_result = await tasks.future(result)
+    if isinstance(task_result, Error):
+        assert False, task_result.message
+
+    assert task_result.audio
+    assert task_result.audio.url.endswith(".wav")
+    assert task_result.audio.url.startswith("https://")
