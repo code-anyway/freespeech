@@ -6,14 +6,14 @@ from aiohttp import web
 from aiohttp.pytest_plugin import AiohttpClient
 
 import freespeech.client.media as media_client
-from freespeech.api import crud
+from freespeech.api import media
 
 
 @pytest_asyncio.fixture
 async def client(aiohttp_client) -> Generator[AiohttpClient, None, None]:
     app = web.Application()
     # fill route table
-    app.add_routes(crud.routes)
+    app.add_routes(media.routes)
     return await aiohttp_client(app)
 
 

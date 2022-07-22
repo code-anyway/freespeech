@@ -5,15 +5,15 @@ import click
 from aiohttp import ClientResponseError, web
 
 from freespeech import env
-from freespeech.api import chat, crud, speech, transcript
+from freespeech.api import chat, media, transcript
 from freespeech.lib import youtube
 
 SERVICE_ROUTES = {
-    "crud": crud.routes,
-    "synthesize": transcript.routes,
-    "speech": speech.routes,
+    "media": media.routes,
+    "transcript": transcript.routes,
     "chat": chat.routes,
 }
+
 logging_handler = ["google" if env.is_in_cloud_run() else "console"]
 
 LOGGING_CONFIG = {

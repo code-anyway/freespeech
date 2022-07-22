@@ -8,7 +8,7 @@ from pydantic.json import pydantic_encoder
 from freespeech.client import chat, transcript
 from freespeech.client.tasks import Task
 from freespeech.lib import speech
-from freespeech.types import AskRequest, Error, Event, TranscriptRequest
+from freespeech.types import AskRequest, Error, Event, LoadRequest
 
 routes = web.RouteTableDef()
 logger = logging.getLogger(__name__)
@@ -89,7 +89,7 @@ async def ask(request):
 
     match intent:
         case "Transcribe":
-            request = TranscriptRequest(state)
+            request = LoadRequest(state)
             response = await transcript.load(
                 source=request.source,
                 method=request.method,

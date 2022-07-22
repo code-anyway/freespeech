@@ -4,7 +4,7 @@ import aiohttp
 from pydantic.json import pydantic_encoder
 
 from freespeech.client.tasks import Task
-from freespeech.types import Error, IngestRequest, IngestResponse
+from freespeech.types import Audio, Error, IngestRequest, IngestResponse, Media, Video
 
 
 async def ingest(
@@ -27,3 +27,9 @@ async def ingest(
                 return Task[IngestResponse](**result)
             else:
                 return Error(**result)
+
+
+async def probe(
+    source: str, *, session: aiohttp.ClientSession
+) -> Media[Audio] | Media[Video]:
+    raise NotImplementedError()

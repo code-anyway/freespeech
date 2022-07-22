@@ -8,10 +8,10 @@ from freespeech.lib import hash
 from freespeech.types import (
     Error,
     Language,
+    LoadRequest,
     Method,
     SynthesizeRequest,
     Transcript,
-    LoadRequest,
     TranslateRequest,
 )
 

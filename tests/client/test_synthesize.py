@@ -5,7 +5,6 @@ import pytest_asyncio
 from aiohttp import web
 from aiohttp.pytest_plugin import AiohttpClient
 
-from freespeech.api import transcript
 from freespeech.client import tasks, transcript
 from freespeech.types import Error, Event, Settings, Transcript, Voice
 
@@ -34,6 +33,8 @@ ANNOUNCERS_TEST_TRANSCRIPT_RU = Transcript(
 
 @pytest_asyncio.fixture
 async def client(aiohttp_client) -> Generator[AiohttpClient, None, None]:
+    from freespeech.api import transcript
+
     app = web.Application()
     # fill route table
     app.add_routes(transcript.routes)
@@ -63,5 +64,5 @@ async def test_synthesize_basic(client: Any) -> None:
         assert False, task_result.message
 
     assert task_result.audio
-    assert task_result.audio.url.endswith(".wav")
-    assert task_result.audio.url.startswith("https://")
+    assert task_result.audio.endswith(".wav")
+    assert task_result.audio.startswith("https://")

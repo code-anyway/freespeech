@@ -9,13 +9,10 @@ import aiohttp
 from freespeech import env, types
 from freespeech.lib import text, transcript
 from freespeech.types import (
-    Audio,
     Event,
-    Media,
     Settings,
     Source,
     Transcript,
-    Video,
     assert_never,
     is_method,
     url,
@@ -248,8 +245,8 @@ def render_transcript(transcript: Transcript) -> Tuple[Dict[str, Any], List[Dict
         PROPERTY_NAME_METHOD: {"select": {"name": source}},
         PROPERTY_NAME_BLANK_FILL_METHOD: {"select": {"name": blank_fill_method}},
         PROPERTY_NAME_ORIGINAL_AUDIO_LEVEL: {"number": original_audio_level},
-        PROPERTY_NAME_AUDIO_URL: {"url": transcript.audio and transcript.audio.url},
-        PROPERTY_NAME_VIDEO_URL: {"url": transcript.video and transcript.video.url},
+        PROPERTY_NAME_AUDIO_URL: {"url": transcript.audio},
+        PROPERTY_NAME_VIDEO_URL: {"url": transcript.video},
     }
 
     # Flatten event blocks
@@ -309,8 +306,8 @@ def parse_transcript(properties: Dict[str, Any], blocks: List[Dict]) -> Transcri
         lang=lang,
         events=parse_events(blocks),
         settings=settings,
-        video=video and Media[Video](video, info=None),
-        audio=audio and Media[Audio](audio, info=None),
+        video=video,
+        audio=audio,
     )
 
 

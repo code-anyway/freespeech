@@ -5,7 +5,7 @@ import pytest_asyncio
 from aiohttp import web
 from aiohttp.pytest_plugin import AiohttpClient
 
-from freespeech.api import chat, crud, transcript
+from freespeech.api import chat, media, transcript
 
 
 @pytest_asyncio.fixture
@@ -26,7 +26,7 @@ async def step(text: str, client) -> Tuple[str, str, Dict]:
 @pytest.mark.asyncio
 async def test_transcribe_translate_dub(const, client, aiohttp_server, monkeypatch):
     app = web.Application()
-    app.add_routes(crud.routes)
+    app.add_routes(media.routes)
     app.add_routes(transcript.routes)
     _ = await aiohttp_server(app, port=8088)
 

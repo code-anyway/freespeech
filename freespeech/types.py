@@ -120,8 +120,8 @@ class Transcript:
     events: Sequence[Event]
     title: str | None = None
     source: Source | None = None
-    video: Media[Video] | None = None
-    audio: Media[Audio] | None = None
+    video: str | None = None
+    audio: str | None = None
     settings: Settings = Settings()
 
 

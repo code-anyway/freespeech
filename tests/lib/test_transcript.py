@@ -23,7 +23,7 @@ EXPECTED_TRANSCRIPT = Transcript(
     lang="en-US",
     source=Source(method="Subtitles", url="https://youtube.com/foo"),
     settings=Settings(),
-    video=None,
+    video="",
     audio=None,
     events=EXPECTED_EVENTS,
 )
