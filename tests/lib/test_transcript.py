@@ -13,7 +13,6 @@ EXPECTED_EVENTS = [
     ),
     Event(
         time_ms=2000,
-        duration_ms=None,
         chunks=["It was a huge mistake."],
         voice=Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.4),
     ),
@@ -23,8 +22,6 @@ EXPECTED_TRANSCRIPT = Transcript(
     lang="en-US",
     source=Source(method="Subtitles", url="https://youtube.com/foo"),
     settings=Settings(),
-    video="",
-    audio=None,
     events=EXPECTED_EVENTS,
 )
 EXPECTED_TEXT = """origin: https://youtube.com/foo

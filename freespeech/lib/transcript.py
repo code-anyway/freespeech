@@ -162,6 +162,7 @@ def parse_properties(text: str) -> Dict[str, str]:
     return {
         k.lower(): v
         for k, v in re.findall(r"\s*(\w+)\s*:\s*(.*)\s*$", text, flags=re.M)
+        if v
     }
 
 
