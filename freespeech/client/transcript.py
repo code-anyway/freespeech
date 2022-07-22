@@ -11,7 +11,7 @@ from freespeech.types import (
     Method,
     SynthesizeRequest,
     Transcript,
-    TranscriptRequest,
+    LoadRequest,
     TranslateRequest,
 )
 
@@ -23,7 +23,7 @@ async def load(
     lang: Language | None,
     session: aiohttp.ClientSession,
 ) -> Task[Transcript] | Error:
-    request = TranscriptRequest(source=source, method=method, lang=lang)
+    request = LoadRequest(source=source, method=method, lang=lang)
 
     async def _future() -> Transcript | Error:
         async with session.post("/transcript", json=pydantic_encoder(request)) as resp:

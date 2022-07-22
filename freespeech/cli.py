@@ -5,12 +5,12 @@ import click
 from aiohttp import ClientResponseError, web
 
 from freespeech import env
-from freespeech.api import chat, crud, speech, synthesize
+from freespeech.api import chat, crud, speech, transcript
 from freespeech.lib import youtube
 
 SERVICE_ROUTES = {
     "crud": crud.routes,
-    "synthesize": synthesize.routes,
+    "synthesize": transcript.routes,
     "speech": speech.routes,
     "chat": chat.routes,
 }

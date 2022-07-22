@@ -1,14 +1,4 @@
-from typing import (
-    Dict,
-    Generic,
-    List,
-    Literal,
-    NoReturn,
-    Sequence,
-    Type,
-    TypeGuard,
-    TypeVar,
-)
+from typing import Dict, Generic, List, Literal, NoReturn, Sequence, TypeGuard, TypeVar
 
 from pydantic.dataclasses import dataclass
 
@@ -47,8 +37,8 @@ CHARACTERS = [
     "Melinda",
 ]
 
-Method = Literal[SpeechToTextBackend, TranscriptBackend, "Subtitles", "Translate"]
-METHODS = SPEECH_BACKENDS + TRANSCRIPT_BACKENDS + ["Subtitles", "Translate"]
+Method = Literal[SpeechToTextBackend, TranscriptBackend, "Subtitles"]
+METHODS = SPEECH_BACKENDS + TRANSCRIPT_BACKENDS + ["Subtitles"]
 
 BlankFillMethod = Literal["Crop", "Blank", "Fill"]
 BLANK_FILL_METHODS = ["Crop", "Blank", "Fill"]
@@ -160,7 +150,7 @@ class TranslateRequest:
 
 
 @dataclass(frozen=True)
-class TranscriptRequest:
+class LoadRequest:
     source: str | None
     method: Method
     lang: Language | None
