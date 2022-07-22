@@ -173,8 +173,8 @@ class IngestRequest:
 
 @dataclass(frozen=True)
 class IngestResponse:
-    audio: str
-    video: str
+    audio: str | None
+    video: str | None
 
 
 @dataclass(frozen=True)
