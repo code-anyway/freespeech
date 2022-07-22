@@ -44,8 +44,12 @@ async def synthesize(
     async with session.post("/synthesize", json=pydantic_encoder(request)) as resp:
         result = await resp.json()
 
+        async def _future():
+            return Transcript(**result)
+
         if resp.ok:
-            return tasks.future(Task(**result), return_type=Transcript)
+            return _future()
+            # return tasks.future(Task(**result), return_type=Transcript)
         else:
             return Error(**result)
 

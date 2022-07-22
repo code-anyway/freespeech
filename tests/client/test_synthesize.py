@@ -7,24 +7,8 @@ from aiohttp.pytest_plugin import AiohttpClient
 
 from freespeech.api import synthesize
 from freespeech.client import transcript
-from freespeech.types import Settings, Transcript, Event, Voice
+from freespeech.types import Settings, Transcript, Event, Voice, Error
 
-
-BASIC_TRANSCRIPT_RU = Transcript(
-    title=None,
-    source=None,
-    settings=Settings(),
-    lang="ru-RU",
-    events=[
-        Event(
-            time_ms=0,
-            duration_ms=None,
-            chunks=["Привет!"]
-        )
-    ],
-    video=None,
-    audio=None,
-)
 
 ANNOUNCERS_TEST_TRANSCRIPT_RU = Transcript(
     title=None,
@@ -63,6 +47,27 @@ async def client(aiohttp_client) -> Generator[AiohttpClient, None, None]:
 
 @pytest.mark.asyncio
 async def test_synthesize_basic(client):
-    new_transcript = await transcript.synthesize(BASIC_TRANSCRIPT_RU, session=client)
+    hello_ru = Transcript(
+        lang="ru-RU",
+        events=[
+            Event(
+                time_ms=0,
+                chunks=["Привет!"],
+                duration_ms=None,
+            )
+        ],
+        settings=Settings(),
+        title=None,
+        source=None,
+        video=None,
+        audio=None,
+    )
 
-    assert new_transcript.audio
+    result = await transcript.synthesize(hello_ru, session=client)
+
+    if isinstance(result, Error):
+        assert False, result.message
+
+    new_transcript = await result
+
+    assert new_transcript.audio == ""
