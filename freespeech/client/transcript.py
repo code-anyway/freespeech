@@ -28,13 +28,13 @@ async def load(
     request = LoadRequest(source=url, method=method, lang=lang)
 
     async def _future() -> Transcript | Error:
-        with aiohttp.MultipartWriter("mixed") as writer:
+        with aiohttp.MultipartWriter("form-data") as writer:
             writer.append_json(pydantic_encoder(request))
 
-            if isinstance(source, BinaryIO):
+            if not request.source:
                 writer.append(source)
 
-            async with session.post("/transcript", data=writer) as resp:
+            async with session.post("/load", data=writer) as resp:
                 result = await resp.json()
 
                 if resp.ok:
@@ -45,7 +45,7 @@ async def load(
     return Task[Transcript](
         state="Running",
         op="Transcribe",
-        id=hash.string(json.dumps(request)),
+        id=hash.string(json.dumps(pydantic_encoder(request))),
         message="Estimated wait time: 10 minutes",
         _future=_future(),
     )

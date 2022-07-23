@@ -36,7 +36,6 @@ async def client(aiohttp_client) -> Generator[AiohttpClient, None, None]:
     from freespeech.api import transcript
 
     app = web.Application()
-    # fill route table
     app.add_routes(transcript.routes)
     return await aiohttp_client(app)
 

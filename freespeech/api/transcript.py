@@ -1,5 +1,6 @@
 import logging
 from dataclasses import replace
+from io import BufferedReader
 from tempfile import TemporaryDirectory
 from typing import Any, BinaryIO, Dict, Type
 
@@ -8,9 +9,10 @@ from aiohttp import BodyPartReader, web
 from pydantic import ValidationError
 from pydantic.json import pydantic_encoder
 
-from freespeech.client import media as media_client
-from freespeech.client import tasks
-from freespeech.lib import gdocs, media, notion, speech, transcript, youtube
+from freespeech.client import client, media, tasks
+from freespeech.lib import gdocs
+from freespeech.lib import media as media_ops
+from freespeech.lib import notion, speech, transcript, youtube
 from freespeech.lib.storage import obj
 from freespeech.types import (
     Audio,
@@ -32,12 +34,16 @@ logger = logging.getLogger(__name__)
 
 async def process(
     params: Dict,
-    stream: BinaryIO | None,
+    stream: Any | None,
     request_type: Type[SynthesizeRequest],
     handler: Any,
 ) -> Dict:
     request = request_type(**params)
-    return pydantic_encoder(await handler(request, stream))
+    # NOTE (astaff): IMO, we should have one base API per environment
+    # and there should be a straightforward way to determine that from
+    # the environment.
+    session = client.create()
+    return pydantic_encoder(await handler(request, stream, session))
 
 
 async def _synthesize(
@@ -51,12 +57,12 @@ async def _synthesize(
         )
 
         audio_url = None
-        audio = request.transcript.audio and await media_client.probe(
+        audio = request.transcript.audio and await media.probe(
             request.transcript.audio, session=session
         )
         if audio:
             audio_file = await obj.get(audio.url, dst_dir=tmp_dir)
-            synth_file = await media.mix(
+            synth_file = await media_ops.mix(
                 files=(audio_file, synth_file),
                 weights=(request.transcript.settings.original_audio_level, 10),
                 output_dir=tmp_dir,
@@ -66,12 +72,12 @@ async def _synthesize(
                 audio_url = (await _ingest_stream(file, session)).audio
 
         video_url = None
-        video = request.transcript.video and await media_client.probe(
+        video = request.transcript.video and await media.probe(
             request.transcript.video, session=session
         )
         if video:
             video_file = await obj.get(video.url, dst_dir=tmp_dir)
-            dub_file = await media.dub(
+            dub_file = await media_ops.dub(
                 video=video_file, audio=synth_file, output_dir=tmp_dir
             )
 
@@ -89,7 +95,8 @@ async def _load(
         raise ValueError("Missing source url or octet stream.")
 
     async def _decode(stream: BinaryIO) -> str:
-        return stream.read().decode("utf-8")
+        data = await stream.read()
+        return data.decode("utf-8")
 
     match request.method:
         case "Google":
@@ -119,7 +126,7 @@ async def _load(
                 events=youtube.get_captions(source, lang=request.lang),
             )
         case "SRT":
-            if not isinstance(source, BinaryIO):
+            if not stream:
                 raise ValueError(f"Need a binary stream for {request.method}.")
             if request.lang is None:
                 raise ValueError("Language not defined.")
@@ -127,7 +134,7 @@ async def _load(
             events = transcript.srt_to_events(text)
             return Transcript(lang=request.lang, events=events)
         case "SSMD":
-            if not isinstance(source, BinaryIO):
+            if not stream:
                 raise ValueError(f"Need a binary stream for {request.method}.")
             if request.lang is None:
                 raise ValueError("Language not defined.")
@@ -155,14 +162,14 @@ async def ingest_and_transcribe(
         case never:
             assert_never(never)
 
-    response = await media_client.ingest(source=source, session=session)
+    response = await media.ingest(source=source, session=session)
     result = await tasks.future(response)
     if isinstance(result, Error):
         raise RuntimeError(result.message)
     if result.audio is None:
         raise ValueError(f"Missing audio for {source}")
 
-    audio = await media_client.probe(source=result.audio, session=session)
+    audio = await media.probe(source=result.audio, session=session)
     assert isinstance(audio.info, Audio)
 
     # TODO (astaff): Downsample to single channel here?
@@ -179,7 +186,7 @@ async def ingest_and_transcribe(
 async def _ingest_stream(
     stream: BinaryIO, session: aiohttp.ClientSession
 ) -> IngestResponse:
-    response = await media_client.ingest(source=stream, session=session)
+    response = await media.ingest(source=stream, session=session)
     result = await tasks.future(response)
     if isinstance(result, Error):
         raise RuntimeError(result.message)
@@ -208,7 +215,7 @@ async def load(request: web.Request) -> web.Response:
     params = await part.json()
 
     stream = await parts.next()
-    assert isinstance(part, BinaryIO)
+    assert isinstance(stream, BodyPartReader)
 
     try:
         response = await process(params, stream, LoadRequest, _load)
