@@ -15,7 +15,13 @@ class Task(Generic[TaskReturnType]):
     _future: Awaitable[TaskReturnType | Error]
 
 
-def future(task: Task[TaskReturnType]) -> Awaitable[TaskReturnType | Error]:
+def future(target: Task[TaskReturnType] | Error) -> Awaitable[TaskReturnType | Error]:
+    async def _return_error(error):
+        return error
+
+    if isinstance(target, Error):
+        return _return_error(target)
+
     async def _run() -> TaskReturnType | Error:
         # TODO: run the loop polling the future task service
         # If result is ready - return.
@@ -29,7 +35,7 @@ def future(task: Task[TaskReturnType]) -> Awaitable[TaskReturnType | Error]:
     # TODO (astaff): This is a hack to simulate the behavior of
     # waiting for server-side task execution, while our servies
     # are still synchronous
-    return task._future
+    return target._future
 
 
 def tasks() -> Sequence[Task]:

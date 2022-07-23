@@ -8,8 +8,8 @@ VideoEncoding = Literal["H264", "HEVC", "AV1"]
 ServiceProvider = Literal["Google", "Deepgram", "Azure"]
 TranscriptionModel = Literal["default", "latest_long", "general"]
 
-SpeechToTextBackend = Literal["C3PO", "R2D2", "BB8"]
-SPEECH_BACKENDS = ["C3PO", "R2D2", "BB8"]
+SpeechToTextBackend = Literal["Machine A", "Machine B", "Machine C"]
+SPEECH_BACKENDS = ["Machine A", "Machine B", "Machine C"]
 
 TranscriptBackend = Literal["Google", "Notion", "SRT", "SSMD"]
 TRANSCRIPT_BACKENDS = ["Google", "Notion", "SRT", "SSMD"]

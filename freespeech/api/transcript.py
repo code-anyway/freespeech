@@ -4,20 +4,26 @@ from tempfile import TemporaryDirectory
 from typing import Any, BinaryIO, Dict, Type
 
 import aiohttp
-from aiohttp import web
+from aiohttp import BodyPartReader, web
 from pydantic import ValidationError
 from pydantic.json import pydantic_encoder
 
 from freespeech.client import media as media_client
 from freespeech.client import tasks
-from freespeech.lib import gdocs, media, notion, speech
+from freespeech.lib import gdocs, media, notion, speech, transcript, youtube
 from freespeech.lib.storage import obj
 from freespeech.types import (
+    Audio,
     Error,
     IngestResponse,
+    Language,
     LoadRequest,
+    ServiceProvider,
+    Source,
+    SpeechToTextBackend,
     SynthesizeRequest,
     Transcript,
+    assert_never,
 )
 
 routes = web.RouteTableDef()
@@ -25,14 +31,17 @@ logger = logging.getLogger(__name__)
 
 
 async def process(
-    params: Dict, request_type: Type[SynthesizeRequest], handler: Any
+    params: Dict,
+    stream: BinaryIO | None,
+    request_type: Type[SynthesizeRequest],
+    handler: Any,
 ) -> Dict:
     request = request_type(**params)
-    return pydantic_encoder(await handler(request))
+    return pydantic_encoder(await handler(request, stream))
 
 
 async def _synthesize(
-    request: SynthesizeRequest, session: aiohttp.ClientSession
+    request: SynthesizeRequest, stream: BinaryIO | None, session: aiohttp.ClientSession
 ) -> Transcript:
     with TemporaryDirectory() as tmp_dir:
         synth_file, _ = await speech.synthesize_events(
@@ -69,31 +78,109 @@ async def _synthesize(
             with open(dub_file, "rb") as file:
                 video_url = (await _ingest_stream(file, session)).video
 
-    return replace(request.transcript, video=audio_url, audio=video_url)
+    return replace(request.transcript, video=video_url, audio=audio_url)
 
 
-async def _load(request: LoadRequest) -> Transcript:
-    if not request.source:
-        raise ValueError("Missing source URL")
+async def _load(
+    request: LoadRequest, stream: BinaryIO | None, session: aiohttp.ClientSession
+) -> Transcript:
+    source = request.source or stream
+    if not source:
+        raise ValueError("Missing source url or octet stream.")
+
+    async def _decode(stream: BinaryIO) -> str:
+        return stream.read().decode("utf-8")
 
     match request.method:
         case "Google":
-            return gdocs.load(request.source)
+            if not isinstance(source, str):
+                raise ValueError(f"Need a url for {request.method}.")
+            return gdocs.load(source)
         case "Notion":
-            return await notion.load(request.source)
-    raise NotImplementedError()
+            if not isinstance(source, str):
+                raise ValueError(f"Need a url for {request.method}.")
+            return await notion.load(source)
+        case "Machine A" | "Machine B" | "Machine C":
+            if request.lang is None:
+                raise ValueError("Language not defined.")
+            return await ingest_and_transcribe(
+                source=source,
+                lang=request.lang,
+                backend=request.method,
+                session=session,
+            )
+        case "Subtitles":
+            if not isinstance(source, str):
+                raise ValueError(f"Need a url for {request.method}.")
+            if request.lang is None:
+                raise ValueError("Language not defined.")
+            return Transcript(
+                lang=request.lang,
+                events=youtube.get_captions(source, lang=request.lang),
+            )
+        case "SRT":
+            if not isinstance(source, BinaryIO):
+                raise ValueError(f"Need a binary stream for {request.method}.")
+            if request.lang is None:
+                raise ValueError("Language not defined.")
+            text = await _decode(source)
+            events = transcript.srt_to_events(text)
+            return Transcript(lang=request.lang, events=events)
+        case "SSMD":
+            if not isinstance(source, BinaryIO):
+                raise ValueError(f"Need a binary stream for {request.method}.")
+            if request.lang is None:
+                raise ValueError("Language not defined.")
+            text = await _decode(source)
+            events = transcript.parse_events(text)
+            return Transcript(lang=request.lang, events=events)
+        case never:
+            assert_never(never)
+
+
+async def ingest_and_transcribe(
+    source: str | BinaryIO,
+    lang: Language,
+    backend: SpeechToTextBackend,
+    session: aiohttp.ClientSession,
+) -> Transcript:
+    provider: ServiceProvider
+    match backend:
+        case "Machine A":
+            provider = "Google"
+        case "Machine B":
+            provider = "Deepgram"
+        case "Machine C":
+            provider = "Azure"
+        case never:
+            assert_never(never)
+
+    response = await media_client.ingest(source=source, session=session)
+    result = await tasks.future(response)
+    if isinstance(result, Error):
+        raise RuntimeError(result.message)
+    if result.audio is None:
+        raise ValueError(f"Missing audio for {source}")
+
+    audio = await media_client.probe(source=result.audio, session=session)
+    assert isinstance(audio.info, Audio)
+
+    # TODO (astaff): Downsample to single channel here?
+
+    events = await speech.transcribe(
+        uri=audio.url, audio=audio.info, lang=lang, provider=provider
+    )
+
+    url = source if isinstance(source, str) else result.audio
+
+    return Transcript(source=Source(backend, url), lang=lang, events=events)
 
 
 async def _ingest_stream(
     stream: BinaryIO, session: aiohttp.ClientSession
 ) -> IngestResponse:
     response = await media_client.ingest(source=stream, session=session)
-
-    if isinstance(response, Error):
-        raise RuntimeError(response.message)
-
     result = await tasks.future(response)
-
     if isinstance(result, Error):
         raise RuntimeError(result.message)
 
@@ -105,7 +192,7 @@ async def synthesize(request: web.Request) -> web.Response:
     params = await request.json()
 
     try:
-        response = await process(params, SynthesizeRequest, _synthesize)
+        response = await process(params, None, SynthesizeRequest, _synthesize)
     except (ValidationError, ValueError) as e:
         error = Error(message=str(e))
         raise web.HTTPBadRequest(body=pydantic_encoder(error))
@@ -114,11 +201,17 @@ async def synthesize(request: web.Request) -> web.Response:
 
 
 @routes.post("/load")
-async def load(request):
-    params = await request.json()
+async def load(request: web.Request) -> web.Response:
+    parts = await request.multipart()
+    part = await parts.next()
+    assert isinstance(part, BodyPartReader)
+    params = await part.json()
+
+    stream = await parts.next()
+    assert isinstance(part, BinaryIO)
 
     try:
-        response = await process(params, LoadRequest, _load)
+        response = await process(params, stream, LoadRequest, _load)
     except (ValidationError, ValueError) as e:
         error = Error(message=str(e))
         raise web.HTTPBadRequest(body=pydantic_encoder(error))

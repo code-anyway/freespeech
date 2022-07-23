@@ -27,6 +27,7 @@ from freespeech.lib.text import (
     split_sentences,
 )
 from freespeech.types import (
+    CHARACTERS,
     Audio,
     Character,
     Event,
@@ -115,7 +116,9 @@ SPEECH_RATE_MAXIMUM = 1.3
 SYNTHESIS_RETRIES = 10
 
 # Speech-to-text API call timeout.
-TRANSCRIBE_TIMEOUT_SEC = 300
+# Upper limit is 480 seconds
+# Details: https://cloud.google.com/speech-to-text/docs/async-recognize#speech_transcribe_async_gcs-python  # noqa: E501
+GOOGLE_TRANSCRIBE_TIMEOUT_SEC = 480 * 60
 
 
 @cache
@@ -214,11 +217,9 @@ async def _transcribe_deepgram(
                 },
             )
 
-    characters = ("Alan Turing", "Alonzo Church")
-
     events = []
     for utterance in response["results"]["utterances"]:
-        character = characters[int(utterance["speaker"]) % len(characters)]
+        character = CHARACTERS[int(utterance["speaker"]) % len(CHARACTERS)]
         assert is_character(character)
 
         event = Event(
@@ -267,7 +268,7 @@ async def _transcribe_google(
                 ),
                 audio=speech_api.RecognitionAudio(uri=uri),
             )
-            result = operation.result(timeout=TRANSCRIBE_TIMEOUT_SEC)  # type: ignore
+            result = operation.result(timeout=GOOGLE_TRANSCRIBE_TIMEOUT_SEC)  # type: ignore  # noqa: E501
             assert isinstance(
                 result, LongRunningRecognizeResponse
             ), f"type(result)={type(result)}"

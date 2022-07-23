@@ -1,4 +1,5 @@
 import json
+from typing import BinaryIO
 
 import aiohttp
 from pydantic.json import pydantic_encoder
@@ -17,22 +18,29 @@ from freespeech.types import (
 
 
 async def load(
-    source: str,  # This can also be BinaryIO
+    source: str | BinaryIO,
     *,
     method: Method,
     lang: Language | None,
     session: aiohttp.ClientSession,
 ) -> Task[Transcript] | Error:
-    request = LoadRequest(source=source, method=method, lang=lang)
+    url = source if isinstance(source, str) else None
+    request = LoadRequest(source=url, method=method, lang=lang)
 
     async def _future() -> Transcript | Error:
-        async with session.post("/transcript", json=pydantic_encoder(request)) as resp:
-            result = await resp.json()
+        with aiohttp.MultipartWriter("mixed") as writer:
+            writer.append_json(pydantic_encoder(request))
 
-            if resp.ok:
-                return Transcript(**result)
-            else:
-                return Error(**result)
+            if isinstance(source, BinaryIO):
+                writer.append(source)
+
+            async with session.post("/transcript", data=writer) as resp:
+                result = await resp.json()
+
+                if resp.ok:
+                    return Transcript(**result)
+                else:
+                    return Error(**result)
 
     return Task[Transcript](
         state="Running",

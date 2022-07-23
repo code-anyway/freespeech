@@ -220,9 +220,12 @@ def download(
 
 def get_captions(url: str, lang: Language) -> Sequence[Event]:
     yt = pytube.YouTube(url)
-    captions = dict((caption.code, caption.xml_captions) for caption in yt.captions)
+    xml_captions = [(caption.code, caption.xml_captions) for caption in yt.captions]
+
+    captions = convert_captions(xml_captions)
     if lang not in captions:
         raise ValueError(f"{url} has no captions for {lang}")
+
     return captions[lang]
 
 
