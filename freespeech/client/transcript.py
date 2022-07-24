@@ -21,7 +21,7 @@ async def load(
     source: str | BinaryIO,
     *,
     method: Method,
-    lang: Language | None,
+    lang: Language,
     session: aiohttp.ClientSession,
 ) -> Task[Transcript] | Error:
     url = source if isinstance(source, str) else None

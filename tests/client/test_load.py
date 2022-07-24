@@ -40,9 +40,16 @@ async def test_load_srt(mock_client, monkeypatch):
             source=stream, method="SRT", lang="en-US", session=session
         )
         result = await tasks.future(task)
-        assert result.events[0] == Event(
+        first, *_, last = result.events
+        assert first == Event(
             time_ms=27110,
             chunks=['"America has heard the bugle call'],
             duration_ms=5050,
+            voice=Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.0),
+        )
+        assert last == Event(
+            time_ms=6716480,
+            chunks=["And I am not afraid."],
+            duration_ms=1580,
             voice=Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.0),
         )

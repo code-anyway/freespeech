@@ -153,7 +153,7 @@ class TranslateRequest:
 class LoadRequest:
     source: str | None
     method: Method
-    lang: Language | None
+    lang: Language
 
 
 @dataclass(frozen=True)

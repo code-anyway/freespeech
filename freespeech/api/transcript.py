@@ -1,6 +1,5 @@
 import logging
 from dataclasses import replace
-from io import BufferedReader
 from tempfile import TemporaryDirectory
 from typing import Any, BinaryIO, Dict, Type
 
@@ -35,7 +34,7 @@ logger = logging.getLogger(__name__)
 async def process(
     params: Dict,
     stream: Any | None,
-    request_type: Type[SynthesizeRequest],
+    request_type: Type[SynthesizeRequest | LoadRequest],
     handler: Any,
 ) -> Dict:
     request = request_type(**params)
@@ -69,7 +68,7 @@ async def _synthesize(
             )
 
             with open(synth_file, "rb") as file:
-                audio_url = (await _ingest_stream(file, session)).audio
+                audio_url = (await _ingest(file, session)).audio
 
         video_url = None
         video = request.transcript.video and await media.probe(
@@ -82,7 +81,7 @@ async def _synthesize(
             )
 
             with open(dub_file, "rb") as file:
-                video_url = (await _ingest_stream(file, session)).video
+                video_url = (await _ingest(file, session)).video
 
     return replace(request.transcript, video=video_url, audio=audio_url)
 
@@ -108,10 +107,14 @@ async def _load(
                 raise ValueError(f"Need a url for {request.method}.")
             return await notion.load(source)
         case "Machine A" | "Machine B" | "Machine C":
-            if request.lang is None:
-                raise ValueError("Language not defined.")
-            return await ingest_and_transcribe(
+            asset = await _ingest(
                 source=source,
+                session=session,
+            )
+            if not asset.audio:
+                raise ValueError(f"No audio stream: {source}")
+            return await _transcribe(
+                source=asset.audio,
                 lang=request.lang,
                 backend=request.method,
                 session=session,
@@ -119,8 +122,6 @@ async def _load(
         case "Subtitles":
             if not isinstance(source, str):
                 raise ValueError(f"Need a url for {request.method}.")
-            if request.lang is None:
-                raise ValueError("Language not defined.")
             return Transcript(
                 lang=request.lang,
                 events=youtube.get_captions(source, lang=request.lang),
@@ -128,25 +129,21 @@ async def _load(
         case "SRT":
             if not stream:
                 raise ValueError(f"Need a binary stream for {request.method}.")
-            if request.lang is None:
-                raise ValueError("Language not defined.")
-            text = await _decode(source)
+            text = await _decode(stream)
             events = transcript.srt_to_events(text)
             return Transcript(lang=request.lang, events=events)
         case "SSMD":
             if not stream:
                 raise ValueError(f"Need a binary stream for {request.method}.")
-            if request.lang is None:
-                raise ValueError("Language not defined.")
-            text = await _decode(source)
+            text = await _decode(stream)
             events = transcript.parse_events(text)
             return Transcript(lang=request.lang, events=events)
         case never:
             assert_never(never)
 
 
-async def ingest_and_transcribe(
-    source: str | BinaryIO,
+async def _transcribe(
+    source: str,
     lang: Language,
     backend: SpeechToTextBackend,
     session: aiohttp.ClientSession,
@@ -162,14 +159,7 @@ async def ingest_and_transcribe(
         case never:
             assert_never(never)
 
-    response = await media.ingest(source=source, session=session)
-    result = await tasks.future(response)
-    if isinstance(result, Error):
-        raise RuntimeError(result.message)
-    if result.audio is None:
-        raise ValueError(f"Missing audio for {source}")
-
-    audio = await media.probe(source=result.audio, session=session)
+    audio = await media.probe(source=source, session=session)
     assert isinstance(audio.info, Audio)
 
     # TODO (astaff): Downsample to single channel here?
@@ -178,15 +168,15 @@ async def ingest_and_transcribe(
         uri=audio.url, audio=audio.info, lang=lang, provider=provider
     )
 
-    url = source if isinstance(source, str) else result.audio
+    url = source if isinstance(source, str) else audio
 
     return Transcript(source=Source(backend, url), lang=lang, events=events)
 
 
-async def _ingest_stream(
-    stream: BinaryIO, session: aiohttp.ClientSession
+async def _ingest(
+    source: str | BinaryIO, session: aiohttp.ClientSession
 ) -> IngestResponse:
-    response = await media.ingest(source=stream, session=session)
+    response = await media.ingest(source=source, session=session)
     result = await tasks.future(response)
     if isinstance(result, Error):
         raise RuntimeError(result.message)
@@ -210,9 +200,12 @@ async def synthesize(request: web.Request) -> web.Response:
 @routes.post("/load")
 async def load(request: web.Request) -> web.Response:
     parts = await request.multipart()
+
     part = await parts.next()
     assert isinstance(part, BodyPartReader)
+
     params = await part.json()
+    assert params
 
     stream = await parts.next()
     assert isinstance(stream, BodyPartReader)
