@@ -19,7 +19,7 @@ async def client(aiohttp_client) -> Generator[AiohttpClient, None, None]:
 
 @pytest.mark.asyncio
 async def test_jsononly_ingest(client):
-    resp = await media_client.ingest("abc", output_types=[], session=client)
+    resp = await media_client.ingest("https://www.youtube.com/watch?v=N9B59PHIFbA", session=client)
     assert resp
 
 

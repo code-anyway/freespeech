@@ -2,6 +2,7 @@ import html
 import http.client
 import json
 import logging
+import os
 import random
 import time
 import xml.etree.ElementTree as ET
@@ -154,15 +155,24 @@ def upload(video_file, meta_file, credentials_file):
 
 
 def download_stream(
-    stream: pytube.Stream, output_dir: str | PathLike, max_retries: int
+    stream: pytube.Stream,
+    output_dir: str | PathLike,
+    output_filename: str | PathLike,
+    max_retries: int,
 ) -> PathLike:
-    file = Path(f"{media.new_file(output_dir)}.{stream.subtype}")
-    stream.download(output_path=output_dir, filename=file.name, max_retries=max_retries)
-    return Path(file)
+    # file = Path(f"{media.new_file(output_dir)}.{stream.subtype}")
+    stream.download(
+        output_path=output_dir, filename=output_filename, max_retries=max_retries
+    )
+    return Path(os.path.join(output_dir, output_filename))
 
 
 def download(
-    url: str, output_dir: str | PathLike, max_retries: int = 0
+    url: str,
+    output_dir: str | PathLike,
+    audio_filename: str | PathLike,
+    video_filename: str | PathLike,
+    max_retries: int = 0,
 ) -> Tuple[PathLike, PathLike, Meta, Dict[str, Sequence[Event]]]:
     """Downloads YouTube video from URL into output_dir.
 
@@ -191,14 +201,20 @@ def download(
     logger.info(f"Downloading {audio} and {video}")
 
     audio_stream = download_stream(
-        stream=audio, output_dir=output_dir, max_retries=max_retries
+        stream=audio,
+        output_dir=output_dir,
+        output_filename=audio_filename,
+        max_retries=max_retries,
     )
 
     video_stream = None
     for stream in video_streams:
         try:
             video_stream = download_stream(
-                stream=stream, output_dir=output_dir, max_retries=max_retries
+                stream=stream,
+                output_dir=output_dir,
+                output_filename=video_filename,
+                max_retries=max_retries,
             )
         except http.client.IncompleteRead as e:
             # Some streams won't download.
