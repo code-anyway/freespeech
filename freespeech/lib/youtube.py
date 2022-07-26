@@ -1,3 +1,4 @@
+import asyncio
 import html
 import http.client
 import json
@@ -184,10 +185,14 @@ def download(
         A tuple (audio_stream, video_stream, info).
     """
     yt = pytube.YouTube(url)
-
-    filtered = yt.streams.filter(only_audio=True, audio_codec="opus")
+    filtered = yt.streams.filter(only_audio=True)
     *_, audio = filtered.order_by("abr")
-
+    audio_stream = download_stream(
+        stream=audio,
+        output_dir=output_dir,
+        output_filename=audio_filename,
+        max_retries=max_retries,
+    )
     video = yt.streams.get_highest_resolution()
     video_streams = list(yt.streams.filter(resolution="720p", mime_type="video/mp4"))
 
@@ -200,14 +205,6 @@ def download(
 
     logger.info(f"Downloading {audio} and {video}")
 
-    audio_stream = download_stream(
-        stream=audio,
-        output_dir=output_dir,
-        output_filename=audio_filename,
-        max_retries=max_retries,
-    )
-
-    video_stream = None
     for stream in video_streams:
         try:
             video_stream = download_stream(
@@ -216,6 +213,7 @@ def download(
                 output_filename=video_filename,
                 max_retries=max_retries,
             )
+            break
         except http.client.IncompleteRead as e:
             # Some streams won't download.
             logger.warning(f"Incomplete read for stream {stream} of {url}: {str(e)}")

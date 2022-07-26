@@ -1,5 +1,4 @@
 import asyncio
-import io
 import logging
 import os
 import tempfile
@@ -19,10 +18,7 @@ logger = logging.getLogger(__name__)
 
 routes = web.RouteTableDef()
 
-# Todo rename actual file to Media?
 
-
-# expecting multipart structure here
 @routes.post("/ingest")
 async def ingest(request: aiohttp.web_request.Request):
     # 1. handle multipart, reconstruct the stream and json meta
@@ -38,6 +34,7 @@ async def ingest(request: aiohttp.web_request.Request):
     hashed_url = hash_string(source)
     audio_url = f"{env.get_storage_url()}/media/audio_{hashed_url}"
     video_url = f"{env.get_storage_url()}/media/video_{hashed_url}"
+
     with tempfile.TemporaryDirectory() as tempdir:
         audio_fifo = f"{hashed_url}.audio"
         video_fifo = f"{hashed_url}.video"
@@ -47,13 +44,11 @@ async def ingest(request: aiohttp.web_request.Request):
         def _download():
             youtube.download(source, tempdir, audio_fifo, video_fifo, 4)
 
-        # Broken pipe here
         await asyncio.gather(
             concurrency.run_in_thread_pool(_download),
             obj.put(os.path.join(tempdir, audio_fifo), audio_url),
-            obj.put(os.path.join(tempdir, audio_fifo), video_url),
+            obj.put(os.path.join(tempdir, video_fifo), video_url),
         )
 
-        # await obj.put(os.path.join(tempdir, audio_fifo), video_url)
-        # _download()
-        # await obj.put(os.path.join(tempdir, audio_fifo), audio_url)
+        #todo return task here
+        return web.json_response({})

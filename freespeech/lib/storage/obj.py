@@ -90,7 +90,11 @@ def _gs_copy_from_local(src: Path, dst: GoogleStorageObject):
         with google_storage_client() as storage:
             bucket = storage.bucket(dst.bucket)
             blob = bucket.blob(dst.obj)
-            blob.upload_from_filename(src)
+            with open(src, "rb") as src_file:
+                with blob.open("wb") as dst_file:
+                    while bytes := src_file.read(16 * 4096):
+                        dst_file.write(bytes)
+
     except google_api_exceptions.GoogleAPICallError as e:
         extra = {
             "details": e.details,
