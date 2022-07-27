@@ -116,6 +116,17 @@ class Settings:
 
 @dataclass(frozen=True)
 class Transcript:
+    f"""Transcript. Holds information necessary for synthesis, dubbing and translation.
+
+    Args:
+        lang (Language): BCP 47 tag indicating language of a transcript.
+            Supported values: {LANGUAGES}
+        events (Event): A sequence of speech events.
+            {Event.__doc__}.
+        (optional) title (str): Transcript title.
+        (optional) source (Source): Transcript.
+            {Source.__doc__}.
+    """
     lang: Language
     events: Sequence[Event]
     title: str | None = None
