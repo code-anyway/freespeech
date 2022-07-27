@@ -20,18 +20,13 @@ async def ingest(
     )
 
     async def _future() -> IngestResponse | Error:
-        with aiohttp.MultipartWriter("form-data") as mpwriter:
-            mpwriter.append_json(pydantic_encoder(request))
+        with aiohttp.MultipartWriter("form-data") as writer:
+            writer.append_json(pydantic_encoder(request))
 
-            match source:
-                case str():
-                    pass
-                case aiohttp.StreamReader | asyncio.StreamReader:
-                    mpwriter.append(source)
-                case BinaryIO():
-                    mpwriter.append(source)
+            if not request.source:
+                writer.append(source)
 
-            async with session.post("/ingest", data=mpwriter) as resp:
+            async with session.post("/ingest", data=writer) as resp:
                 result = await resp.json()
 
                 if resp.ok:

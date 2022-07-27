@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import BinaryIO
 
@@ -18,7 +19,7 @@ from freespeech.types import (
 
 
 async def load(
-    source: str | BinaryIO,
+    source: str | aiohttp.StreamReader | asyncio.StreamReader | BinaryIO,
     *,
     method: Method,
     lang: Language,

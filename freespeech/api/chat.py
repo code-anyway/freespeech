@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 CLIENT_TIMEOUT = 3600
 
-# Events with the gap greater than GAP_MS won't be contatenated.
+# Events with the gap greater than GAP_MS won't be concatenated.
 GAP_MS = 1400
 
 # Won't attempt concatenating events if one is longer than LENGTH.
