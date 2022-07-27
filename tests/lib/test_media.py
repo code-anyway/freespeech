@@ -90,3 +90,12 @@ async def test_cut(tmp_path):
     (audio, *_), (video, *_) = media.probe(output)
     assert audio.duration_ms == 2_000
     assert video.duration_ms == 2_032
+
+
+@pytest.mark.asyncio
+async def test_video_as_audio(tmp_path):
+    audio = await media.multi_channel_audio_to_mono(AUDIO_DUB_EN_RU, tmp_path)
+    ((audio_meta, *_), *_) = media.probe(audio)
+
+    assert audio_meta.duration_ms == 3221
+    assert audio_meta.encoding == "LINEAR16"

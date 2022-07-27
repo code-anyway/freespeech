@@ -31,7 +31,7 @@ def mock_client(client_session):
 
 @pytest.mark.skip(reason="Long test, enable to call ingest")
 @pytest.mark.asyncio
-async def test_jsononly_ingest(client):
+async def test_ingest_jsononly_longvideo(client):
     import time
 
     start_time = time.time()
@@ -40,6 +40,25 @@ async def test_jsononly_ingest(client):
     #     "https://www.youtube.com/watch?v=Gm4qV0wX8f0", session=client
     # )
     print("--- %s seconds ---" % (time.time() - start_time))
+
+
+@pytest.mark.asyncio
+async def test_ingest_local_stream(client_session):
+    with open("tests/lib/data/media/dub-en-US-ru-RU.mp4", "rb") as file:
+        response = await media.ingest(
+            file, filename="dub-en-US-ru-RU.mp4", session=client_session
+        )
+
+        result = await tasks.future(response)
+        if isinstance(result, Error):
+            assert False, result.message
+
+        assert result.audio.startswith("https://")
+        # we are using the same stream as audio and video
+        assert result.audio.endswith(".mp4")
+
+        assert result.video.startswith("https://")
+        assert result.video.endswith(".mp4")
 
 
 @pytest.mark.asyncio

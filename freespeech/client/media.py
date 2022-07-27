@@ -13,6 +13,7 @@ from freespeech.types import Audio, Error, IngestRequest, IngestResponse, Media,
 async def ingest(
     source: str | aiohttp.StreamReader | asyncio.StreamReader | BinaryIO,
     *,
+    filename: str | None = None,
     session: aiohttp.ClientSession
 ) -> Task[IngestResponse] | Error:
     request = IngestRequest(
@@ -24,7 +25,8 @@ async def ingest(
             writer.append_json(pydantic_encoder(request))
 
             if not request.source:
-                writer.append(source)
+                part = writer.append(source)
+                part.set_content_disposition('attachment', filename=filename)
 
             async with session.post("/ingest", data=writer) as resp:
                 result = await resp.json()
