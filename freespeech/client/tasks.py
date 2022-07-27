@@ -29,11 +29,11 @@ def future(target: Task[TaskReturnType] | Error) -> Awaitable[TaskReturnType | E
         # If error - wrap and return error.
         pass
 
-    # TODO (astaff): Uncommend when we switch to server-side tasks
+    # TODO (astaff): Uncomment when we switch to server-side tasks
     # return _run()
 
     # TODO (astaff): This is a hack to simulate the behavior of
-    # waiting for server-side task execution, while our servies
+    # waiting for server-side task execution, while our services
     # are still synchronous
     return target._future
 

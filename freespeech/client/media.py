@@ -1,32 +1,51 @@
+import asyncio
+import json
 from typing import BinaryIO
 
 import aiohttp
 from pydantic.json import pydantic_encoder
 
 from freespeech.client.tasks import Task
+from freespeech.lib import hash
 from freespeech.types import Audio, Error, IngestRequest, IngestResponse, Media, Video
 
 
 async def ingest(
-    source: str | BinaryIO, *, session: aiohttp.ClientSession
+    source: str | aiohttp.StreamReader | asyncio.StreamReader | BinaryIO,
+    *,
+    session: aiohttp.ClientSession
 ) -> Task[IngestResponse] | Error:
     request = IngestRequest(
         source=source if isinstance(source, str) else None,
     )
 
-    with aiohttp.MultipartWriter("mixed") as mpwriter:
-        mpwriter.append_json(pydantic_encoder(request))
+    async def _future() -> IngestResponse | Error:
+        with aiohttp.MultipartWriter("form-data") as mpwriter:
+            mpwriter.append_json(pydantic_encoder(request))
 
-        if isinstance(source, BinaryIO):
-            mpwriter.append(source)
+            match source:
+                case str():
+                    pass
+                case aiohttp.StreamReader | asyncio.StreamReader:
+                    mpwriter.append(source)
+                case BinaryIO():
+                    mpwriter.append(source)
 
-        async with session.post("/ingest", data=mpwriter) as resp:
-            result = await resp.json()
+            async with session.post("/ingest", data=mpwriter) as resp:
+                result = await resp.json()
 
-            if resp.ok:
-                return Task[IngestResponse](**result)
-            else:
-                return Error(**result)
+                if resp.ok:
+                    return IngestResponse(**result)
+                else:
+                    return Error(**result)
+
+    return Task[IngestResponse](
+        state="Running",
+        op="Transcribe",
+        id=hash.string(json.dumps(pydantic_encoder(request))),
+        message="Estimated wait time: 10 minutes",
+        _future=_future(),
+    )
 
 
 async def probe(

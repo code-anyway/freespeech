@@ -1,7 +1,8 @@
+import asyncio
 import logging
 from dataclasses import replace
 from tempfile import TemporaryDirectory
-from typing import Any, BinaryIO, Dict, Type
+from typing import BinaryIO, Sequence
 
 import aiohttp
 from aiohttp import BodyPartReader, web
@@ -16,6 +17,7 @@ from freespeech.lib.storage import obj
 from freespeech.types import (
     Audio,
     Error,
+    Event,
     IngestResponse,
     Language,
     LoadRequest,
@@ -31,22 +33,8 @@ routes = web.RouteTableDef()
 logger = logging.getLogger(__name__)
 
 
-async def process(
-    params: Dict,
-    stream: Any | None,
-    request_type: Type[SynthesizeRequest | LoadRequest],
-    handler: Any,
-) -> Dict:
-    request = request_type(**params)
-    # NOTE (astaff): IMO, we should have one base API per environment
-    # and there should be a straightforward way to determine that from
-    # the environment.
-    session = client.create()
-    return pydantic_encoder(await handler(request, stream, session))
-
-
 async def _synthesize(
-    request: SynthesizeRequest, stream: BinaryIO | None, session: aiohttp.ClientSession
+    request: SynthesizeRequest, session: aiohttp.ClientSession
 ) -> Transcript:
     with TemporaryDirectory() as tmp_dir:
         synth_file, _ = await speech.synthesize_events(
@@ -87,13 +75,16 @@ async def _synthesize(
 
 
 async def _load(
-    request: LoadRequest, stream: BinaryIO | None, session: aiohttp.ClientSession
+    request: LoadRequest,
+    stream: aiohttp.StreamReader | None,
+    session: aiohttp.ClientSession,
 ) -> Transcript:
     source = request.source or stream
+
     if not source:
         raise ValueError("Missing source url or octet stream.")
 
-    async def _decode(stream: BinaryIO) -> str:
+    async def _decode(stream: aiohttp.StreamReader) -> str:
         data = await stream.read()
         return data.decode("utf-8")
 
@@ -113,17 +104,30 @@ async def _load(
             )
             if not asset.audio:
                 raise ValueError(f"No audio stream: {source}")
-            return await _transcribe(
+            events = await _transcribe(
                 source=asset.audio,
                 lang=request.lang,
                 backend=request.method,
                 session=session,
             )
+            return Transcript(
+                lang=request.lang,
+                events=events,
+                source=Source(request.method, request.source or asset.audio),
+                audio=asset.audio,
+                video=asset.video,
+            )
         case "Subtitles":
             if not isinstance(source, str):
                 raise ValueError(f"Need a url for {request.method}.")
+            asset = await _ingest(
+                source=source,
+                session=session,
+            )
             return Transcript(
                 lang=request.lang,
+                audio=asset.audio,
+                video=asset.video,
                 events=youtube.get_captions(source, lang=request.lang),
             )
         case "SRT":
@@ -147,7 +151,7 @@ async def _transcribe(
     lang: Language,
     backend: SpeechToTextBackend,
     session: aiohttp.ClientSession,
-) -> Transcript:
+) -> Sequence[Event]:
     provider: ServiceProvider
     match backend:
         case "Machine A":
@@ -159,22 +163,26 @@ async def _transcribe(
         case never:
             assert_never(never)
 
-    audio = await media.probe(source=source, session=session)
-    assert isinstance(audio.info, Audio)
+    # audio = await media.probe(source=source, session=session)
+    # assert isinstance(audio.info, Audio)
 
-    # TODO (astaff): Downsample to single channel here?
+    audio_url = obj.storage_url(source)
 
     events = await speech.transcribe(
-        uri=audio.url, audio=audio.info, lang=lang, provider=provider
+        uri=audio_url,
+        audio=Audio(
+            duration_ms=0, encoding="LINEAR16", sample_rate_hz=44100, num_channels=2
+        ),
+        lang=lang,
+        provider=provider,
     )
 
-    url = source if isinstance(source, str) else audio
-
-    return Transcript(source=Source(backend, url), lang=lang, events=events)
+    return events
 
 
 async def _ingest(
-    source: str | BinaryIO, session: aiohttp.ClientSession
+    source: str | BinaryIO | aiohttp.StreamReader | asyncio.StreamReader,
+    session: aiohttp.ClientSession,
 ) -> IngestResponse:
     response = await media.ingest(source=source, session=session)
     result = await tasks.future(response)
@@ -185,21 +193,22 @@ async def _ingest(
 
 
 @routes.post("/synthesize")
-async def synthesize(request: web.Request) -> web.Response:
-    params = await request.json()
+async def synthesize(web_request: web.Request) -> web.Response:
+    params = await web_request.json()
 
     try:
-        response = await process(params, None, SynthesizeRequest, _synthesize)
+        response = await _synthesize(
+            request=SynthesizeRequest(**params), session=client.create()
+        )
+        return web.json_response(pydantic_encoder(response))
     except (ValidationError, ValueError) as e:
         error = Error(message=str(e))
         raise web.HTTPBadRequest(body=pydantic_encoder(error))
 
-    return web.json_response(response)
-
 
 @routes.post("/load")
-async def load(request: web.Request) -> web.Response:
-    parts = await request.multipart()
+async def load(web_request: web.Request) -> web.Response:
+    parts = await web_request.multipart()
 
     part = await parts.next()
     assert isinstance(part, BodyPartReader)
@@ -207,13 +216,21 @@ async def load(request: web.Request) -> web.Response:
     params = await part.json()
     assert params
 
-    stream = await parts.next()
-    assert isinstance(stream, BodyPartReader)
-
     try:
-        response = await process(params, stream, LoadRequest, _load)
+        request = LoadRequest(**params)
+        stream = None
+
+        if not isinstance(request.source, str):
+            stream = await parts.next()
+            assert isinstance(stream, BodyPartReader)
+
+        response = await _load(
+            request=LoadRequest(**params),
+            stream=stream._content if stream else None,
+            session=client.create(),
+        )
     except (ValidationError, ValueError) as e:
         error = Error(message=str(e))
         raise web.HTTPBadRequest(body=pydantic_encoder(error))
 
-    return web.json_response(response)
+    return web.json_response(pydantic_encoder(response))

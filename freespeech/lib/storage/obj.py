@@ -133,5 +133,9 @@ def google_storage_client():
         client._http.close()
 
 
-def get_public_url(url: url) -> url:
+def public_url(url: url) -> url:
     return url.replace("gs://", "https://storage.googleapis.com/")
+
+
+def storage_url(url: url) -> url:
+    return url.replace("https://storage.googleapis.com/", "gs://")

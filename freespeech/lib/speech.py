@@ -161,11 +161,6 @@ async def transcribe(
         Transcript containing timed phrases as `List[Event]`.
     """
 
-    if audio.num_channels != 1:
-        raise ValueError(
-            ("Audio should be mono for best results. " "Set audio.num_channels to 1.")
-        )
-
     match provider:
         case "Google":
             return await _transcribe_google(uri, audio, lang, model)
@@ -238,6 +233,11 @@ async def _transcribe_deepgram(
 async def _transcribe_google(
     uri: url, audio: Audio, lang: Language, model: TranscriptionModel
 ) -> Sequence[Event]:
+    if audio.num_channels != 1:
+        raise ValueError(
+            ("Audio should be mono for best results. " "Set audio.num_channels to 1.")
+        )
+
     if audio.encoding not in GOOGLE_CLOUD_ENCODINGS:
         raise ValueError(
             (

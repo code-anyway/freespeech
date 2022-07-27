@@ -36,7 +36,7 @@ def test_broken_download(tmp_path):
     VIDEO_HASH = (
         "6c7caedf0541d16c3d382fec41355b1226dd1d9121b81cf2e8bbc85aa904a3b6",
         "4caf22ef5eef77cdef4337abd60d36d7476502f6b37893bc0ecc53878d7989bc",
-        "f96cb054fd52199437c57250d323108ba5f0753d2043de5e982fa486e65d8146"
+        "f96cb054fd52199437c57250d323108ba5f0753d2043de5e982fa486e65d8146",
     )
     assert hash.file(audio_file) in AUDIO_HASH
     assert hash.file(video_file) in VIDEO_HASH
