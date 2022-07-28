@@ -66,6 +66,30 @@ def is_blank_fill_method(val: str) -> TypeGuard[BlankFillMethod]:
 
 @dataclass(frozen=True)
 class Voice:
+    """Voice settings for speech synthesis.
+
+    Attributes:
+        character (str): Who's voice to use? (Default: `"Ada Lovelace"`)
+
+            - Female characters: `"Ada Lovelace"`, `"Grace Hopper"`, `"Melinda"`.
+            - Male characters: `"Alonzo Church"`, `"Alan Turing"`, `"Bill"`.
+
+        pitch (float): Voice pitch. (Default: `0.0`)
+
+            Examples:
+
+            - `0.0` is neutral.
+            - `2.0` is higher pitch.
+            - `-2.0` is lower pitch.
+
+        speech_rate (float): Speaking rate. (Default: `1.0`)
+
+            Examples:
+
+            - `1.0` is normal rate.
+            - `2.0` is 2x faster.
+            - `0.5` is 2x slower.
+    """
     character: Character = "Ada Lovelace"
     pitch: float = 0.0
     speech_rate: float = 1.0
@@ -73,6 +97,22 @@ class Voice:
 
 @dataclass(frozen=True)
 class Event:
+    """A timed speech event.
+
+    Contains timed text chunks and information required for speech synthesis:
+    pitch, speed, duration.
+
+    Attributes:
+        time_ms (int): Time of the event in milliseconds.
+        chunks (List[str]): Portions of text (parts, paragraphs).
+
+            Following special tokens are supported:
+
+            - `#1.0#` — speech break for 1 sec.
+
+        duration_ms (int, optional): Event duration.
+        voice (Voice): Voice settings.
+    """
     time_ms: int
     chunks: List[str]
     duration_ms: int | None = None
@@ -81,6 +121,29 @@ class Event:
 
 @dataclass(frozen=True)
 class Source:
+    """Transcript source information.
+
+    Attributes:
+        url (str): Public url for the source.
+        method (str): How to extract the Transcript from url.
+
+            Machine-based transcription:
+
+            - `"Machine A"`.
+            - `"Machine B"`.
+            - `"Machine C"`.
+
+            Subtitles:
+
+            - `"Subtitles"` — extract from the video container.
+            - `"SRT"` — popular subtitle format.
+            - `"SSMD"` — freespeech's speech synthesis markdown.
+
+            Document platforms:
+
+            - `"Google"` — Google Docs.
+            - `"Notion"` — Notion.
+    """
     method: Method
     url: str
 
@@ -116,19 +179,44 @@ class Settings:
 
 @dataclass(frozen=True)
 class Transcript:
-    f"""Transcript. Holds information necessary for synthesis, dubbing and translation.
+    """Information about the transcript.
 
-    Args:
-        lang (Language): BCP 47 tag indicating language of a transcript.
-            Supported values: {LANGUAGES}
-        events (Event): A sequence of speech events.
-            {Event.__doc__}.
-        (optional) title (str): Transcript title.
-        (optional) source (Source): Transcript.
-            {Source.__doc__}.
+    Contains information necessary for synthesis, dubbing, and translation.
+
+    Attributes:
+        events (Sequence[Event]): A sequence of timed speech events.
+            Contains timed text chunks and information required for speech synthesis:
+            pitch, speed, duration.
+        lang (str): A BCP 47 tag indicating language of a transcript.
+
+            Supported values:
+
+            - `"en-US"` (English).
+            - `"uk-UA"` (Ukrainian).
+            - `"ru-RU"` (Russian).
+            - `"pt-PT"` (Portuguese).
+            - `"es-US"` (Spanish).
+            - `"de-DE"` (German).
+
+        title (str, optional): Transcript title. Meta-information for transcript
+            formats that require a title, such as Google Docs, or Notion.
+        source (Source, optional): Transcript source. Contains a `url` and a `method`
+            to produce transcript.
+
+            Example:
+                ```json
+                {
+                    "url": "https://www.youtube.com/watch?v=qbYu4OPoKJM",
+                    "method": "Subtitles"
+                }
+                ```
+        video (str, optional): Public url for video track for the transcript.
+        audio (str, optional): Public url for audio track for the transcript.
+        settings (Settings): Settings that specify the behavior of speech
+            synthesis and dubbing.
     """
-    lang: Language
     events: Sequence[Event]
+    lang: Language
     title: str | None = None
     source: Source | None = None
     video: str | None = None

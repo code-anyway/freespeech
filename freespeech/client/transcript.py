@@ -25,6 +25,60 @@ async def load(
     lang: Language,
     session: aiohttp.ClientSession,
 ) -> Task[Transcript] | Error:
+    """Load transcript.
+
+    Loads transcript from `source` using `method` and `lang` (language).
+
+    Args:
+        source (str | aiohttp.StreamReader | asyncio.StreamReader | BinaryIO):
+            Transcript source. Can be a url or a stream.
+        method (str): How to extract the Transcript from url.
+
+            Machine-based transcription:
+
+            - `"Machine A"`.
+            - `"Machine B"`.
+            - `"Machine C"`.
+
+            Subtitles:
+
+            - `"Subtitles"` — extract from the video container.
+            - `"SRT"` — popular subtitle format.
+            - `"SSMD"` — freespeech's speech synthesis markdown.
+
+            Document platforms:
+
+            - `"Google"` — Google Docs.
+            - `"Notion"` — Notion.
+        lang (str): A BCP 47 tag indicating language of a transcript.
+
+            Supported values:
+
+            - `"en-US"` (English).
+            - `"uk-UA"` (Ukrainian).
+            - `"ru-RU"` (Russian).
+            - `"pt-PT"` (Portuguese).
+            - `"es-US"` (Spanish).
+            - `"de-DE"` (German).
+    Returns:
+        Task[Transcript] or Error: A ``Task`` that is expected to return ``Transcript`` or
+            ``Error`` if operation was unsuccessful.
+
+    Examples:
+    ```python
+    from freespeech.client import client, transcript, tasks
+
+
+    session = client.create(key="your-api-token")
+    task = await transcript.load(
+                source="https://www.youtube.com/watch?v=ALaTm6VzTBw",
+                method="Subtitles",
+                lang="en-US",
+                session=session,
+            )
+    result = await tasks.future(task)
+    ```
+    """
     url = source if isinstance(source, str) else None
     request = LoadRequest(source=url, method=method, lang=lang)
 
