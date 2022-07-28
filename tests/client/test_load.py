@@ -73,7 +73,7 @@ async def test_load_ssmd(mock_client, monkeypatch):
         )
         assert last == Event(
             time_ms=2000,
-            chunks=["It was a huge mistake.\r"],
+            chunks=["It was a huge mistake."],
             duration_ms=None,
             voice=Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.4),
         )
