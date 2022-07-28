@@ -65,7 +65,17 @@ setup(
         "types-requests",
     ],
     extras_require={
+        "docs": [
+            "markdown-include",
+            "mdx_truly_sane_lists",
+            "mkdocs",
+            "mkdocs-autorefs",
+            "mkdocs-exclude",
+            "mkdocs-material",
+            "mkdocstrings-python",
+        ],
         "test": [
+            "coverage",
             "pytest",
             "pytest-aiohttp",
             "pytest-asyncio",

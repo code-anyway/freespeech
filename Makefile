@@ -1,5 +1,5 @@
 # Inspired by: https://github.com/huggingface/transformers/blob/main/Makefile
-.PHONY: test quality style typecheck data
+.PHONY: test quality style typecheck data docs
 
 check_dirs := tests freespeech
 
@@ -8,6 +8,9 @@ test:
 
 typecheck:
 	python -m mypy --install-types --non-interactive $(check_dirs)
+
+docs:
+	mkdocs build
 
 quality:
 	black --check $(check_dirs)

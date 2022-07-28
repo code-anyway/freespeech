@@ -82,6 +82,7 @@ From project home directory in the container:
 - To test locally: `pip install -e ".[test]"`
 - To run the tests: `make test`
 - To generate training data: `make data`
+- To build docs locally: `pip install -e ".[docs]" && make docs`
 
 ### Cloud
 
