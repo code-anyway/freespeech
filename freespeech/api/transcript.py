@@ -2,6 +2,7 @@ import asyncio
 import logging
 import tempfile
 from dataclasses import replace
+from io import BytesIO
 from tempfile import TemporaryDirectory
 from typing import BinaryIO, Sequence
 
@@ -76,7 +77,7 @@ async def _synthesize(
 
 async def _load(
     request: LoadRequest,
-    stream: aiohttp.StreamReader | None,
+    stream: aiohttp.StreamReader | BodyPartReader | None,
     session: aiohttp.ClientSession,
 ) -> Transcript:
     source = request.source or stream
@@ -84,8 +85,7 @@ async def _load(
     if not source:
         raise ValueError("Missing source url or octet stream.")
 
-    async def _decode(stream: BodyPartReader) -> str:
-        data = await stream.read()
+    async def _decode(data: bytes) -> str:
         return data.decode("utf-8")
 
     match request.method:
@@ -99,7 +99,7 @@ async def _load(
             return await notion.load(source)
         case "Machine A" | "Machine B" | "Machine C":
             asset = await _ingest(
-                source=source,
+                source if isinstance(source, str) else BytesIO(await source.read()),
                 session=session,
             )
             if not asset.audio:
@@ -133,13 +133,13 @@ async def _load(
         case "SRT":
             if not stream:
                 raise ValueError(f"Need a binary stream for {request.method}.")
-            text = await _decode(stream)
+            text = await _decode(await stream.read())
             events = transcript.srt_to_events(text)
             return Transcript(lang=request.lang, events=events)
         case "SSMD":
             if not stream:
                 raise ValueError(f"Need a binary stream for {request.method}.")
-            text = await _decode(stream)
+            text = await _decode(await stream.read())
             events = transcript.parse_events(text)
             return Transcript(lang=request.lang, events=events)
         case never:
@@ -220,17 +220,22 @@ async def load(web_request: web.Request) -> web.Response:
 
     try:
         request = LoadRequest(**params)
-        stream = None
 
-        if not isinstance(request.source, str):
+        if isinstance(request.source, str):
+            response = await _load(
+                request=LoadRequest(**params),
+                stream=None,
+                session=client.create(),
+            )
+        else:
             stream = await parts.next()
             assert isinstance(stream, BodyPartReader)
+            response = await _load(
+                request=LoadRequest(**params),
+                stream=stream,
+                session=client.create(),
+            )
 
-        response = await _load(
-            request=LoadRequest(**params),
-            stream=stream if stream else None,
-            session=client.create(),
-        )
     except (ValidationError, ValueError) as e:
         error = Error(message=str(e))
         raise web.HTTPBadRequest(body=pydantic_encoder(error))
