@@ -1,4 +1,5 @@
-from typing import Generator
+import asyncio
+from typing import Generator, Sequence
 
 import pytest
 import pytest_asyncio
@@ -6,7 +7,7 @@ from aiohttp import web
 from aiohttp.pytest_plugin import AiohttpClient
 
 from freespeech.client import client, tasks, transcript
-from freespeech.types import Event, Voice
+from freespeech.types import Event, Method, Voice
 
 
 @pytest_asyncio.fixture
@@ -115,19 +116,40 @@ async def test_load_subtitles(mock_client, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_load_transcribe(mock_client, monkeypatch):
+async def test_load_transcribe(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
     session = mock_client()
+    methods: Sequence[Method] = ("Machine A", "Machine B")
 
-    task = await transcript.load(
-        source="https://www.youtube.com/watch?v=ALaTm6VzTBw",
-        method="Machine B",
-        lang="en-US",
-        session=session,
+    responses = [
+        await transcript.load(
+            source="https://www.youtube.com/watch?v=ALaTm6VzTBw",
+            method=method,
+            lang="en-US",
+            session=session,
+        )
+        for method in methods
+    ]
+
+    result_a, result_b = await asyncio.gather(
+        *[tasks.future(response) for response in responses]
     )
 
-    result = await tasks.future(task)
-    event, *_ = result.events
+    # Check Machine A output
+    event, *_ = result_a.events
+
+    chunk, *_ = event.chunks
+    chunk.startswith("The way to work week works is the worst waking up on Monday. You got five days in a row of work or school, it's too much.")  # noqa: E501
+    assert chunk.endswith("Now, when you wake up on Monday, there's only two")
+
+    assert result_a.audio.startswith("https://")
+    assert result_a.audio.endswith(".wav")
+
+    assert result_a.video.startswith("https://")
+    assert result_a.video.endswith(".mp4")
+
+    # Check Machine B output
+    event, *_ = result_b.events
 
     assert event.time_ms == 140
     assert event.duration_ms == 145824
@@ -139,8 +161,8 @@ async def test_load_transcribe(mock_client, monkeypatch):
         "If those sound intriguing, why not give it a try and see if weekend Wednesday works for you."  # noqa: E501
     )
 
-    assert result.audio.startswith("https://")
-    assert result.audio.endswith(".wav")
+    assert result_b.audio.startswith("https://")
+    assert result_b.audio.endswith(".wav")
 
-    assert result.video.startswith("https://")
-    assert result.video.endswith(".mp4")
+    assert result_b.video.startswith("https://")
+    assert result_b.video.endswith(".mp4")

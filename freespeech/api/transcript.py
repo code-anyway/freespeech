@@ -44,7 +44,6 @@ async def _synthesize(
             output_dir=tmp_dir,
         )
 
-        audio_url = None
         audio = request.transcript.audio and await media.probe(
             request.transcript.audio, session=session
         )
@@ -56,8 +55,8 @@ async def _synthesize(
                 output_dir=tmp_dir,
             )
 
-            with open(synth_file, "rb") as file:
-                audio_url = (await _ingest(file, session)).audio
+        with open(synth_file, "rb") as file:
+            audio_url = (await _ingest(file, str(synth_file), session)).audio
 
         video_url = None
         video = request.transcript.video and await media.probe(
@@ -70,7 +69,7 @@ async def _synthesize(
             )
 
             with open(dub_file, "rb") as file:
-                video_url = (await _ingest(file, session)).video
+                video_url = (await _ingest(file, str(synth_file), session)).video
 
     return replace(request.transcript, video=video_url, audio=audio_url)
 
@@ -184,9 +183,10 @@ async def _transcribe(
 
 async def _ingest(
     source: str | BinaryIO | aiohttp.StreamReader | asyncio.StreamReader,
+    filename: str,
     session: aiohttp.ClientSession,
 ) -> IngestResponse:
-    response = await media.ingest(source=source, session=session)
+    response = await media.ingest(source=source, filename=filename, session=session)
     result = await tasks.future(response)
     if isinstance(result, Error):
         raise RuntimeError(result.message)
