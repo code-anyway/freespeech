@@ -90,6 +90,7 @@ class Voice:
             - `2.0` is 2x faster.
             - `0.5` is 2x slower.
     """
+
     character: Character = "Ada Lovelace"
     pitch: float = 0.0
     speech_rate: float = 1.0
@@ -113,6 +114,7 @@ class Event:
         duration_ms (int, optional): Event duration.
         voice (Voice): Voice settings.
     """
+
     time_ms: int
     chunks: List[str]
     duration_ms: int | None = None
@@ -144,6 +146,7 @@ class Source:
             - `"Google"` — Google Docs.
             - `"Notion"` — Notion.
     """
+
     method: Method
     url: str
 
@@ -215,6 +218,7 @@ class Transcript:
         settings (Settings): Settings that specify the behavior of speech
             synthesis and dubbing.
     """
+
     events: Sequence[Event]
     lang: Language
     title: str | None = None

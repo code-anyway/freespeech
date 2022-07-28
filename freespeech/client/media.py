@@ -26,7 +26,7 @@ async def ingest(
 
             if not request.source:
                 part = writer.append(source)
-                part.set_content_disposition('attachment', filename=filename)
+                part.set_content_disposition("attachment", filename=filename)
 
             async with session.post("/ingest", data=writer) as resp:
                 result = await resp.json()

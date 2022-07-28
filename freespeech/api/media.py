@@ -8,7 +8,7 @@ from aiohttp import BodyPartReader, web
 from pydantic.json import pydantic_encoder
 
 from freespeech import env
-from freespeech.lib import concurrency, hash, youtube, media
+from freespeech.lib import concurrency, hash, media, youtube
 from freespeech.lib.storage import obj
 from freespeech.types import IngestRequest, IngestResponse
 

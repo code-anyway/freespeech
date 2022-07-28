@@ -67,7 +67,7 @@ async def test_load_ssmd(mock_client, monkeypatch):
         first, *_, last = result.events
         assert first == Event(
             time_ms=0,
-            chunks=['Hello, Bill!', 'How are you?'],
+            chunks=["Hello, Bill!", "How are you?"],
             duration_ms=1000,
             voice=Voice(character="Grace Hopper", pitch=0.0, speech_rate=1.0),
         )

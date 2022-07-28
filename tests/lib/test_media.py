@@ -52,7 +52,7 @@ async def test_mix(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_dub(tmp_path):
+async def test_dub(tmp_path) -> None:
     # Add RU dub over EN video
     output = await media.dub(VIDEO_EN, AUDIO_RU, tmp_path)
 
@@ -61,7 +61,7 @@ async def test_dub(tmp_path):
     uri = await obj.put(output_mono, AUDIO_RU_GS)
     (audio, *_), _ = media.probe(output_mono)
 
-    t_ru = await speech.transcribe(uri, audio, "ru-RU")
+    t_ru = await speech.transcribe(uri, "ru-RU")
     assert t_ru == [Event(time_ms=0, duration_ms=3180, chunks=["123"])]
 
 

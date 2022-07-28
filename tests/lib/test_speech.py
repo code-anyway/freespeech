@@ -61,13 +61,14 @@ def test_text_to_chunks():
 
 
 @pytest.mark.asyncio
-async def test_transcribe() -> None:
-    await obj.put(AUDIO_EN_LOCAL, AUDIO_EN_GS)
-    (audio, *_), _ = media.probe(AUDIO_EN_LOCAL)
-    assert not _
+async def test_transcribe(tmp_path) -> None:
+    downmixed_local = await media.multi_channel_audio_to_mono(
+        file=AUDIO_EN_LOCAL, output_dir=tmp_path
+    )
+    await obj.put(downmixed_local, AUDIO_EN_GS)
 
     t_en = await speech.transcribe(
-        AUDIO_EN_GS, audio, "en-US", model="default", provider="Deepgram"
+        AUDIO_EN_GS, "en-US", model="default", provider="Deepgram"
     )
 
     voice = Voice(character="Alan Turing", pitch=0.0, speech_rate=1.0)
@@ -76,7 +77,7 @@ async def test_transcribe() -> None:
     )
     assert t_en == [event]
 
-    t_en = await speech.transcribe(AUDIO_EN_GS, audio, "en-US", model="default")
+    t_en = await speech.transcribe(AUDIO_EN_GS, "en-US", model="default")
 
     event = Event(
         time_ms=0,
@@ -104,10 +105,12 @@ async def test_synthesize_text(tmp_path) -> None:
     assert voice.character == "Grace Hopper"
     assert voice.pitch == 0.0
 
-    output_gs = await obj.put(output, f"{TEST_OUTPUT_GS}{output.name}")
-    (first, second) = await speech.transcribe(
-        output_gs, audio, "en-US", model="default"
+    downmixed_local = await media.multi_channel_audio_to_mono(
+        output, output_dir=tmp_path
     )
+    output_gs = await obj.put(downmixed_local, f"{TEST_OUTPUT_GS}{output.name}")
+
+    (first, second) = await speech.transcribe(output_gs, "en-US", model="default")
 
     assert first.chunks == ["One, two."]
     assert second.chunks == [" 3."]
@@ -143,11 +146,13 @@ async def test_synthesize_azure_transcribe_google(tmp_path) -> None:
         lang="en-US",
         output_dir=tmp_path,
     )
-    (audio, *_), _ = media.probe(output)
-    output_gs = await obj.put(output, f"{TEST_OUTPUT_GS}{output.name}")
-    (first, second) = await speech.transcribe(
-        output_gs, audio, "en-US", model="default"
+
+    downmixed_local = await media.multi_channel_audio_to_mono(
+        output, output_dir=tmp_path
     )
+    output_gs = await obj.put(downmixed_local, f"{TEST_OUTPUT_GS}{output.name}")
+
+    (first, second) = await speech.transcribe(output_gs, "en-US", model="default")
 
     assert first.chunks == ["Testing quite a long sentence."]
     assert second.chunks == [" Hello."]
@@ -178,9 +183,12 @@ async def test_synthesize_events(tmp_path) -> None:
     eps = 100
     assert abs(audio.duration_ms - 7000) < eps
 
-    output_gs = await obj.put(output, f"{TEST_OUTPUT_GS}{output.name}")
+    downmixed_local = await media.multi_channel_audio_to_mono(
+        output, output_dir=tmp_path
+    )
+    output_gs = await obj.put(downmixed_local, f"{TEST_OUTPUT_GS}{output.name}")
 
-    t_en = await speech.transcribe(output_gs, audio, "en-US", model="default")
+    t_en = await speech.transcribe(output_gs, "en-US", model="default")
 
     assert t_en == [
         Event(

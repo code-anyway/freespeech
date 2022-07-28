@@ -170,9 +170,6 @@ async def _transcribe(
 
     events = await speech.transcribe(
         uri=audio_url,
-        audio=Audio(
-            duration_ms=0, encoding="LINEAR16", sample_rate_hz=44100, num_channels=2
-        ),
         lang=lang,
         provider=provider,
     )
