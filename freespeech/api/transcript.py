@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import tempfile
 from dataclasses import replace
 from tempfile import TemporaryDirectory
 from typing import BinaryIO, Sequence
@@ -15,7 +16,6 @@ from freespeech.lib import media as media_ops
 from freespeech.lib import notion, speech, transcript, youtube
 from freespeech.lib.storage import obj
 from freespeech.types import (
-    Audio,
     Error,
     Event,
     IngestResponse,
@@ -84,7 +84,7 @@ async def _load(
     if not source:
         raise ValueError("Missing source url or octet stream.")
 
-    async def _decode(stream: aiohttp.StreamReader) -> str:
+    async def _decode(stream: BodyPartReader) -> str:
         data = await stream.read()
         return data.decode("utf-8")
 
@@ -163,13 +163,18 @@ async def _transcribe(
         case never:
             assert_never(never)
 
-    # audio = await media.probe(source=source, session=session)
-    # assert isinstance(audio.info, Audio)
-
-    audio_url = obj.storage_url(source)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        audio_file = await obj.get(obj.storage_url(source), tmp_dir)
+        output_mono = await media_ops.multi_channel_audio_to_mono(audio_file, tmp_dir)
+        with open(output_mono, "rb") as file:
+            task = await media.ingest(file, filename=str(output_mono), session=session)
+            result = await tasks.future(task)
+            if isinstance(result, Error):
+                raise RuntimeError(result.message)
+            assert result.audio is not None
 
     events = await speech.transcribe(
-        uri=audio_url,
+        uri=obj.storage_url(result.audio),
         lang=lang,
         provider=provider,
     )
@@ -223,7 +228,7 @@ async def load(web_request: web.Request) -> web.Response:
 
         response = await _load(
             request=LoadRequest(**params),
-            stream=stream._content if stream else None,
+            stream=stream if stream else None,
             session=client.create(),
         )
     except (ValidationError, ValueError) as e:

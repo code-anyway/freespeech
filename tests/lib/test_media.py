@@ -59,7 +59,6 @@ async def test_dub(tmp_path) -> None:
     # And confirm by transcribing it
     output_mono = await media.multi_channel_audio_to_mono(output, tmp_path)
     uri = await obj.put(output_mono, AUDIO_RU_GS)
-    (audio, *_), _ = media.probe(output_mono)
 
     t_ru = await speech.transcribe(uri, "ru-RU")
     assert t_ru == [Event(time_ms=0, duration_ms=3180, chunks=["123"])]

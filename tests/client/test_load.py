@@ -111,7 +111,7 @@ async def test_load_subtitles(mock_client, monkeypatch):
     assert result.audio.endswith(".wav")
 
     assert result.video.startswith("https://")
-    assert result.audio.endswith(".mp4")
+    assert result.video.endswith(".mp4")
 
 
 @pytest.mark.asyncio
@@ -143,4 +143,4 @@ async def test_load_transcribe(mock_client, monkeypatch):
     assert result.audio.endswith(".wav")
 
     assert result.video.startswith("https://")
-    assert result.audio.endswith(".mp4")
+    assert result.video.endswith(".mp4")
