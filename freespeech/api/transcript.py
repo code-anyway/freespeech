@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import tempfile
 from dataclasses import replace
@@ -22,6 +23,8 @@ from freespeech.types import (
     IngestResponse,
     Language,
     LoadRequest,
+    SaveRequest,
+    SaveResponse,
     ServiceProvider,
     Source,
     SpeechToTextBackend,
@@ -32,6 +35,46 @@ from freespeech.types import (
 
 routes = web.RouteTableDef()
 logger = logging.getLogger(__name__)
+
+
+async def _save(request: SaveRequest) -> SaveResponse:
+    match request.method:
+        case "Google":
+            return SaveResponse(url=gdocs.create(request.transcript))
+        case "Notion":
+            if request.location is None:
+                raise ValueError("For Notion `location` should be set to Database ID.")
+            _, url, _ = await notion.create(
+                request.transcript, database_id=request.location
+            )
+            return SaveResponse(url=url)
+        case "SSMD":
+            return SaveResponse(
+                url=gdocs.create_from_text(
+                    title=request.transcript.title,
+                    text=transcript.render_transcript(request.transcript),
+                )
+            )
+        case "SRT":
+            return SaveResponse(
+                url=gdocs.create_from_text(
+                    title=request.transcript.title,
+                    text=transcript.events_to_srt(request.transcript.events),
+                )
+            )
+        case "Subtitles":
+            plain_text = "\n\n".join(
+                "\n".join(event.chunks) for event in request.transcript.events
+            )
+            return SaveResponse(
+                url=gdocs.create_from_text(
+                    title=request.transcript.title, text=plain_text
+                )
+            )
+        case "Machine A" | "Machine B" | "Machine C":
+            raise ValueError(f"Unsupported method: {request.method}")
+        case never:
+            assert_never(never)
 
 
 async def _synthesize(
@@ -99,6 +142,7 @@ async def _load(
         case "Machine A" | "Machine B" | "Machine C":
             asset = await _ingest(
                 source if isinstance(source, str) else BytesIO(await source.read()),
+                filename=None,
                 session=session,
             )
             if not asset.audio:
@@ -121,9 +165,11 @@ async def _load(
                 raise ValueError(f"Need a url for {request.method}.")
             asset = await _ingest(
                 source=source,
+                filename=None,
                 session=session,
             )
             return Transcript(
+                source=Source(method=request.method, url=request.source),
                 lang=request.lang,
                 audio=asset.audio,
                 video=asset.video,
@@ -134,13 +180,21 @@ async def _load(
                 raise ValueError(f"Need a binary stream for {request.method}.")
             text = await _decode(await stream.read())
             events = transcript.srt_to_events(text)
-            return Transcript(lang=request.lang, events=events)
+            return Transcript(
+                source=Source(method=request.method, url=None),
+                lang=request.lang,
+                events=events,
+            )
         case "SSMD":
             if not stream:
                 raise ValueError(f"Need a binary stream for {request.method}.")
             text = await _decode(await stream.read())
             events = transcript.parse_events(text)
-            return Transcript(lang=request.lang, events=events)
+            return Transcript(
+                source=Source(method=request.method, url=None),
+                lang=request.lang,
+                events=events,
+            )
         case never:
             assert_never(never)
 
@@ -183,7 +237,7 @@ async def _transcribe(
 
 async def _ingest(
     source: str | BinaryIO | aiohttp.StreamReader | asyncio.StreamReader,
-    filename: str,
+    filename: str | None,
     session: aiohttp.ClientSession,
 ) -> IngestResponse:
     response = await media.ingest(source=source, filename=filename, session=session)
@@ -205,7 +259,23 @@ async def synthesize(web_request: web.Request) -> web.Response:
         return web.json_response(pydantic_encoder(response))
     except (ValidationError, ValueError) as e:
         error = Error(message=str(e))
-        raise web.HTTPBadRequest(body=pydantic_encoder(error))
+        raise web.HTTPBadRequest(
+            text=json.dumps(pydantic_encoder(error)), content_type="application/json"
+        )
+
+
+@routes.post("/save")
+async def save(web_request: web.Request) -> web.Response:
+    params = await web_request.json()
+
+    try:
+        response = await _save(request=SaveRequest(**params))
+        return web.json_response(pydantic_encoder(response))
+    except (ValidationError, ValueError) as e:
+        error = Error(message=str(e))
+        raise web.HTTPBadRequest(
+            text=json.dumps(pydantic_encoder(error)), content_type="application/json"
+        )
 
 
 @routes.post("/load")
@@ -238,6 +308,8 @@ async def load(web_request: web.Request) -> web.Response:
 
     except (ValidationError, ValueError) as e:
         error = Error(message=str(e))
-        raise web.HTTPBadRequest(body=pydantic_encoder(error))
+        raise web.HTTPBadRequest(
+            text=json.dumps(pydantic_encoder(error)), content_type="application/json"
+        )
 
     return web.json_response(pydantic_encoder(response))

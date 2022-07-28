@@ -153,8 +153,14 @@ def share_with_all(document_id: str):
 
 def create(source: Transcript) -> str:
     text = render_transcript(source)
+    return create_from_text(source.title, text)
+
+
+def create_from_text(title: str | None, text: str) -> str:
+    title = title or "Untitled"
+
     body = {
-        "title": source.title,
+        "title": title,
     }
     requests = [
         {

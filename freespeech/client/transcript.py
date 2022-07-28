@@ -12,6 +12,8 @@ from freespeech.types import (
     Language,
     LoadRequest,
     Method,
+    SaveRequest,
+    SaveResponse,
     SynthesizeRequest,
     Transcript,
     TranslateRequest,
@@ -61,8 +63,8 @@ async def load(
             - `"es-US"` (Spanish).
             - `"de-DE"` (German).
     Returns:
-        Task[Transcript] or Error: A ``Task`` that is expected to return ``Transcript`` or
-            ``Error`` if operation was unsuccessful.
+        Task[Transcript] or Error: A Task that is expected
+        to return Transcript or Error if operation was unsuccessful.
 
     Examples:
     ```python
@@ -150,3 +152,19 @@ async def translate(
         id=hash.string(json.dumps(pydantic_encoder(request))),
         _future=_future(),
     )
+
+
+async def save(
+    transcript: Transcript,
+    *,
+    method: Method,
+    location: str | None,
+    session: aiohttp.ClientSession,
+) -> SaveResponse | Error:
+    request = SaveRequest(transcript=transcript, location=location, method=method)
+    async with session.post("/save", json=pydantic_encoder(request)) as resp:
+        result = await resp.json()
+        if resp.ok:
+            return SaveResponse(**result)
+        else:
+            return Error(**result)

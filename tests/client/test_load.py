@@ -1,37 +1,14 @@
 import asyncio
-from typing import Generator, Sequence
+from typing import Sequence
 
 import pytest
-import pytest_asyncio
-from aiohttp import web
-from aiohttp.pytest_plugin import AiohttpClient
 
 from freespeech.client import client, tasks, transcript
-from freespeech.types import Event, Method, Voice
-
-
-@pytest_asyncio.fixture
-async def client_session(aiohttp_client) -> Generator[AiohttpClient, None, None]:
-    from freespeech.api import media, transcript
-
-    app = web.Application()
-
-    app.add_routes(transcript.routes)
-    app.add_routes(media.routes)
-
-    return await aiohttp_client(app)
-
-
-@pytest.fixture
-def mock_client(client_session):
-    def create(*args, **kwargs):
-        return client_session
-
-    return create
+from freespeech.types import Error, Event, Method, Voice
 
 
 @pytest.mark.asyncio
-async def test_load_srt(mock_client, monkeypatch):
+async def test_load_srt(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
     session = mock_client()
 
@@ -40,6 +17,9 @@ async def test_load_srt(mock_client, monkeypatch):
             source=stream, method="SRT", lang="en-US", session=session
         )
         result = await tasks.future(task)
+        if isinstance(result, Error):
+            assert False, result.message
+
         first, *_, last = result.events
         assert first == Event(
             time_ms=27110,
@@ -56,7 +36,7 @@ async def test_load_srt(mock_client, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_load_ssmd(mock_client, monkeypatch):
+async def test_load_ssmd(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
     session = mock_client()
 
@@ -65,6 +45,9 @@ async def test_load_ssmd(mock_client, monkeypatch):
             source=stream, method="SSMD", lang="en-US", session=session
         )
         result = await tasks.future(task)
+        if isinstance(result, Error):
+            assert False, result.message
+
         first, *_, last = result.events
         assert first == Event(
             time_ms=0,
@@ -81,7 +64,7 @@ async def test_load_ssmd(mock_client, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_load_subtitles(mock_client, monkeypatch):
+async def test_load_subtitles(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
     session = mock_client()
 
@@ -93,6 +76,9 @@ async def test_load_subtitles(mock_client, monkeypatch):
     )
 
     result = await tasks.future(task)
+    if isinstance(result, Error):
+        assert False, result.message
+
     first, *_, last = result.events
 
     assert first == Event(
@@ -108,9 +94,11 @@ async def test_load_subtitles(mock_client, monkeypatch):
         voice=Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.0),
     )
 
+    assert result.audio
     assert result.audio.startswith("https://")
     assert result.audio.endswith(".wav")
 
+    assert result.video
     assert result.video.startswith("https://")
     assert result.video.endswith(".mp4")
 
@@ -139,7 +127,9 @@ async def test_load_transcribe(mock_client, monkeypatch) -> None:
     event, *_ = result_a.events
 
     chunk, *_ = event.chunks
-    chunk.startswith("The way to work week works is the worst waking up on Monday. You got five days in a row of work or school, it's too much.")  # noqa: E501
+    chunk.startswith(
+        "The way to work week works is the worst waking up on Monday. You got five days in a row of work or school, it's too much."  # noqa: E501
+    )
     assert chunk.endswith("Now, when you wake up on Monday, there's only two")
 
     assert result_a.audio.startswith("https://")

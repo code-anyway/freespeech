@@ -1,12 +1,8 @@
 import asyncio
-from typing import Generator
 
 import pytest
-import pytest_asyncio
-from aiohttp import web
-from aiohttp.pytest_plugin import AiohttpClient
 
-from freespeech.client import tasks, transcript, client
+from freespeech.client import client, tasks, transcript
 from freespeech.types import Error, Event, Settings, Transcript, Voice
 
 ANNOUNCERS_TEST_TRANSCRIPT_RU = Transcript(
@@ -30,26 +26,6 @@ ANNOUNCERS_TEST_TRANSCRIPT_RU = Transcript(
         )
     ],
 )
-
-
-@pytest_asyncio.fixture
-async def client_session(aiohttp_client) -> Generator[AiohttpClient, None, None]:
-    from freespeech.api import media, transcript
-
-    app = web.Application()
-
-    app.add_routes(transcript.routes)
-    app.add_routes(media.routes)
-
-    return await aiohttp_client(app)
-
-
-@pytest.fixture
-def mock_client(client_session):
-    def create(*args, **kwargs):
-        return client_session
-
-    return create
 
 
 @pytest.mark.asyncio

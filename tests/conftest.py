@@ -1,8 +1,12 @@
 import logging
 import logging.config
 from dataclasses import dataclass
+from typing import Generator
 
 import pytest
+import pytest_asyncio
+from aiohttp import web
+from aiohttp.pytest_plugin import AiohttpClient
 
 LOGGING_CONFIG = {
     "version": 1,
@@ -39,3 +43,23 @@ class Const:
 @pytest.fixture
 def const():
     return Const
+
+
+@pytest_asyncio.fixture
+async def client_session(aiohttp_client) -> Generator[AiohttpClient, None, None]:
+    from freespeech.api import media, transcript
+
+    app = web.Application()
+
+    app.add_routes(transcript.routes)
+    app.add_routes(media.routes)
+
+    return await aiohttp_client(app)
+
+
+@pytest.fixture
+def mock_client(client_session):
+    def create(*args, **kwargs):
+        return client_session
+
+    return create

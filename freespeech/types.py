@@ -148,7 +148,7 @@ class Source:
     """
 
     method: Method
-    url: str
+    url: str | None
 
 
 @dataclass(frozen=True)
@@ -281,6 +281,35 @@ class AskRequest:
 class AskResponse:
     message: str
     state: Dict
+
+
+@dataclass(frozen=True)
+class SaveRequest:
+    """Request to save Transcript.
+
+    Attributes:
+        transcript (Transcript): Target transcript to save.
+        method (str):
+
+            - `"SRT"` — SRT to Google Docs.
+            - `"SSMD"` — freespeech's speech synthesis markdown to Google Docs.
+            - `"Google"` — Google Docs.
+            - `"Notion"` — Notion.
+
+        location (str, optional):
+
+            - Database ID for Notion.
+
+    """
+
+    transcript: Transcript
+    method: Method
+    location: str | None
+
+
+@dataclass(frozen=True)
+class SaveResponse:
+    url: str
 
 
 def assert_never(x: NoReturn) -> NoReturn:

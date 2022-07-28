@@ -1,32 +1,7 @@
-from typing import Generator
-
-import aiohttp
 import pytest
-import pytest_asyncio
-from aiohttp import web
-from aiohttp.pytest_plugin import AiohttpClient
 
 from freespeech.client import client, media, tasks
 from freespeech.types import Error
-
-
-@pytest_asyncio.fixture
-async def client_session(aiohttp_client) -> Generator[AiohttpClient, None, None]:
-    from freespeech.api import media
-
-    app = web.Application()
-
-    app.add_routes(media.routes)
-
-    return await aiohttp_client(app, timeout=aiohttp.ClientTimeout(total=10000))
-
-
-@pytest.fixture
-def mock_client(client_session):
-    def create(*args, **kwargs):
-        return client_session
-
-    return create
 
 
 @pytest.mark.skip(reason="Long test, enable to call ingest")
@@ -43,26 +18,31 @@ async def test_ingest_jsononly_longvideo(client):
 
 
 @pytest.mark.asyncio
-async def test_ingest_local_stream(client_session):
+async def test_ingest_local_stream(mock_client, monkeypatch) -> None:
+    monkeypatch.setattr(client, "create", mock_client)
+    session = mock_client()
+
     with open("tests/lib/data/media/dub-en-US-ru-RU.mp4", "rb") as file:
         response = await media.ingest(
-            file, filename="dub-en-US-ru-RU.mp4", session=client_session
+            file, filename="dub-en-US-ru-RU.mp4", session=session
         )
 
         result = await tasks.future(response)
         if isinstance(result, Error):
             assert False, result.message
 
+        assert result.audio
         assert result.audio.startswith("https://")
         # we are using the same stream as audio and video
         assert result.audio.endswith(".mp4")
 
+        assert result.video
         assert result.video.startswith("https://")
         assert result.video.endswith(".mp4")
 
 
 @pytest.mark.asyncio
-async def test_ingest_youtube_short(mock_client, monkeypatch):
+async def test_ingest_youtube_short(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
     session = mock_client()
 
@@ -73,8 +53,10 @@ async def test_ingest_youtube_short(mock_client, monkeypatch):
     if isinstance(result, Error):
         assert False, result.message
 
+    assert result.audio
     assert result.audio.startswith("https://")
     assert result.audio.endswith(".wav")
 
+    assert result.video
     assert result.video.startswith("https://")
     assert result.video.endswith(".mp4")
