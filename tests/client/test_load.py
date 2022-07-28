@@ -81,18 +81,15 @@ async def test_load_subtitles(mock_client, monkeypatch) -> None:
 
     first, *_, last = result.events
 
-    assert first == Event(
-        time_ms=0,
-        chunks=["The way the work week works is the worst."],
-        duration_ms=3011,
-        voice=Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.0),
-    )
-    assert last == Event(
-        time_ms=146570,
-        chunks=["[soft brooding electronic music fades slowly]"],
-        duration_ms=17996,
-        voice=Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.0),
-    )
+    assert first.time_ms == 0
+    assert first.chunks[0].startswith("The way the work week works is the worst. Waking up on monday, you've got.")
+    assert first.duration_ms == 41166
+    assert first.voice == Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.0)
+
+    assert last.time_ms == 114946
+    assert last.chunks[0].endswith("[soft brooding electronic music fades slowly]")
+    assert first.duration_ms == 41166
+    assert first.voice == Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.0)
 
     assert result.audio
     assert result.audio.startswith("https://")
@@ -130,7 +127,7 @@ async def test_load_transcribe(mock_client, monkeypatch) -> None:
     chunk.startswith(
         "The way to work week works is the worst waking up on Monday. You got five days in a row of work or school, it's too much."  # noqa: E501
     )
-    assert chunk.endswith("Now, when you wake up on Monday, there's only two")
+    assert chunk.endswith("for those of us who are on it, having a free day when everyone else is working, makes so many things easier.")  # noqa: E501
 
     assert result_a.audio.startswith("https://")
     assert result_a.audio.endswith(".wav")

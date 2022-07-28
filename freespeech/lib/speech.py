@@ -523,10 +523,15 @@ def concat_events(e1: Event, e2: Event, break_sentence: bool) -> Event:
         first = " ".join(e1.chunks)
         second = " ".join(e2.chunks)
 
+    if gap_sec > 0.01:
+        chunk = f"{first} #{gap_sec:.2f}# {second}"
+    else:
+        chunk = f"{first} {second}"
+
     return Event(
         time_ms=e1.time_ms,
         duration_ms=shift_ms + e2.duration_ms,
-        chunks=[f"{first} #{gap_sec:.2f}# {second}"],
+        chunks=[chunk],
         voice=e2.voice,
     )
 

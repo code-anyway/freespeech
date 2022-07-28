@@ -42,14 +42,6 @@ USER_EXAMPLES = {
 }
 
 
-def normalize_speech(
-    events: Sequence[Event], method: speech.Normalization
-) -> Sequence[Event]:
-    return speech.normalize_speech(
-        events, gap_ms=GAP_MS, length=PHRASE_LENGTH, method=method
-    )
-
-
 def handle_response(response: Task | Error) -> web.Response:
     match response:
         case Error():

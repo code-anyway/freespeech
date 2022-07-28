@@ -37,6 +37,16 @@ routes = web.RouteTableDef()
 logger = logging.getLogger(__name__)
 
 
+# Events with the gap greater than GAP_MS won't be concatenated.
+GAP_MS = 1400
+
+# Won't attempt concatenating events if one is longer than LENGTH.
+PHRASE_LENGTH = 600
+
+# When there is a speech break, we will end sentence and start a new one.
+TRANSCRIPT_NORMALIZATION: speech.Normalization = "break_ends_sentence"
+
+
 async def _save(request: SaveRequest) -> SaveResponse:
     match request.method:
         case "Google":
@@ -153,13 +163,14 @@ async def _load(
                 backend=request.method,
                 session=session,
             )
-            return Transcript(
+            result = Transcript(
                 lang=request.lang,
                 events=events,
                 source=Source(request.method, request.source or asset.audio),
                 audio=asset.audio,
                 video=asset.video,
             )
+            return _normalize_speech(result, method=TRANSCRIPT_NORMALIZATION)
         case "Subtitles":
             if not isinstance(source, str):
                 raise ValueError(f"Need a url for {request.method}.")
@@ -168,13 +179,14 @@ async def _load(
                 filename=None,
                 session=session,
             )
-            return Transcript(
+            result = Transcript(
                 source=Source(method=request.method, url=request.source),
                 lang=request.lang,
                 audio=asset.audio,
                 video=asset.video,
                 events=youtube.get_captions(source, lang=request.lang),
             )
+            return _normalize_speech(result, method=TRANSCRIPT_NORMALIZATION)
         case "SRT":
             if not stream:
                 raise ValueError(f"Need a binary stream for {request.method}.")
@@ -233,6 +245,20 @@ async def _transcribe(
     )
 
     return events
+
+
+def _normalize_speech(
+    transcript: Transcript, method: speech.Normalization
+) -> Transcript:
+    return replace(
+        transcript,
+        events=speech.normalize_speech(
+            transcript.events,
+            gap_ms=GAP_MS,
+            length=PHRASE_LENGTH,
+            method=method
+        )
+    )
 
 
 async def _ingest(
