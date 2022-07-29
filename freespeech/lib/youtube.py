@@ -1,4 +1,3 @@
-import asyncio
 import html
 import http.client
 import json
@@ -18,7 +17,6 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
-from freespeech.lib import media
 from freespeech.types import Event, Language, Meta
 
 logger = logging.getLogger(__name__)

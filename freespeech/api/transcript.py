@@ -30,9 +30,9 @@ from freespeech.types import (
     SpeechToTextBackend,
     SynthesizeRequest,
     Transcript,
-    assert_never,
-    TranslateRequest,
     TranscriptBackend,
+    TranslateRequest,
+    assert_never,
 )
 
 routes = web.RouteTableDef()
@@ -127,7 +127,7 @@ async def _synthesize(
     return replace(input, video=video_url, audio=audio_url)
 
 
-def _storage_method_from_url(input:str) -> TranscriptBackend:
+def _storage_method_from_url(input: str) -> TranscriptBackend:
     if input.startswith("https://docs.google.com/document/d/"):
         return "Google"
     if input.startswith("https://www.notion.so/"):
