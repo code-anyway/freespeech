@@ -33,13 +33,14 @@ async def ingest(web_request: web.Request) -> web.Response:
     source = request.source
 
     if not source:
-
+        # loading from stream then
         stream = await parts.next()
         assert isinstance(stream, BodyPartReader)
         assert stream.filename is not None
 
-        video_url = (
-            f"{env.get_storage_url()}/media/v_{str(uuid.uuid4())}.{stream.filename}"
+        media_url = (
+            f"{env.get_storage_url()}/media"
+            f"/v_{str(uuid.uuid4())}{os.path.splitext(stream.filename)[1]}"
         )
 
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -47,9 +48,9 @@ async def ingest(web_request: web.Request) -> web.Response:
             with open(video_file, "wb") as file:
                 file.write(await stream.read())
 
-            video_url = await obj.put(video_file, video_url)
+            await obj.put(video_file, media_url)
             result = IngestResponse(
-                audio=obj.public_url(video_url), video=obj.public_url(video_url)
+                audio=obj.public_url(media_url), video=obj.public_url(media_url)
             )
 
             return web.json_response(pydantic_encoder(result))
