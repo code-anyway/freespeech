@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from pydantic.json import pydantic_encoder
 
 from freespeech.client import client, media, tasks
-from freespeech.lib import gdocs
+from freespeech.lib import gdocs, language
 from freespeech.lib import media as media_ops
 from freespeech.lib import notion, speech, transcript, youtube
 from freespeech.lib.storage import obj
@@ -31,6 +31,8 @@ from freespeech.types import (
     SynthesizeRequest,
     Transcript,
     assert_never,
+    TranslateRequest,
+    TranscriptBackend,
 )
 
 routes = web.RouteTableDef()
@@ -125,26 +127,26 @@ async def _synthesize(
     return replace(input, video=video_url, audio=audio_url)
 
 
+def _storage_method_from_url(input:str) -> TranscriptBackend:
+    if input.startswith("https://docs.google.com/document/d/"):
+        return "Google"
+    if input.startswith("https://www.notion.so/"):
+        return "Notion"
+    else:
+        raise ValueError(f"Unsupported url: {input}")
+
+
 async def _transcript(
     input: Transcript | str, session: aiohttp.ClientSession
 ) -> Transcript:
     if isinstance(input, Transcript):
         return input
 
-    if input.startswith("https://docs.google.com/document/d/"):
-        return await _load(
-            LoadRequest(source=input, method="Google", lang=None),
-            stream=None,
-            session=session,
-        )
-    elif input.startswith("https://www.notion.so/"):
-        return await _load(
-            LoadRequest(source=input, method="Notion", lang=None),
-            stream=None,
-            session=session,
-        )
-    else:
-        raise ValueError(f"Unsupported url: {input}")
+    return await _load(
+        LoadRequest(source=input, method=_storage_method_from_url(input), lang=None),
+        stream=None,
+        session=session,
+    )
 
 
 async def _load(
@@ -301,6 +303,33 @@ async def _ingest(
         raise RuntimeError(result.message)
 
     return result
+
+
+async def _translate(request: TranslateRequest):
+    source_transcript = await _transcript(request.transcript, client.create())
+    target_language = request.lang
+    translated_events = language.translate_events(
+        source_transcript.events, source_transcript.lang, target_language
+    )
+    translated = replace(
+        source_transcript,
+        events=translated_events,
+        lang=target_language,
+    )
+    return translated
+
+
+@routes.post("/translate")
+async def translate(web_request: web.Request) -> web.Response:
+    params = await web_request.json()
+    try:
+        response = await _translate(request=TranslateRequest(**params))
+        return web.json_response(pydantic_encoder(response))
+    except (ValidationError, ValueError) as e:
+        error = Error(message=str(e))
+        raise web.HTTPBadRequest(
+            text=json.dumps(pydantic_encoder(error)), content_type="application/json"
+        )
 
 
 @routes.post("/synthesize")
