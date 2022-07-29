@@ -47,12 +47,13 @@ def const():
 
 @pytest_asyncio.fixture
 async def client_session(aiohttp_client) -> Generator[AiohttpClient, None, None]:
-    from freespeech.api import media, transcript
+    from freespeech.api import chat, media, transcript
 
     app = web.Application()
 
     app.add_routes(transcript.routes)
     app.add_routes(media.routes)
+    app.add_routes(chat.routes)
 
     return await aiohttp_client(app)
 

@@ -1,25 +1,29 @@
+import json
 import logging
-from typing import Sequence
+from typing import Dict, Tuple
 
 import aiohttp
 from aiohttp import web
+from pydantic import ValidationError
 from pydantic.json import pydantic_encoder
 
-from freespeech.client import chat, transcript
+from freespeech.client import client, tasks, transcript
 from freespeech.client.tasks import Task
-from freespeech.lib import speech
-from freespeech.types import AskRequest, Error, Event, LoadRequest
+from freespeech.lib import chat
+from freespeech.types import (
+    OPERATIONS,
+    AskRequest,
+    AskResponse,
+    Error,
+    LoadRequest,
+    SynthesizeRequest,
+    TranslateRequest,
+    assert_never,
+    is_operation,
+)
 
 routes = web.RouteTableDef()
 logger = logging.getLogger(__name__)
-
-CLIENT_TIMEOUT = 3600
-
-# Events with the gap greater than GAP_MS won't be concatenated.
-GAP_MS = 1400
-
-# Won't attempt concatenating events if one is longer than LENGTH.
-PHRASE_LENGTH = 600
 
 # no newlines allowed in messages - would break HTTPError contract!
 USER_EXAMPLES = {
@@ -56,53 +60,105 @@ def _raise_unknown_query(intent: str | None = None):
     )
 
 
-@routes.post("/ask")
-async def ask(request):
-    params = await request.json()
-    request = AskRequest(**params)
+def _build_request(
+    intent: str, entities: Dict
+) -> Tuple[LoadRequest | TranslateRequest | SynthesizeRequest, Dict]:
+    operation = intent.capitalize()
+    if not is_operation(operation):
+        raise ValueError(f"Unknown intent: {operation}. Expected: {OPERATIONS}")
 
-    if request.intent:
-        intent = request.intent
-    else:
-        try:
-            intent, entities = await chat.intent(request.text)
-            state = {**request.state, **entities}
-        except ValueError:
-            _raise_unknown_query(intent)
+    url, *_ = entities.get("url", None) or [None]
+    method, *_ = entities.get("method", None) or ["Machine B"]
+    lang, *_ = entities.get("language", None) or [None]
 
-    lang = state.get("lang", None)
-    url = state.get("url", None)
+    state = {"url": url, "method": method, "lang": lang}
+    state = {k: v for k, v in state.items() if v}
 
-    # TODO (astaff): pass trace and auth headers here
-    session = aiohttp.ClientSession(
-        base_url="http://localhost:8080",
-        timeout=aiohttp.ClientTimeout(CLIENT_TIMEOUT),
-    )
-
-    match intent:
+    match operation:
         case "Transcribe":
-            request = LoadRequest(state)
+            return LoadRequest(**{"source": url, "method": method, "lang": lang}), state
+        case "Translate":
+            return TranslateRequest(**{"transcript": url, "lang": lang}), state
+        case "Synthesize":
+            return SynthesizeRequest(**{"transcript": url}), state
+        case never:
+            assert_never(never)
+
+
+async def _ask(
+    ask_request: AskRequest, session: aiohttp.ClientSession
+) -> AskResponse | Error:
+    if ask_request.intent:
+        intent = ask_request.intent
+        entities: Dict = {}
+    else:
+        intent, entities = await chat.intent(ask_request.message)
+
+    state = {**ask_request.state, **entities}
+    request, state = _build_request(intent, state)
+
+    match request:
+        case LoadRequest():
+            assert isinstance(request.source, str)
             response = await transcript.load(
                 source=request.source,
                 method=request.method,
                 lang=request.lang,
-                session=session,
+                session=client.create(),
             )
-            return handle_response(response)
+            result = await tasks.future(response)
+            if isinstance(result, Error):
+                return result
+            saved = await transcript.save(
+                result, method="Google", location=None, session=session
+            )
+            if isinstance(saved, Error):
+                return saved
+            return AskResponse(message=f"Here you are: {saved.url}", state=state)
 
-        case "Translate":
+        case TranslateRequest():
             response = await transcript.translate(
-                transcript=await transcript.load(source=url, method="Google"),
-                lang=lang,
-                session=session,
+                transcript=request.transcript,
+                lang=request.lang,
+                session=client.create(),
             )
-            return handle_response(response)
+            result = await tasks.future(response)
+            if isinstance(result, Error):
+                return result
 
-        case "Synthesize":
+            saved = await transcript.save(
+                result, method="Google", location=None, session=session
+            )
+            if isinstance(saved, Error):
+                return saved
+            return AskResponse(message=f"Here you are: {saved.url}", state=state)
+
+        case SynthesizeRequest():
             response = await transcript.synthesize(
-                transcript=await transcript.load(source=url, method="Google"),
+                transcript=request.transcript, session=session
             )
-            return handle_response(response)
+            result = await tasks.future(response)
+            if isinstance(result, Error):
+                return result
 
-        case _:
-            _raise_unknown_query(intent=intent)
+            media_url = result.video or result.audio
+            return AskResponse(message=f"Here you are: {media_url}", state=state)
+
+
+@routes.post("/ask")
+async def ask(web_request: web.Request) -> web.Response:
+    params = await web_request.json()
+
+    try:
+        response = await _ask(ask_request=AskRequest(**params), session=client.create())
+        if isinstance(response, Error):
+            raise web.HTTPBadRequest(
+                text=json.dumps(pydantic_encoder(response)),
+                content_type="application/json",
+            )
+        return web.json_response(pydantic_encoder(response))
+    except (ValidationError, ValueError) as e:
+        error = Error(message=str(e))
+        raise web.HTTPBadRequest(
+            text=json.dumps(pydantic_encoder(error)), content_type="application/json"
+        )

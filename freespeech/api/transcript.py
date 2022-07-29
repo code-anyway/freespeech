@@ -90,21 +90,21 @@ async def _save(request: SaveRequest) -> SaveResponse:
 async def _synthesize(
     request: SynthesizeRequest, session: aiohttp.ClientSession
 ) -> Transcript:
+    input = await _transcript(request.transcript, session)
+
     with TemporaryDirectory() as tmp_dir:
         synth_file, _ = await speech.synthesize_events(
-            events=request.transcript.events,
-            lang=request.transcript.lang,
+            events=input.events,
+            lang=input.lang,
             output_dir=tmp_dir,
         )
 
-        audio = request.transcript.audio and await media.probe(
-            request.transcript.audio, session=session
-        )
+        audio = input.audio and await media.probe(input.audio, session=session)
         if audio:
             audio_file = await obj.get(audio.url, dst_dir=tmp_dir)
             synth_file = await media_ops.mix(
                 files=(audio_file, synth_file),
-                weights=(request.transcript.settings.original_audio_level, 10),
+                weights=(input.settings.original_audio_level, 10),
                 output_dir=tmp_dir,
             )
 
@@ -112,9 +112,7 @@ async def _synthesize(
             audio_url = (await _ingest(file, str(synth_file), session)).audio
 
         video_url = None
-        video = request.transcript.video and await media.probe(
-            request.transcript.video, session=session
-        )
+        video = input.video and await media.probe(input.video, session=session)
         if video:
             video_file = await obj.get(video.url, dst_dir=tmp_dir)
             dub_file = await media_ops.dub(
@@ -124,7 +122,29 @@ async def _synthesize(
             with open(dub_file, "rb") as file:
                 video_url = (await _ingest(file, str(synth_file), session)).video
 
-    return replace(request.transcript, video=video_url, audio=audio_url)
+    return replace(input, video=video_url, audio=audio_url)
+
+
+async def _transcript(
+    input: Transcript | str, session: aiohttp.ClientSession
+) -> Transcript:
+    if isinstance(input, Transcript):
+        return input
+
+    if input.startswith("https://docs.google.com/document/d/"):
+        return await _load(
+            LoadRequest(source=input, method="Google", lang=None),
+            stream=None,
+            session=session,
+        )
+    elif input.startswith("https://www.notion.so/"):
+        return await _load(
+            LoadRequest(source=input, method="Notion", lang=None),
+            stream=None,
+            session=session,
+        )
+    else:
+        raise ValueError(f"Unsupported url: {input}")
 
 
 async def _load(
@@ -155,8 +175,12 @@ async def _load(
                 filename=None,
                 session=session,
             )
+
             if not asset.audio:
                 raise ValueError(f"No audio stream: {source}")
+            if request.lang is None:
+                raise ValueError("Language is not set")
+
             events = await _transcribe(
                 source=asset.audio,
                 lang=request.lang,
@@ -174,6 +198,9 @@ async def _load(
         case "Subtitles":
             if not isinstance(source, str):
                 raise ValueError(f"Need a url for {request.method}.")
+            if request.lang is None:
+                raise ValueError("Language is not set")
+
             asset = await _ingest(
                 source=source,
                 filename=None,
@@ -190,6 +217,8 @@ async def _load(
         case "SRT":
             if not stream:
                 raise ValueError(f"Need a binary stream for {request.method}.")
+            if request.lang is None:
+                raise ValueError("Language is not set")
             text = await _decode(await stream.read())
             events = transcript.srt_to_events(text)
             return Transcript(
@@ -200,6 +229,9 @@ async def _load(
         case "SSMD":
             if not stream:
                 raise ValueError(f"Need a binary stream for {request.method}.")
+            if request.lang is None:
+                raise ValueError("Language is not set")
+
             text = await _decode(await stream.read())
             events = transcript.parse_events(text)
             return Transcript(
@@ -253,11 +285,8 @@ def _normalize_speech(
     return replace(
         transcript,
         events=speech.normalize_speech(
-            transcript.events,
-            gap_ms=GAP_MS,
-            length=PHRASE_LENGTH,
-            method=method
-        )
+            transcript.events, gap_ms=GAP_MS, length=PHRASE_LENGTH, method=method
+        ),
     )
 
 

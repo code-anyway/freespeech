@@ -1,8 +1,9 @@
 from dataclasses import replace
-import pytest
-from freespeech.client import client, transcript, tasks
-from freespeech.types import Error
 
+import pytest
+
+from freespeech.client import client, tasks, transcript
+from freespeech.types import Error
 
 NOTION_TRANSCRIPT_DATABASE_ID = "e1a094dbac5845409d2e995d4ce3675e"
 

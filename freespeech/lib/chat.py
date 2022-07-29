@@ -184,8 +184,10 @@ async def _intent_api_call(text: str) -> MutableMapping[str, Any]:
 
 
 async def intent(
-    text: str, intent_confidence: float = 0.95, entity_confidence: float = 0.95
-) -> Tuple[str, Dict[str, List]]:
+    text: str,
+    intent_confidence: float = 0.95,
+    entity_confidence: float = 0.95,
+) -> Tuple[str, Dict]:
     # Take normal case text and extract all URLs in their
     # original case
     prediction = await _intent_api_call(text)
@@ -208,9 +210,6 @@ async def intent(
     # that start with "http"
     if urls:
         entities["url"] = [url for url in urls if url.startswith("http")]
-
-    if command == "transcribe" and "method" not in entities:
-        entities["method"] = ["Machine B"]
 
     return command, entities
 

@@ -243,12 +243,12 @@ class Error:
 
 @dataclass(frozen=True)
 class SynthesizeRequest:
-    transcript: Transcript
+    transcript: Transcript | str
 
 
 @dataclass(frozen=True)
 class TranslateRequest:
-    transcript: Transcript
+    transcript: Transcript | str
     lang: Language
 
 
@@ -256,7 +256,7 @@ class TranslateRequest:
 class LoadRequest:
     source: str | None
     method: Method
-    lang: Language
+    lang: Language | None
 
 
 @dataclass(frozen=True)
@@ -273,7 +273,7 @@ class IngestResponse:
 @dataclass(frozen=True)
 class AskRequest:
     message: str
-    intent: Operation | None
+    intent: str | None
     state: Dict
 
 

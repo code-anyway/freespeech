@@ -24,7 +24,7 @@ async def load(
     source: str | aiohttp.StreamReader | asyncio.StreamReader | BinaryIO,
     *,
     method: Method,
-    lang: Language,
+    lang: Language | None,
     session: aiohttp.ClientSession,
 ) -> Task[Transcript] | Error:
     """Load transcript.
@@ -109,7 +109,7 @@ async def load(
 
 
 async def synthesize(
-    transcript: Transcript,
+    transcript: Transcript | str,
     *,
     session: aiohttp.ClientSession,
 ) -> Task[Transcript] | Error:
@@ -133,7 +133,7 @@ async def synthesize(
 
 
 async def translate(
-    transcript: Transcript, *, lang: Language, session: aiohttp.ClientSession
+    transcript: Transcript | str, *, lang: Language, session: aiohttp.ClientSession
 ) -> Task[Transcript] | Error:
     request = TranslateRequest(transcript=transcript, lang=lang)
 
