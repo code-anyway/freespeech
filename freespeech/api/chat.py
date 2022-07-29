@@ -64,6 +64,9 @@ def _build_request(
     intent: str, entities: Dict
 ) -> Tuple[LoadRequest | TranslateRequest | SynthesizeRequest, Dict]:
     operation = intent.capitalize()
+    # todo (alex) remove when new training data arrives
+    if operation == "Dub":
+        operation = "Synthesize"
     if not is_operation(operation):
         raise ValueError(f"Unknown intent: {operation}. Expected: {OPERATIONS}")
 

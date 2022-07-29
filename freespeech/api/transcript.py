@@ -101,11 +101,13 @@ async def _synthesize(
             output_dir=tmp_dir,
         )
 
-        audio = input.audio and await media.probe(input.audio, session=session)
-        if audio:
-            audio_file = await obj.get(audio.url, dst_dir=tmp_dir)
+        if input.audio:
+            audio_file = await obj.get(obj.storage_url(input.audio), dst_dir=tmp_dir)
+            mono_audio = await media_ops.multi_channel_audio_to_mono(
+                audio_file, output_dir=tmp_dir
+            )
             synth_file = await media_ops.mix(
-                files=(audio_file, synth_file),
+                files=(mono_audio, synth_file),
                 weights=(input.settings.original_audio_level, 10),
                 output_dir=tmp_dir,
             )
@@ -114,15 +116,15 @@ async def _synthesize(
             audio_url = (await _ingest(file, str(synth_file), session)).audio
 
         video_url = None
-        video = input.video and await media.probe(input.video, session=session)
-        if video:
-            video_file = await obj.get(video.url, dst_dir=tmp_dir)
+        if input.video:
+            video_file = await obj.get(obj.storage_url(input.video), dst_dir=tmp_dir)
+
             dub_file = await media_ops.dub(
                 video=video_file, audio=synth_file, output_dir=tmp_dir
             )
 
             with open(dub_file, "rb") as file:
-                video_url = (await _ingest(file, str(synth_file), session)).video
+                video_url = (await _ingest(file, str(dub_file), session)).video
 
     return replace(input, video=video_url, audio=audio_url)
 

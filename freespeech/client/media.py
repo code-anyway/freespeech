@@ -7,7 +7,7 @@ from pydantic.json import pydantic_encoder
 
 from freespeech.client.tasks import Task
 from freespeech.lib import hash
-from freespeech.types import Audio, Error, IngestRequest, IngestResponse, Media, Video
+from freespeech.types import Error, IngestRequest, IngestResponse
 
 
 async def ingest(
@@ -43,9 +43,3 @@ async def ingest(
         message="Estimated wait time: 10 minutes",
         _future=_future(),
     )
-
-
-async def probe(
-    source: str, *, session: aiohttp.ClientSession
-) -> Media[Audio] | Media[Video]:
-    raise NotImplementedError()

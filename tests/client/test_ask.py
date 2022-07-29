@@ -1,7 +1,7 @@
 import pytest
 
 from freespeech.client import chat, client, tasks, transcript
-from freespeech.types import Error
+from freespeech.types import Error, Transcript
 
 
 @pytest.mark.asyncio
@@ -60,3 +60,34 @@ async def test_translate(mock_client, monkeypatch) -> None:
         .chunks[0]
         .startswith("Якщо ви можете згадати якийсь ключовий")
     )
+
+
+@pytest.mark.asyncio
+async def test_synethetize(mock_client, monkeypatch) -> None:
+    monkeypatch.setattr(client, "create", mock_client)
+    session = mock_client()
+    test_doc = (
+        "https://docs.google.com/document/d/"
+        "1Oexfd27oToEWyxj9g7YCp3IYHqjYO8US0RtnoP32fXU/edit#"
+    )
+
+    test_message = f"Dub {test_doc}"
+
+    response = await chat.ask(
+        message=test_message, intent=None, state={}, session=session
+    )
+    if isinstance(response, Error):
+        assert False, response.message
+    result = await tasks.future(response)
+    if isinstance(result, Error):
+        assert False, result.message
+    assert result.message.startswith("Here you are: ")
+    new_video_url = result.message[14:]
+
+    load_response = await transcript.load(
+        source=test_doc, method="Google", lang=None, session=session
+    )
+    old_transcript = await tasks.future(load_response)
+    assert isinstance(old_transcript, Transcript)
+
+    assert new_video_url != old_transcript.video
