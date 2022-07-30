@@ -58,12 +58,12 @@ async def test_translate(mock_client, monkeypatch) -> None:
     assert (
         load_result.events[0]
         .chunks[0]
-        .startswith("Якщо ви можете згадати якийсь ключовий")
+        .startswith("Якщо ви можете згадати")
     )
 
 
 @pytest.mark.asyncio
-async def test_synethetize(mock_client, monkeypatch) -> None:
+async def test_synthesize(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
     session = mock_client()
     test_doc = (

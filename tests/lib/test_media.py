@@ -61,7 +61,11 @@ async def test_dub(tmp_path) -> None:
     uri = await obj.put(output_mono, AUDIO_RU_GS)
 
     t_ru = await speech.transcribe(uri, "ru-RU")
-    assert t_ru == [Event(time_ms=0, duration_ms=3180, chunks=["123"])]
+    event, *tail = t_ru
+    assert not tail, "Expected only one event sequence."
+    assert event.time_ms == 0
+    assert event.duration_ms == pytest.approx(3180, abs=10)
+    assert event.chunks == ["1 2 3"]
 
 
 @pytest.mark.asyncio

@@ -143,7 +143,7 @@ def supported_azure_voices() -> Dict[str, Sequence[str]]:
 async def transcribe(
     uri: str,
     lang: Language,
-    model: TranscriptionModel = "default",
+    model: TranscriptionModel = "latest_long",
     provider: ServiceProvider = "Google",
 ) -> Sequence[Event]:
     """Transcribe audio.
@@ -152,7 +152,7 @@ async def transcribe(
         uri: URI to the file. Supported: `gs://bucket/path`
         lang: speaker's language-region (i.e. en-US, pt-BR)
             as per https://www.rfc-editor.org/rfc/rfc5646
-        model: transcription model (default: `"default"`).
+        model: transcription model (default: `"latest_long"`).
             https://cloud.google.com/speech-to-text/docs/transcription-model
 
     Notes:

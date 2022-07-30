@@ -14,6 +14,11 @@ AUDIO_EN_GS = "gs://freespeech-tests/test_speech/en-US-mono.wav"
 
 TEST_OUTPUT_GS = "gs://freespeech-tests/test_speech/output/"
 
+# Tolerance in milliseconds for event time and duration
+# Our tests are relying on synthesizing/transcribing and
+# numbers do fluctuate depending on models and other hyper-parameters.
+ABSOLUTE_ERROR_MS = 50
+
 
 def test_wrap_ssml():
     assert (
@@ -68,7 +73,7 @@ async def test_transcribe(tmp_path) -> None:
     await obj.put(downmixed_local, AUDIO_EN_GS)
 
     t_en = await speech.transcribe(
-        AUDIO_EN_GS, "en-US", model="default", provider="Deepgram"
+        AUDIO_EN_GS, "en-US", provider="Deepgram"
     )
 
     voice = Voice(character="Alan Turing", pitch=0.0, speech_rate=1.0)
@@ -77,14 +82,11 @@ async def test_transcribe(tmp_path) -> None:
     )
     assert t_en == [event]
 
-    t_en = await speech.transcribe(AUDIO_EN_GS, "en-US", model="default")
+    t_en = await speech.transcribe(AUDIO_EN_GS, "en-US")
 
-    event = Event(
-        time_ms=0,
-        duration_ms=3230,
-        chunks=["1, 2 3."],
-    )
-    assert t_en == [event]
+    assert event.time_ms == 971
+    assert event.duration_ms == pytest.approx(2006, abs=ABSOLUTE_ERROR_MS)
+    assert event.chunks == ["one, two three,"]
 
 
 @pytest.mark.asyncio
@@ -110,10 +112,10 @@ async def test_synthesize_text(tmp_path) -> None:
     )
     output_gs = await obj.put(downmixed_local, f"{TEST_OUTPUT_GS}{output.name}")
 
-    (first, second) = await speech.transcribe(output_gs, "en-US", model="default")
-
-    assert first.chunks == ["One, two."]
-    assert second.chunks == [" 3."]
+    (first, second) = await speech.transcribe(output_gs, "en-US")
+    print(obj.public_url(output_gs))
+    assert first.chunks == ["1 2"]
+    assert second.chunks == [" 3"]
 
     fast_output, voice = await speech.synthesize_text(
         text="One. Two. #2# Three.",
@@ -152,8 +154,8 @@ async def test_synthesize_azure_transcribe_google(tmp_path) -> None:
     )
     output_gs = await obj.put(downmixed_local, f"{TEST_OUTPUT_GS}{output.name}")
 
-    (first, second) = await speech.transcribe(output_gs, "en-US", model="default")
-
+    print(obj.public_url(output_gs))
+    (first, second) = await speech.transcribe(output_gs, "en-US")
     assert first.chunks == ["Testing quite a long sentence."]
     assert second.chunks == [" Hello."]
 
@@ -188,20 +190,17 @@ async def test_synthesize_events(tmp_path) -> None:
     )
     output_gs = await obj.put(downmixed_local, f"{TEST_OUTPUT_GS}{output.name}")
 
-    t_en = await speech.transcribe(output_gs, "en-US", model="default")
+    t_en = await speech.transcribe(output_gs, "en-US")
 
-    assert t_en == [
-        Event(
-            time_ms=0,
-            duration_ms=3270,
-            chunks=["One hen two ducks."],
-        ),
-        Event(
-            time_ms=3270,
-            duration_ms=3720,
-            chunks=[" Three, squawking geese."],
-        ),
-    ]
+    first, second = t_en
+
+    assert first.time_ms == 0
+    assert first.duration_ms == pytest.approx(3270, abs=ABSOLUTE_ERROR_MS)
+    assert first.chunks == ["One, hen two ducks."]
+
+    assert second.time_ms == pytest.approx(3270, abs=ABSOLUTE_ERROR_MS)
+    assert second.duration_ms == pytest.approx(3720, abs=ABSOLUTE_ERROR_MS)
+    assert second.chunks == [" three squawking geese"]
 
     voice_1, voice_2 = voices
 
@@ -384,7 +383,7 @@ async def test_synthesize_azure(tmp_path) -> None:
 
     (voice,) = voices
 
-    assert voice.speech_rate == pytest.approx(0.87, rel=1e-2)
+    assert voice.speech_rate == pytest.approx(0.87, abs=0.02)
 
 
 def test_voices_and_languages_completeness() -> None:
