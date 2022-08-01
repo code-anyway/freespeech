@@ -1,11 +1,9 @@
-import asyncio
 import logging
 from urllib.parse import urlparse
 
 import aiogram as tg
 import aiohttp
 from aiogram import types as tg_types
-from aiogram.utils.exceptions import RetryAfter
 from aiogram.utils.executor import start_webhook
 
 from freespeech import env
@@ -45,53 +43,21 @@ walkthrough_text = (
     "Also, check out a " "[quick walkthrough](https://youtu.be/3rCE5_OxuUo)."
 )
 
-MAX_RETRIES = 5
 
-
-def get_chat_client():
-    return aiohttp.ClientSession(
-        base_url=env.get_chat_service_url(),
-        timeout=aiohttp.ClientTimeout(CLIENT_TIMEOUT),
-    )
-
-
-def handle_ratelimit(func):
-    """Decorator which handles the `RetryAfter` exception raised by telegram on
-    rate limiting.
-    """
-
-    async def wrapper(*args, retries: int = MAX_RETRIES, **kwargs):
-        if retries <= 0:
-            raise RuntimeError(
-                f"Could not complete after {MAX_RETRIES} retries. Halting."
-            )
-        try:
-            return await func(*args, **kwargs)
-        except RetryAfter as e:
-            logger.info(f"Telegram rate limit detected, waiting for {e.timeout}s")
-            await asyncio.sleep(e.timeout)
-            await wrapper(*args, retries=retries - 1, **kwargs)
-
-    return wrapper
-
-
-@handle_ratelimit
-async def _answer(message: tg_types.Message, text: str, **kwargs):
-    await message.answer(text, **kwargs)
-
-
-@handle_ratelimit
-async def _reply(message: tg_types.Message, text: str, **kwargs):
-    await message.reply(text, **kwargs)
+bot = tg.Bot(token=env.get_telegram_bot_token())
+WEBHOOK_URL = env.get_telegram_webhook_url()
+WEBHOOK_ROUTE = urlparse(WEBHOOK_URL).path
+dispatcher = tg.Dispatcher(bot)
 
 
 # not using aiogram decorators to have full control over order of rules
+@dispatcher.async_task
 async def _help(message: tg_types.Message):
-    await _answer(
-        message, help_text, disable_web_page_preview=True, parse_mode="Markdown"
+    await message.answer(
+        help_text, disable_web_page_preview=True, parse_mode="Markdown"
     )
-    await _answer(
-        message, walkthrough_text, disable_web_page_preview=False, parse_mode="Markdown"
+    await message.answer(
+        walkthrough_text, disable_web_page_preview=False, parse_mode="Markdown"
     )
 
 
@@ -99,13 +65,14 @@ async def _is_message_for_bot(message: tg_types.Message) -> bool:
     if message.chat.type == "private":
         return True
     if "@" in message.text:
-        bot_details = await message.bot.get_me()
+        bot_details = await bot.get_me()
         if f"@{bot_details.username}" in message.text:
             return True
     return False
 
 
-async def _handle_message(message: tg_types.Message):
+@dispatcher.async_task
+async def _message(message: tg_types.Message):
     """
     Conversation's entry point
     """
@@ -168,21 +135,14 @@ async def _handle_message(message: tg_types.Message):
 
 
 def start_bot(port: int):
-    webhook_route = urlparse(env.get_telegram_webhook_url()).path
-
-    bot = tg.Bot(token=env.get_telegram_bot_token())
-    dispatcher = tg.Dispatcher(bot)
-
     # order is important here, think of it as a filter chain.
-    dispatcher.register_message_handler(
-        dispatcher.async_task(_help), commands=["start", "help"]
-    )
-    dispatcher.register_message_handler(dispatcher.async_task(_handle_message))
-    logger.info(f"Going to start telegram bot webhook on port {port}. ")
+    dispatcher.register_message_handler(_help, commands=["start", "help"])
+    dispatcher.register_message_handler(_message)
+    logger.warning(f"Going to start telegram bot webhook on port {port}. ")
 
     start_webhook(
         dispatcher=dispatcher,
-        webhook_path=webhook_route,
+        webhook_path=WEBHOOK_ROUTE,
         on_shutdown=on_shutdown,
         on_startup=on_startup,
         port=port,
@@ -202,23 +162,18 @@ async def set_commands_list_menu(disp):
 
 
 async def on_startup(dispatcher):
-    @handle_ratelimit
-    async def _set_webhook(url: str):
-        await dispatcher.bot.set_webhook(url)
-
-    logger.info("Setting up telegram bot...")
+    logger.warning("Setting up telegram bot...")
     await set_commands_list_menu(dispatcher)
-    await _set_webhook(env.get_telegram_webhook_url())
-
-    logger.info("Telegram bot set up. ")
+    await bot.set_webhook(WEBHOOK_URL)
+    logger.warning("Telegram bot set up. ")
 
 
 async def on_shutdown(dispatcher):
-    # The webhook is not unset on a purpose. In a multi-node environment,
+    # The webook is not unset on a purpose. In a multi-node environment,
     # such as Google Cloud Run, having the webhook deregister in on_shutdown
     # would lead to a situation when the entire webhook stops receiving Telegram
     # updates, even if a single container was decommissioned.
-    logger.info("Shutting down telegram bot... ")
+    logger.warning("Shutting down telegram bot... ")
     await dispatcher.storage.close()
     await dispatcher.storage.wait_closed()
-    logger.info("Telegram bot shut down.")
+    logger.warning("Telegram bot shut down.")
