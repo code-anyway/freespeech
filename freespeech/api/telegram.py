@@ -2,7 +2,6 @@ import logging
 from urllib.parse import urlparse
 
 import aiogram as tg
-import aiohttp
 from aiogram import types as tg_types
 from aiogram.utils.executor import start_webhook
 

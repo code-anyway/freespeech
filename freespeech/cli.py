@@ -5,7 +5,7 @@ import click
 from aiohttp import ClientResponseError, web
 
 from freespeech import env
-from freespeech.api import chat, media, transcript
+from freespeech.api import chat, media, transcript, telegram
 from freespeech.lib import youtube
 
 SERVICE_ROUTES = {
