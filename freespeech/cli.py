@@ -5,7 +5,7 @@ import click
 from aiohttp import ClientResponseError, web
 
 from freespeech import env
-from freespeech.api import chat, media, telegram, transcript
+from freespeech.api import chat, media, transcript
 from freespeech.lib import youtube
 
 SERVICE_ROUTES = {
@@ -148,6 +148,8 @@ def upload(video_file, meta_file, credentials_file):
 )
 @cli.command(name="start-telegram")
 def start_telegram(port: int):
+    from freespeech.api import telegram
+
     telegram.start_bot(port)
 
 
