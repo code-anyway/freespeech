@@ -143,7 +143,7 @@ async def test_load_transcribe(mock_client, monkeypatch) -> None:
     event, *_ = result_b.events
 
     assert event.time_ms == 140
-    assert event.duration_ms == 145824
+    assert event.duration_ms == pytest.approx(145824, rel=500)
 
     chunk, *_ = event.chunks
 
