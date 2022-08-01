@@ -54,7 +54,8 @@ def ms_to_iso_time(ms: int) -> str:
 def parse_time_interval(
     interval: str,
 ) -> Tuple[int, int | None, Character | None, float | None]:
-    """Parses HH:MM:SS.fff/HH:MM:SS.fff (Character) into (start_ms, duration_ms, Character).
+    """Parses HH:MM:SS.fff/HH:MM:SS.fff (Character)
+    into (start_ms, duration_ms, Character).
 
     Args:
         interval: start and finish encoded as
