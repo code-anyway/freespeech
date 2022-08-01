@@ -29,8 +29,14 @@ jobs:
       run: |
         mkdir /tmp/id && \
         echo ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_BASE64 }} | base64 -d - > /tmp/id/test.json
+    - name: Docker login
+      run: cat /tmp/id/test.json | docker login -u _json_key --password-stdin https://gcr.io
     - name: Build base image
-      run: docker build . --file Dockerfile --tag freespeech:latest
+      run: docker build . --file Dockerfile --tag freespeech:$GITHUB_SHA
+    - name: Push to GCR
+      run: |
+        docker tag freespeech:$GITHUB_SHA gcr.io/freespeech-343914/freespeech:$GITHUB_SHA && \
+        docker push gcr.io/freespeech-343914/freespeech:$GITHUB_SHA
     - name: Build test image
       run: docker build . --file Dockerfile.test --tag freespeech-test:latest
     - name: Code quality
