@@ -72,9 +72,7 @@ async def test_transcribe(tmp_path) -> None:
     )
     await obj.put(downmixed_local, AUDIO_EN_GS)
 
-    t_en = await speech.transcribe(
-        AUDIO_EN_GS, "en-US", provider="Deepgram"
-    )
+    t_en = await speech.transcribe(AUDIO_EN_GS, "en-US", provider="Deepgram")
 
     voice = Voice(character="Alan Turing", pitch=0.0, speech_rate=1.0)
     event = Event(

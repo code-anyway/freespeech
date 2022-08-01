@@ -7,7 +7,7 @@ def create(
     api_key: str | None = None,
     *,
     headers: Dict[str, str] | None = None,
-    url: str = "https://api.freespeech.com",
+    url: str = "https://api.freespeechnow.ai",
     timeout_sec: int = 1_800,
 ) -> aiohttp.ClientSession:
     timeout = aiohttp.ClientTimeout(total=timeout_sec)

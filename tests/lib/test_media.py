@@ -2,7 +2,6 @@ import pytest
 
 from freespeech.lib import hash, media, speech
 from freespeech.lib.storage import obj
-from freespeech.types import Event
 
 VIDEO_RU = "tests/lib/data/media/ru-RU.mp4"
 VIDEO_EN = "tests/lib/data/media/en-US.mp4"

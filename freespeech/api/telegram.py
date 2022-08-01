@@ -9,7 +9,7 @@ from aiogram.utils.exceptions import RetryAfter
 from aiogram.utils.executor import start_webhook
 
 from freespeech import env
-from freespeech.client import chat, tasks, client
+from freespeech.client import chat, client, tasks
 from freespeech.types import Error
 
 logger = logging.getLogger(__name__)
@@ -127,10 +127,7 @@ async def _handle_message(message: tg_types.Message):
     )
 
     result = await chat.ask(
-        message=message.text,
-        intent=None,
-        state={},
-        session=client.create()
+        message=message.text, intent=None, state={}, session=client.create()
     )
 
     await message.reply(result.message, parse_mode="Markdown")

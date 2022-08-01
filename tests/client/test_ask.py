@@ -55,11 +55,7 @@ async def test_translate(mock_client, monkeypatch) -> None:
     if isinstance(load_result, Error):
         assert False, load_result.message
     assert load_result.events
-    assert (
-        load_result.events[0]
-        .chunks[0]
-        .startswith("Якщо ви можете згадати")
-    )
+    assert load_result.events[0].chunks[0].startswith("Якщо ви можете згадати")
 
 
 @pytest.mark.asyncio

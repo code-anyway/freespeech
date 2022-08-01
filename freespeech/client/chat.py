@@ -19,7 +19,7 @@ async def ask(
     request = AskRequest(message=message, intent=intent, state=state)
 
     async def _future() -> AskResponse | Error:
-        async with session.post("/ask", json=pydantic_encoder(request)) as resp:
+        async with session.post("/chat/ask", json=pydantic_encoder(request)) as resp:
             result = await resp.json()
 
             if resp.ok:

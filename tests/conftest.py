@@ -45,15 +45,22 @@ def const():
     return Const
 
 
+def add_service_prefix(prefix: str, routes):
+    for route in routes:
+        yield web.route(
+            method=route.method, path=prefix + route.path, handler=route.handler
+        )
+
+
 @pytest_asyncio.fixture
 async def client_session(aiohttp_client) -> Generator[AiohttpClient, None, None]:
     from freespeech.api import chat, media, transcript
 
     app = web.Application()
 
-    app.add_routes(transcript.routes)
-    app.add_routes(media.routes)
-    app.add_routes(chat.routes)
+    app.add_routes(add_service_prefix("/transcript", transcript.routes))
+    app.add_routes(add_service_prefix("/media", media.routes))
+    app.add_routes(add_service_prefix("/chat", chat.routes))
 
     return await aiohttp_client(app)
 
