@@ -12,6 +12,8 @@ from freespeech import env
 from freespeech.client import chat, client, tasks
 from freespeech.types import Error
 
+CLIENT_TIMEOUT = 1800
+
 logger = logging.getLogger(__name__)
 
 help_text = (
