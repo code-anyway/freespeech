@@ -21,42 +21,46 @@ async def test_ingest_jsononly_longvideo(client):
 async def test_ingest_local_stream(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
     session = mock_client()
+    # session = client.create()
 
-    with open("tests/lib/data/media/dub-en-US-ru-RU.mp4", "rb") as file:
-        response = await media.ingest(
-            file, filename="dub-en-US-ru-RU.mp4", session=session
-        )
+    async with session:
+        with open("tests/lib/data/media/dub-en-US-ru-RU.mp4", "rb") as file:
+            response = await media.ingest(
+                file, filename="dub-en-US-ru-RU.mp4", session=session
+            )
 
-        result = await tasks.future(response)
-        if isinstance(result, Error):
-            assert False, result.message
+            result = await tasks.future(response)
+            if isinstance(result, Error):
+                assert False, result.message
 
-        assert result.audio
-        assert result.audio.startswith("https://")
-        # we are using the same stream as audio and video
-        assert result.audio.endswith(".mp4")
+            assert result.audio
+            assert result.audio.startswith("https://")
+            # we are using the same stream as audio and video
+            assert result.audio.endswith(".mp4")
 
-        assert result.video
-        assert result.video.startswith("https://")
-        assert result.video.endswith(".mp4")
+            assert result.video
+            assert result.video.startswith("https://")
+            assert result.video.endswith(".mp4")
 
 
 @pytest.mark.asyncio
 async def test_ingest_youtube_short(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
     session = mock_client()
+    # session = client.create()
 
-    response = await media.ingest(
-        "https://www.youtube.com/watch?v=hgV8mB-M9po", session=session
-    )
-    result = await tasks.future(response)
-    if isinstance(result, Error):
-        assert False, result.message
+    async with session:
+        response = await media.ingest(
+            "https://www.youtube.com/watch?v=hgV8mB-M9po", session=session
+        )
+        result = await tasks.future(response)
+        if isinstance(result, Error):
+            assert False, result.message
 
-    assert result.audio
-    assert result.audio.startswith("https://")
-    assert result.audio.endswith(".wav")
+        assert result.audio
+        assert result.audio.startswith("https://")
+        assert result.audio.endswith(".wav")
 
-    assert result.video
-    assert result.video.startswith("https://")
-    assert result.video.endswith(".mp4")
+        assert result.video
+        assert result.video.startswith("https://")
+        assert result.video.endswith(".mp4")

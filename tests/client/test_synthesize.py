@@ -1,5 +1,3 @@
-import asyncio
-
 import pytest
 
 from freespeech.client import client, tasks, transcript
@@ -32,29 +30,30 @@ ANNOUNCERS_TEST_TRANSCRIPT_RU = Transcript(
 async def test_synthesize_basic(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
     session = mock_client()
+    # session = client.create()
 
-    test_ru = Transcript(
-        lang="ru-RU",
-        events=[
-            Event(
-                time_ms=0,
-                chunks=["Путин хуйло!"],
-            )
-        ],
-    )
+    async with client.create() as session:
+        test_ru = Transcript(
+            lang="ru-RU",
+            events=[
+                Event(
+                    time_ms=0,
+                    chunks=["Путин хуйло!"],
+                )
+            ],
+        )
+        result = await transcript.synthesize(test_ru, session=session)
 
-    result = await transcript.synthesize(test_ru, session=session)
-    if isinstance(result, Error):
-        assert False, result.message
+        if isinstance(result, Error):
+            assert False, result.message
 
-    assert result.message == "Estimated wait time: 5 minutes"
+        assert result.message == "Estimated wait time: 5 minutes"
 
-    task_result = await tasks.future(result)
+        task_result = await tasks.future(result)
+
     if isinstance(task_result, Error):
         assert False, task_result.message
 
     assert task_result.audio
     assert task_result.audio.endswith(".wav")
     assert task_result.audio.startswith("https://")
-
-    await asyncio.sleep(1.0)

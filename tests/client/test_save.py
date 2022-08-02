@@ -12,37 +12,39 @@ NOTION_TRANSCRIPT_DATABASE_ID = "e1a094dbac5845409d2e995d4ce3675e"
 async def test_save(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
     session = mock_client()
+    # session = client.create()
 
-    with open("tests/lib/data/transcript/karlsson.srt", "rb") as stream:
-        task = await transcript.load(
-            source=stream, method="SRT", lang="en-US", session=session
+    async with session:
+        with open("tests/lib/data/transcript/karlsson.srt", "rb") as stream:
+            task = await transcript.load(
+                source=stream, method="SRT", lang="en-US", session=session
+            )
+            from_srt = await tasks.future(task)
+            from_srt = replace(from_srt, title="test_save")
+
+        if isinstance(from_srt, Error):
+            assert False, from_srt.message
+
+        result = await transcript.save(
+            from_srt, method="SRT", location=None, session=session
         )
-        from_srt = await tasks.future(task)
-        from_srt = replace(from_srt, title="test_save")
+        if isinstance(result, Error):
+            assert False, result.message
+        assert result.url.startswith("https://docs.google.com/document/d/")
 
-    if isinstance(from_srt, Error):
-        assert False, from_srt.message
+        result = await transcript.save(
+            from_srt, method="Google", location=None, session=session
+        )
+        if isinstance(result, Error):
+            assert False, result.message
+        assert result.url.startswith("https://docs.google.com/document/d/")
 
-    result = await transcript.save(
-        from_srt, method="SRT", location=None, session=session
-    )
-    if isinstance(result, Error):
-        assert False, result.message
-    assert result.url.startswith("https://docs.google.com/document/d/")
-
-    result = await transcript.save(
-        from_srt, method="Google", location=None, session=session
-    )
-    if isinstance(result, Error):
-        assert False, result.message
-    assert result.url.startswith("https://docs.google.com/document/d/")
-
-    result = await transcript.save(
-        from_srt,
-        method="Notion",
-        location=NOTION_TRANSCRIPT_DATABASE_ID,
-        session=session,
-    )
-    if isinstance(result, Error):
-        assert False, result.message
-    assert result.url.startswith("https://www.notion.so/test_save")
+        result = await transcript.save(
+            from_srt,
+            method="Notion",
+            location=NOTION_TRANSCRIPT_DATABASE_ID,
+            session=session,
+        )
+        if isinstance(result, Error):
+            assert False, result.message
+        assert result.url.startswith("https://www.notion.so/test_save")

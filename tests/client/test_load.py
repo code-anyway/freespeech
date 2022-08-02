@@ -11,71 +11,78 @@ from freespeech.types import Error, Event, Method, Voice
 async def test_load_srt(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
     session = mock_client()
+    # session = client.create()
 
-    with open("tests/lib/data/transcript/fmj.srt", "rb") as stream:
-        task = await transcript.load(
-            source=stream, method="SRT", lang="en-US", session=session
-        )
-        result = await tasks.future(task)
-        if isinstance(result, Error):
-            assert False, result.message
+    async with session:
+        with open("tests/lib/data/transcript/fmj.srt", "rb") as stream:
+            task = await transcript.load(
+                source=stream, method="SRT", lang="en-US", session=session
+            )
+            result = await tasks.future(task)
+            if isinstance(result, Error):
+                assert False, result.message
 
-        first, *_, last = result.events
-        assert first == Event(
-            time_ms=27110,
-            chunks=['"America has heard the bugle call'],
-            duration_ms=5050,
-            voice=Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.0),
-        )
-        assert last == Event(
-            time_ms=6716480,
-            chunks=["And I am not afraid."],
-            duration_ms=1580,
-            voice=Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.0),
-        )
+            first, *_, last = result.events
+            assert first == Event(
+                time_ms=27110,
+                chunks=['"America has heard the bugle call'],
+                duration_ms=5050,
+                voice=Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.0),
+            )
+            assert last == Event(
+                time_ms=6716480,
+                chunks=["And I am not afraid."],
+                duration_ms=1580,
+                voice=Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.0),
+            )
 
 
 @pytest.mark.asyncio
 async def test_load_ssmd(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
     session = mock_client()
+    # session = client.create()
 
-    with open("tests/lib/data/transcript/test.ssmd", "rb") as stream:
-        task = await transcript.load(
-            source=stream, method="SSMD", lang="en-US", session=session
-        )
-        result = await tasks.future(task)
-        if isinstance(result, Error):
-            assert False, result.message
+    async with session:
+        with open("tests/lib/data/transcript/test.ssmd", "rb") as stream:
+            task = await transcript.load(
+                source=stream, method="SSMD", lang="en-US", session=session
+            )
+            result = await tasks.future(task)
+            if isinstance(result, Error):
+                assert False, result.message
 
-        first, *_, last = result.events
-        assert first == Event(
-            time_ms=0,
-            chunks=["Hello, Bill!", "How are you?"],
-            duration_ms=1000,
-            voice=Voice(character="Grace Hopper", pitch=0.0, speech_rate=1.0),
-        )
-        assert last == Event(
-            time_ms=2000,
-            chunks=["It was a huge mistake."],
-            duration_ms=None,
-            voice=Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.4),
-        )
+            first, *_, last = result.events
+            assert first == Event(
+                time_ms=0,
+                chunks=["Hello, Bill!", "How are you?"],
+                duration_ms=1000,
+                voice=Voice(character="Grace Hopper", pitch=0.0, speech_rate=1.0),
+            )
+            assert last == Event(
+                time_ms=2000,
+                chunks=["It was a huge mistake."],
+                duration_ms=None,
+                voice=Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.4),
+            )
 
 
 @pytest.mark.asyncio
 async def test_load_subtitles(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
     session = mock_client()
+    # session = client.create()
 
-    task = await transcript.load(
-        source="https://www.youtube.com/watch?v=ALaTm6VzTBw",
-        method="Subtitles",
-        lang="en-US",
-        session=session,
-    )
+    async with session:
+        task = await transcript.load(
+            source="https://www.youtube.com/watch?v=ALaTm6VzTBw",
+            method="Subtitles",
+            lang="en-US",
+            session=session,
+        )
 
-    result = await tasks.future(task)
+        result = await tasks.future(task)
+
     if isinstance(result, Error):
         assert False, result.message
 
@@ -106,21 +113,24 @@ async def test_load_subtitles(mock_client, monkeypatch) -> None:
 async def test_load_transcribe(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
     session = mock_client()
-    methods: Sequence[Method] = ("Machine A", "Machine B")
+    # session = client.create()
 
-    responses = [
-        await transcript.load(
-            source="https://www.youtube.com/watch?v=ALaTm6VzTBw",
-            method=method,
-            lang="en-US",
-            session=session,
+    async with session:
+        methods: Sequence[Method] = ("Machine A", "Machine B")
+
+        responses = [
+            await transcript.load(
+                source="https://www.youtube.com/watch?v=ALaTm6VzTBw",
+                method=method,
+                lang="en-US",
+                session=session,
+            )
+            for method in methods
+        ]
+
+        result_a, result_b = await asyncio.gather(
+            *[tasks.future(response) for response in responses]
         )
-        for method in methods
-    ]
-
-    result_a, result_b = await asyncio.gather(
-        *[tasks.future(response) for response in responses]
-    )
 
     # Check Machine A output
     event, *_ = result_a.events
