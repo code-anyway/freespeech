@@ -14,6 +14,6 @@ async def persist_results(request, handler):
         task_id = request.headers.get("X-Freespeech-Task-ID", None)
         if task_id is not None:
             client = doc.google_firestore_client()
-            await doc.put(client, "results", "42", json.loads(result))
+            await doc.put(client, "results", task_id, json.loads(result))
 
     return resp
