@@ -312,6 +312,19 @@ class SaveResponse:
     url: str
 
 
+TaskReturnType = TypeVar(
+    "TaskReturnType", Transcript, IngestResponse, AskResponse, SaveResponse
+)
+
+
+@dataclass(frozen=True)
+class Task(Generic[TaskReturnType]):
+    state: Literal["Done", "Cancelled", "Running", "Pending", "Failed"]
+    id: str
+    result: TaskReturnType | None = None
+    message: str | None = None
+
+
 def assert_never(x: NoReturn) -> NoReturn:
     # runtime error, should not happen
     raise Exception(f"Unhandled value: {x}")

@@ -5,7 +5,7 @@ import click
 from aiohttp import ClientResponseError, web
 
 from freespeech import env
-from freespeech.api import chat, media, transcript
+from freespeech.api import chat, media, middleware, transcript
 from freespeech.lib import youtube
 
 SERVICE_ROUTES = {
@@ -80,7 +80,10 @@ def cli():
 def start(port: int, services):
     """Start HTTP API Server"""
     logger.info(f"Starting aiohttp server on port {port}")
-    app = web.Application(logger=logger, middlewares=[error_handler_middleware])
+    app = web.Application(
+        logger=logger,
+        middlewares=[error_handler_middleware, middleware.persist_results],
+    )
 
     for service in services:
         if service not in SERVICE_ROUTES:

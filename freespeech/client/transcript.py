@@ -1,12 +1,10 @@
 import asyncio
-import json
 from typing import BinaryIO
 
 import aiohttp
 from pydantic.json import pydantic_encoder
 
 from freespeech.client.tasks import Task
-from freespeech.lib import hash
 from freespeech.types import (
     Error,
     Language,
@@ -84,28 +82,19 @@ async def load(
     url = source if isinstance(source, str) else None
     request = LoadRequest(source=url, method=method, lang=lang)
 
-    async def _future() -> Transcript | Error:
-        with aiohttp.MultipartWriter("form-data") as writer:
-            writer.append_json(pydantic_encoder(request))
+    with aiohttp.MultipartWriter("form-data") as writer:
+        writer.append_json(pydantic_encoder(request))
 
-            if not request.source:
-                writer.append(source)
+        if not request.source:
+            writer.append(source)
 
-            async with session.post("/transcript/load", data=writer) as resp:
-                result = await resp.json()
+        async with session.post("/transcript/load", data=writer) as resp:
+            result = await resp.json()
 
-                if resp.ok:
-                    return Transcript(**result)
-                else:
-                    return Error(**result)
-
-    return Task[Transcript](
-        state="Running",
-        op="Transcribe",
-        id=hash.string(json.dumps(pydantic_encoder(request))),
-        message="Estimated wait time: 10 minutes",
-        _future=_future(),
-    )
+            if resp.ok:
+                return Task[Transcript](**result)
+            else:
+                return Error(**result)
 
 
 async def synthesize(
@@ -115,23 +104,14 @@ async def synthesize(
 ) -> Task[Transcript] | Error:
     request = SynthesizeRequest(transcript=transcript)
 
-    async def _future() -> Transcript | Error:
-        async with session.post(
-            "/transcript/synthesize", json=pydantic_encoder(request)
-        ) as resp:
-            result = await resp.json()
-            if resp.ok:
-                return Transcript(**result)
-            else:
-                return Error(**result)
-
-    return Task[Transcript](
-        state="Running",
-        op="Synthesize",
-        message="Estimated wait time: 5 minutes",
-        id=hash.string(json.dumps(pydantic_encoder(request))),
-        _future=_future(),
-    )
+    async with session.post(
+        "/transcript/synthesize", json=pydantic_encoder(request)
+    ) as resp:
+        result = await resp.json()
+        if resp.ok:
+            return Task[Transcript](**result)
+        else:
+            return Error(**result)
 
 
 async def translate(
@@ -139,23 +119,14 @@ async def translate(
 ) -> Task[Transcript] | Error:
     request = TranslateRequest(transcript=transcript, lang=lang)
 
-    async def _future() -> Transcript | Error:
-        async with session.post(
-            "/transcript/translate", json=pydantic_encoder(request)
-        ) as resp:
-            result = await resp.json()
-            if resp.ok:
-                return Transcript(**result)
-            else:
-                return Error(**result)
-
-    return Task[Transcript](
-        state="Running",
-        op="Translate",
-        message="Estimated wait time: 2 minutes",
-        id=hash.string(json.dumps(pydantic_encoder(request))),
-        _future=_future(),
-    )
+    async with session.post(
+        "/transcript/translate", json=pydantic_encoder(request)
+    ) as resp:
+        result = await resp.json()
+        if resp.ok:
+            return Task[Transcript](**result)
+        else:
+            return Error(**result)
 
 
 async def save(
@@ -164,11 +135,11 @@ async def save(
     method: Method,
     location: str | None,
     session: aiohttp.ClientSession,
-) -> SaveResponse | Error:
+) -> Task[SaveResponse] | Error:
     request = SaveRequest(transcript=transcript, location=location, method=method)
     async with session.post("/transcript/save", json=pydantic_encoder(request)) as resp:
         result = await resp.json()
         if resp.ok:
-            return SaveResponse(**result)
+            return Task[SaveResponse](**result)
         else:
             return Error(**result)

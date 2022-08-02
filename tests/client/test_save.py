@@ -25,26 +25,35 @@ async def test_save(mock_client, monkeypatch) -> None:
         if isinstance(from_srt, Error):
             assert False, from_srt.message
 
-        result = await transcript.save(
+        response = await transcript.save(
             from_srt, method="SRT", location=None, session=session
         )
+        if isinstance(response, Error):
+            assert False, response.message
+        result = await tasks.future(response)
         if isinstance(result, Error):
             assert False, result.message
         assert result.url.startswith("https://docs.google.com/document/d/")
 
-        result = await transcript.save(
+        response = await transcript.save(
             from_srt, method="Google", location=None, session=session
         )
+        if isinstance(response, Error):
+            assert False, response.message
+        result = await tasks.future(response)
         if isinstance(result, Error):
             assert False, result.message
         assert result.url.startswith("https://docs.google.com/document/d/")
 
-        result = await transcript.save(
+        response = await transcript.save(
             from_srt,
             method="Notion",
             location=NOTION_TRANSCRIPT_DATABASE_ID,
             session=session,
         )
+        if isinstance(response, Error):
+            assert False, response.message
+        result = await tasks.future(response)
         if isinstance(result, Error):
             assert False, result.message
         assert result.url.startswith("https://www.notion.so/test_save")

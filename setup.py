@@ -52,6 +52,7 @@ setup(
         "google-cloud-translate",
         "google-cloud-storage",
         "google-cloud-speech",
+        "google-cloud-tasks",
         "google-cloud-logging",
         "google-cloud-firestore",
         "azure-cognitiveservices-speech",

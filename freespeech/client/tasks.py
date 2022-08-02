@@ -1,41 +1,33 @@
-from dataclasses import dataclass
-from typing import Awaitable, Generic, Literal, Sequence, TypeVar
+import asyncio
+from typing import Awaitable, Sequence
 
-from freespeech.types import AskResponse, Error, IngestResponse, Operation, Transcript
-
-TaskReturnType = TypeVar("TaskReturnType", Transcript, IngestResponse, AskResponse, str)
+from freespeech.types import Error, Task, TaskReturnType
 
 
-@dataclass(frozen=True)
-class Task(Generic[TaskReturnType]):
-    op: Operation
-    state: Literal["Done", "Cancelled", "Running", "Pending", "Failed"]
-    message: str | None
-    id: str
-    _future: Awaitable[TaskReturnType | Error]
-
-
-def future(target: Task[TaskReturnType] | Error) -> Awaitable[TaskReturnType | Error]:
+def future(
+    target: Task[TaskReturnType] | Error, poll_interval_sec: float = 1.0
+) -> Awaitable[TaskReturnType | Error]:
     async def _return_error(error):
         return error
 
     if isinstance(target, Error):
         return _return_error(target)
 
-    async def _run() -> TaskReturnType | Error:
-        # TODO: run the loop polling the future task service
-        # If result is ready - return.
-        # If still running - retry.
-        # If error - wrap and return error.
-        pass
+    async def _run():
+        task = target
+        while task.state != "Done":
+            raise NotImplementedError("poll tasks/get(id)")
+            task = tasks.get(task.id)
+            await asyncio.sleep(poll_interval_sec)
+        assert target.state == "Done"
+        result = target.result
+        return result
 
-    # TODO (astaff): Uncomment when we switch to server-side tasks
-    # return _run()
+    return _run()
 
-    # TODO (astaff): This is a hack to simulate the behavior of
-    # waiting for server-side task execution, while our services
-    # are still synchronous
-    return target._future
+
+async def get(id: str) -> Task[TaskReturnType]:
+    pass
 
 
 def tasks() -> Sequence[Task]:

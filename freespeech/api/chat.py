@@ -112,11 +112,14 @@ async def _ask(
             result = await tasks.future(response)
             if isinstance(result, Error):
                 return result
-            saved = await transcript.save(
+
+            save_response = await transcript.save(
                 result, method="Google", location=None, session=session
             )
+            saved = await tasks.future(save_response)
             if isinstance(saved, Error):
                 return saved
+
             return AskResponse(message=f"Here you are: {saved.url}", state=state)
 
         case TranslateRequest():
@@ -129,11 +132,13 @@ async def _ask(
             if isinstance(result, Error):
                 return result
 
-            saved = await transcript.save(
+            save_response = await transcript.save(
                 result, method="Google", location=None, session=session
             )
+            saved = await tasks.future(save_response)
             if isinstance(saved, Error):
                 return saved
+
             return AskResponse(message=f"Here you are: {saved.url}", state=state)
 
         case SynthesizeRequest():
