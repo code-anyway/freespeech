@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 routes = web.RouteTableDef()
 
 
-@routes.post("/ingest")
+@routes.post("/media/ingest")
 async def ingest(web_request: web.Request) -> web.Response:
     parts = await web_request.multipart()
 

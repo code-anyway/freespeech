@@ -32,10 +32,10 @@ jobs:
     - name: Docker login
       run: cat /tmp/id/test.json | docker login -u _json_key --password-stdin https://gcr.io
     - name: Build base image
-      run: docker build . --file Dockerfile --tag freespeech:$GITHUB_SHA
+      run: docker build . --file Dockerfile --tag freespeech:latest
     - name: Push to GCR
       run: |
-        docker tag freespeech:$GITHUB_SHA gcr.io/freespeech-343914/freespeech:$GITHUB_SHA && \
+        docker tag freespeech:latest gcr.io/freespeech-343914/freespeech:$GITHUB_SHA && \
         docker push gcr.io/freespeech-343914/freespeech:$GITHUB_SHA
     - name: Build test image
       run: docker build . --file Dockerfile.test --tag freespeech-test:latest

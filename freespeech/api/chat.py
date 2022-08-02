@@ -148,7 +148,7 @@ async def _ask(
             return AskResponse(message=f"Here you are: {media_url}", state=state)
 
 
-@routes.post("/ask")
+@routes.post("/chat/ask")
 async def ask(web_request: web.Request) -> web.Response:
     params = await web_request.json()
 

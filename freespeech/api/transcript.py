@@ -321,7 +321,7 @@ async def _translate(request: TranslateRequest):
     return translated
 
 
-@routes.post("/translate")
+@routes.post("/transcript/translate")
 async def translate(web_request: web.Request) -> web.Response:
     params = await web_request.json()
     try:
@@ -334,7 +334,7 @@ async def translate(web_request: web.Request) -> web.Response:
         )
 
 
-@routes.post("/synthesize")
+@routes.post("/transcript/synthesize")
 async def synthesize(web_request: web.Request) -> web.Response:
     params = await web_request.json()
 
@@ -350,7 +350,7 @@ async def synthesize(web_request: web.Request) -> web.Response:
         )
 
 
-@routes.post("/save")
+@routes.post("/transcript/save")
 async def save(web_request: web.Request) -> web.Response:
     params = await web_request.json()
 
@@ -364,7 +364,7 @@ async def save(web_request: web.Request) -> web.Response:
         )
 
 
-@routes.post("/load")
+@routes.post("/transcript/load")
 async def load(web_request: web.Request) -> web.Response:
     parts = await web_request.multipart()
 
