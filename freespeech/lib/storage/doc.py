@@ -17,12 +17,16 @@ def google_firestore_client() -> firestore.AsyncClient:
     return client
 
 
-async def get(client: firestore.AsyncClient, coll: str, key: str) -> Dict[str, Any]:
+async def get(
+    client: firestore.AsyncClient, coll: str, key: str
+) -> Dict[str, Any] | None:
     doc = client.collection(coll).document(key)
     value = await doc.get()
     res = value.to_dict()
-    assert isinstance(res, Dict)
-    return value.to_dict()
+    if isinstance(res, Dict):
+        return value.to_dict()
+    else:
+        return None
 
 
 async def put(

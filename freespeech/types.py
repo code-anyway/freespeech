@@ -316,12 +316,23 @@ TaskReturnType = TypeVar(
     "TaskReturnType", Transcript, IngestResponse, AskResponse, SaveResponse
 )
 
+RequestType = TypeVar(
+    "RequestType",
+    SynthesizeRequest,
+    SaveRequest,
+    TranslateRequest,
+    AskRequest,
+    LoadRequest,
+    IngestRequest,
+    SynthesizeRequest,
+)
+
 
 @dataclass(frozen=True)
 class Task(Generic[TaskReturnType]):
-    state: Literal["Done", "Cancelled", "Running", "Pending", "Failed"]
+    state: Literal["Done", "Pending", "Failed"]
     id: str
-    result: TaskReturnType | None = None
+    result: TaskReturnType | Error | None = None
     message: str | None = None
 
 

@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import tempfile
 from dataclasses import replace
@@ -12,6 +11,7 @@ from aiohttp import BodyPartReader, web
 from pydantic import ValidationError
 from pydantic.json import pydantic_encoder
 
+from freespeech.api import errors
 from freespeech.client import client, media, tasks
 from freespeech.lib import gdocs, language
 from freespeech.lib import media as media_ops
@@ -328,10 +328,7 @@ async def translate(web_request: web.Request) -> web.Response:
         response = await _translate(request=TranslateRequest(**params))
         return web.json_response(pydantic_encoder(response))
     except (ValidationError, ValueError) as e:
-        error = Error(message=str(e))
-        raise web.HTTPBadRequest(
-            text=json.dumps(pydantic_encoder(error)), content_type="application/json"
-        )
+        raise errors.bad_request(Error(message=str(e)))
 
 
 @routes.post("/transcript/synthesize")
@@ -344,10 +341,7 @@ async def synthesize(web_request: web.Request) -> web.Response:
         )
         return web.json_response(pydantic_encoder(response))
     except (ValidationError, ValueError) as e:
-        error = Error(message=str(e))
-        raise web.HTTPBadRequest(
-            text=json.dumps(pydantic_encoder(error)), content_type="application/json"
-        )
+        raise errors.bad_request(Error(message=str(e)))
 
 
 @routes.post("/transcript/save")
@@ -358,10 +352,7 @@ async def save(web_request: web.Request) -> web.Response:
         response = await _save(request=SaveRequest(**params))
         return web.json_response(pydantic_encoder(response))
     except (ValidationError, ValueError) as e:
-        error = Error(message=str(e))
-        raise web.HTTPBadRequest(
-            text=json.dumps(pydantic_encoder(error)), content_type="application/json"
-        )
+        raise errors.bad_request(Error(message=str(e)))
 
 
 @routes.post("/transcript/load")
@@ -393,9 +384,6 @@ async def load(web_request: web.Request) -> web.Response:
             )
 
     except (ValidationError, ValueError) as e:
-        error = Error(message=str(e))
-        raise web.HTTPBadRequest(
-            text=json.dumps(pydantic_encoder(error)), content_type="application/json"
-        )
+        raise errors.bad_request(Error(message=str(e)))
 
     return web.json_response(pydantic_encoder(response))

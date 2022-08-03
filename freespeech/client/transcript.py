@@ -88,7 +88,7 @@ async def load(
         if not request.source:
             writer.append(source)
 
-        async with session.post("/transcript/load", data=writer) as resp:
+        async with session.post("/api/transcript/load", data=writer) as resp:
             result = await resp.json()
 
             if resp.ok:
@@ -105,7 +105,7 @@ async def synthesize(
     request = SynthesizeRequest(transcript=transcript)
 
     async with session.post(
-        "/transcript/synthesize", json=pydantic_encoder(request)
+        "/api/transcript/synthesize", json=pydantic_encoder(request)
     ) as resp:
         result = await resp.json()
         if resp.ok:
@@ -120,7 +120,7 @@ async def translate(
     request = TranslateRequest(transcript=transcript, lang=lang)
 
     async with session.post(
-        "/transcript/translate", json=pydantic_encoder(request)
+        "/api/transcript/translate", json=pydantic_encoder(request)
     ) as resp:
         result = await resp.json()
         if resp.ok:
@@ -137,7 +137,9 @@ async def save(
     session: aiohttp.ClientSession,
 ) -> Task[SaveResponse] | Error:
     request = SaveRequest(transcript=transcript, location=location, method=method)
-    async with session.post("/transcript/save", json=pydantic_encoder(request)) as resp:
+    async with session.post(
+        "/api/transcript/save", json=pydantic_encoder(request)
+    ) as resp:
         result = await resp.json()
         if resp.ok:
             return Task[SaveResponse](**result)

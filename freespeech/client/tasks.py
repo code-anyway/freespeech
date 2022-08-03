@@ -1,34 +1,34 @@
 import asyncio
-from typing import Awaitable, Sequence
+
+import aiohttp
 
 from freespeech.types import Error, Task, TaskReturnType
 
 
-def future(
-    target: Task[TaskReturnType] | Error, poll_interval_sec: float = 1.0
-) -> Awaitable[TaskReturnType | Error]:
-    async def _return_error(error):
-        return error
-
+async def future(
+    target: Task[TaskReturnType] | Error,
+    session: aiohttp.ClientSession,
+    poll_interval_sec: float = 1.0,
+) -> TaskReturnType | Error:
     if isinstance(target, Error):
-        return _return_error(target)
+        return target
 
-    async def _run():
-        task = target
-        while task.state != "Done":
-            raise NotImplementedError("poll tasks/get(id)")
-            task = tasks.get(task.id)
-            await asyncio.sleep(poll_interval_sec)
-        assert target.state == "Done"
-        result = target.result
-        return result
+    task = target
 
-    return _run()
+    while task.state == "Pending":
+        task = await get(task.id, session)
+        await asyncio.sleep(poll_interval_sec)
 
+    if task.state == "Done":
+        assert task.result
+        return task.result
 
-async def get(id: str) -> Task[TaskReturnType]:
-    pass
+    if task.state == "Failed":
+        return Error(f"Task failed: {task.result}")
 
 
-def tasks() -> Sequence[Task]:
-    pass
+async def get(id: str, session: aiohttp.ClientSession) -> Task[TaskReturnType]:
+    async with session.get(f"/api/tasks/{id}") as resp:
+        result = await resp.json()
+        return Task(**result)
+

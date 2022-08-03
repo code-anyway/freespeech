@@ -7,6 +7,7 @@ from aiohttp import web
 from pydantic import ValidationError
 from pydantic.json import pydantic_encoder
 
+from freespeech.api import errors
 from freespeech.client import client, tasks, transcript
 from freespeech.client.tasks import Task
 from freespeech.lib import chat
@@ -160,13 +161,8 @@ async def ask(web_request: web.Request) -> web.Response:
     try:
         response = await _ask(ask_request=AskRequest(**params), session=client.create())
         if isinstance(response, Error):
-            raise web.HTTPBadRequest(
-                text=json.dumps(pydantic_encoder(response)),
-                content_type="application/json",
-            )
+            raise errors.bad_request(response)
+
         return web.json_response(pydantic_encoder(response))
     except (ValidationError, ValueError) as e:
-        error = Error(message=str(e))
-        raise web.HTTPBadRequest(
-            text=json.dumps(pydantic_encoder(error)), content_type="application/json"
-        )
+        raise errors.bad_request(Error(message=str(e)))

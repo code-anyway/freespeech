@@ -8,6 +8,8 @@ import pytest_asyncio
 from aiohttp import web
 from aiohttp.pytest_plugin import AiohttpClient
 
+from freespeech.lib.tasks.tasks import dummy_schedule
+
 LOGGING_CONFIG = {
     "version": 1,
     "formatters": {
@@ -46,14 +48,25 @@ def const():
 
 
 @pytest_asyncio.fixture
-async def client_session(aiohttp_client) -> Generator[AiohttpClient, None, None]:
-    from freespeech.api import middleware, tasks
+async def client_session(
+    aiohttp_client, monkeypatch
+) -> Generator[AiohttpClient, None, None]:
+    from freespeech.api import chat, edge, media, middleware, transcript
 
     app = web.Application(middlewares=[middleware.persist_results])
+    app.add_routes(edge.routes(dummy_schedule))
+    app.add_routes(media)
+    app.add_routes(chat)
+    app.add_routes(transcript)
 
-    app.add_routes([web.route("POST", "/{service}/{endpoint}", tasks.run)])
+    port = 8080
+    client = await aiohttp_client(app, port=port)
 
-    return await aiohttp_client(app)
+    monkeypatch.setenv("FREESPEECH_TRANSCRIPT_SERVICE_URL", f"http://localhost:{port}")
+    monkeypatch.setenv("FREESPEECH_MEDIA_SERVICE_URL", f"http://localhost:{port}")
+    monkeypatch.setenv("FREESPEECH_CHAT_SERVICE_URL", f"http://localhost:{port}")
+
+    return client
 
 
 @pytest.fixture
