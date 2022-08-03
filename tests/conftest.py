@@ -8,7 +8,7 @@ import pytest_asyncio
 from aiohttp import web
 from aiohttp.pytest_plugin import AiohttpClient
 
-from freespeech.lib.tasks.tasks import dummy_schedule
+from freespeech.lib.tasks import dummy
 
 LOGGING_CONFIG = {
     "version": 1,
@@ -54,7 +54,7 @@ async def client_session(
     from freespeech.api import chat, edge, media, middleware, transcript
 
     app = web.Application(middlewares=[middleware.persist_results])
-    app.add_routes(edge.routes(dummy_schedule))
+    app.add_routes(edge.routes(dummy.schedule, dummy.get))
     app.add_routes(media)
     app.add_routes(chat)
     app.add_routes(transcript)

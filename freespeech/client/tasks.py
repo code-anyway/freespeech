@@ -31,4 +31,3 @@ async def get(id: str, session: aiohttp.ClientSession) -> Task[TaskReturnType]:
     async with session.get(f"/api/tasks/{id}") as resp:
         result = await resp.json()
         return Task(**result)
-
