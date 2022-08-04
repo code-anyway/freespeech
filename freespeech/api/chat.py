@@ -1,4 +1,3 @@
-import json
 import logging
 from typing import Dict, Tuple
 
@@ -110,14 +109,14 @@ async def _ask(
                 lang=request.lang,
                 session=client.create(),
             )
-            result = await tasks.future(response)
+            result = await tasks.future(response, session)
             if isinstance(result, Error):
                 return result
 
             save_response = await transcript.save(
                 result, method="Google", location=None, session=session
             )
-            saved = await tasks.future(save_response)
+            saved = await tasks.future(save_response, session)
             if isinstance(saved, Error):
                 return saved
 
@@ -129,14 +128,14 @@ async def _ask(
                 lang=request.lang,
                 session=client.create(),
             )
-            result = await tasks.future(response)
+            result = await tasks.future(response, session)
             if isinstance(result, Error):
                 return result
 
             save_response = await transcript.save(
                 result, method="Google", location=None, session=session
             )
-            saved = await tasks.future(save_response)
+            saved = await tasks.future(save_response, session)
             if isinstance(saved, Error):
                 return saved
 
@@ -146,7 +145,7 @@ async def _ask(
             response = await transcript.synthesize(
                 transcript=request.transcript, session=session
             )
-            result = await tasks.future(response)
+            result = await tasks.future(response, session)
             if isinstance(result, Error):
                 return result
 

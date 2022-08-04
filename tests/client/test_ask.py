@@ -16,7 +16,7 @@ async def test_transcribe(mock_client, monkeypatch) -> None:
     response = await chat.ask(message=message, intent=None, state={}, session=session)
     if isinstance(response, Error):
         assert False, response.message
-    result = await tasks.future(response)
+    result = await tasks.future(response, session)
     if isinstance(result, Error):
         assert False, result.message
     assert result.message.startswith("Here you are: ")
@@ -24,7 +24,7 @@ async def test_transcribe(mock_client, monkeypatch) -> None:
     load_response = await transcript.load(
         source=result.message[14:], method="Google", lang=None, session=session
     )
-    load_result = await tasks.future(load_response)
+    load_result = await tasks.future(load_response, session)
     if isinstance(load_result, Error):
         assert False, load_result.message
     assert load_result.events
@@ -43,7 +43,7 @@ async def test_translate(mock_client, monkeypatch) -> None:
     response = await chat.ask(message=message, intent=None, state={}, session=session)
     if isinstance(response, Error):
         assert False, response.message
-    result = await tasks.future(response)
+    result = await tasks.future(response, session)
     if isinstance(result, Error):
         assert False, result.message
     assert result.message.startswith("Here you are: ")
@@ -51,7 +51,7 @@ async def test_translate(mock_client, monkeypatch) -> None:
     load_response = await transcript.load(
         source=result.message[14:], method="Google", lang=None, session=session
     )
-    load_result = await tasks.future(load_response)
+    load_result = await tasks.future(load_response, session)
     if isinstance(load_result, Error):
         assert False, load_result.message
     assert load_result.events
@@ -74,7 +74,7 @@ async def test_synthesize(mock_client, monkeypatch) -> None:
     )
     if isinstance(response, Error):
         assert False, response.message
-    result = await tasks.future(response)
+    result = await tasks.future(response, session)
     if isinstance(result, Error):
         assert False, result.message
     assert result.message.startswith("Here you are: ")
@@ -83,7 +83,7 @@ async def test_synthesize(mock_client, monkeypatch) -> None:
     load_response = await transcript.load(
         source=test_doc, method="Google", lang=None, session=session
     )
-    old_transcript = await tasks.future(load_response)
+    old_transcript = await tasks.future(load_response, session)
     assert isinstance(old_transcript, Transcript)
 
     assert new_video_url != old_transcript.video

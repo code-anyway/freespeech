@@ -8,6 +8,16 @@ GS_TEST_BUCKET = "freespeech-tests"
 
 
 @pytest.mark.asyncio
+async def test_open():
+    url = f"gs://{GS_TEST_BUCKET}/test_open/{uuid.uuid4()}"
+    with obj.stream(url, "w") as blob:
+        blob.write("Hello world!")
+
+    with obj.stream(url, "r") as blob:
+        assert blob.read() == "Hello world!"
+
+
+@pytest.mark.asyncio
 async def do_put_get(tmp_path, prefix):
     src_file = tmp_path / f"{uuid.uuid4()}.txt"
     src_file.write_text("Hello Local World!")

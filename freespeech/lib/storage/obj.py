@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from os import PathLike
 from pathlib import Path
+from typing import BinaryIO, Generator
 from urllib.parse import urlparse
 
 from google.api_core import exceptions as google_api_exceptions
@@ -13,6 +14,9 @@ from freespeech.lib import concurrency
 from freespeech.types import url
 
 logger = logging.getLogger(__name__)
+
+
+BLOCK_SIZE = 16 * 4096
 
 
 @dataclass(frozen=False)
@@ -53,6 +57,15 @@ async def put(src: str | PathLike, dst: url) -> str:
             raise ValueError(f"Unsupported url scheme ({scheme}) for {dst_url}.")
 
 
+@contextmanager
+def stream(src: url, mode: str) -> Generator[BinaryIO, None, None]:
+    src_url = urlparse(src)
+    with google_storage_client() as storage:
+        bucket = storage.bucket(src_url.netloc)
+        blob = bucket.blob(src_url.path[1:])
+        yield blob.open(mode)
+
+
 async def get(src: url, dst_dir: str | PathLike) -> str:
     src_url = urlparse(src)
     dst_dir = Path(dst_dir)
@@ -90,9 +103,9 @@ def _gs_copy_from_local(src: Path, dst: GoogleStorageObject):
         with google_storage_client() as storage:
             bucket = storage.bucket(dst.bucket)
             blob = bucket.blob(dst.obj)
-            with open(src, "rb") as src_file:
+            with open(str(src), "rb") as src_file:
                 with blob.open("wb") as dst_file:
-                    while bytes := src_file.read(16 * 4096):
+                    while bytes := src_file.read(BLOCK_SIZE):
                         dst_file.write(bytes)
 
     except google_api_exceptions.GoogleAPICallError as e:

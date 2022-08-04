@@ -128,14 +128,16 @@ async def _handle_message(message: tg_types.Message):
         },
     )
 
+    session = client.create()
+
     result = await chat.ask(
-        message=message.text, intent=None, state={}, session=client.create()
+        message=message.text, intent=None, state={}, session=session
     )
 
     await message.reply(result.message, parse_mode="Markdown")
     match result:
         case tasks.Task():
-            task_result = await tasks.future(result)
+            task_result = await tasks.future(result, session)
             logger.info(
                 f"conversation_success: {task_result.message}",
                 extra={

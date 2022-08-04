@@ -7,7 +7,7 @@ from tempfile import TemporaryDirectory
 from typing import BinaryIO, Sequence
 
 import aiohttp
-from aiohttp import BodyPartReader, web
+from aiohttp import web
 from pydantic import ValidationError
 from pydantic.json import pydantic_encoder
 
@@ -153,16 +153,13 @@ async def _transcript(
 
 async def _load(
     request: LoadRequest,
-    stream: aiohttp.StreamReader | BodyPartReader | None,
+    stream: BinaryIO | None,
     session: aiohttp.ClientSession,
 ) -> Transcript:
     source = request.source or stream
 
     if not source:
         raise ValueError("Missing source url or octet stream.")
-
-    async def _decode(data: bytes) -> str:
-        return data.decode("utf-8")
 
     match request.method:
         case "Google":
@@ -175,7 +172,7 @@ async def _load(
             return await notion.load(source)
         case "Machine A" | "Machine B" | "Machine C":
             asset = await _ingest(
-                source if isinstance(source, str) else BytesIO(await source.read()),
+                source if isinstance(source, str) else BytesIO(source.read()),
                 filename=None,
                 session=session,
             )
@@ -223,7 +220,8 @@ async def _load(
                 raise ValueError(f"Need a binary stream for {request.method}.")
             if request.lang is None:
                 raise ValueError("Language is not set")
-            text = await _decode(await stream.read())
+            text = stream.read()
+            assert isinstance(text, str)
             events = transcript.srt_to_events(text)
             return Transcript(
                 source=Source(method=request.method, url=None),
@@ -235,8 +233,8 @@ async def _load(
                 raise ValueError(f"Need a binary stream for {request.method}.")
             if request.lang is None:
                 raise ValueError("Language is not set")
-
-            text = await _decode(await stream.read())
+            text = stream.read()
+            assert isinstance(text, str)
             events = transcript.parse_events(text)
             return Transcript(
                 source=Source(method=request.method, url=None),
@@ -357,29 +355,24 @@ async def save(web_request: web.Request) -> web.Response:
 
 @routes.post("/transcript/load")
 async def load(web_request: web.Request) -> web.Response:
-    parts = await web_request.multipart()
-
-    part = await parts.next()
-    assert isinstance(part, BodyPartReader)
-
-    params = await part.json()
-    assert params
+    params = await web_request.json()
 
     try:
         request = LoadRequest(**params)
+        if request.source is None:
+            raise ValueError("request.source can't be null")
 
-        if isinstance(request.source, str):
+        if request.source.startswith("gs://"):
+            with obj.stream(request.source, "r") as stream:
+                response = await _load(
+                    request=LoadRequest(**params),
+                    stream=stream,
+                    session=client.create(),
+                )
+        else:
             response = await _load(
                 request=LoadRequest(**params),
                 stream=None,
-                session=client.create(),
-            )
-        else:
-            stream = await parts.next()
-            assert isinstance(stream, BodyPartReader)
-            response = await _load(
-                request=LoadRequest(**params),
-                stream=stream,
                 session=client.create(),
             )
 

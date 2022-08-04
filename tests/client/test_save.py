@@ -19,7 +19,7 @@ async def test_save(mock_client, monkeypatch) -> None:
             task = await transcript.load(
                 source=stream, method="SRT", lang="en-US", session=session
             )
-            from_srt = await tasks.future(task)
+            from_srt = await tasks.future(task, session)
             from_srt = replace(from_srt, title="test_save")
 
         if isinstance(from_srt, Error):
@@ -30,7 +30,7 @@ async def test_save(mock_client, monkeypatch) -> None:
         )
         if isinstance(response, Error):
             assert False, response.message
-        result = await tasks.future(response)
+        result = await tasks.future(response, session)
         if isinstance(result, Error):
             assert False, result.message
         assert result.url.startswith("https://docs.google.com/document/d/")
@@ -40,7 +40,7 @@ async def test_save(mock_client, monkeypatch) -> None:
         )
         if isinstance(response, Error):
             assert False, response.message
-        result = await tasks.future(response)
+        result = await tasks.future(response, session)
         if isinstance(result, Error):
             assert False, result.message
         assert result.url.startswith("https://docs.google.com/document/d/")
@@ -53,7 +53,7 @@ async def test_save(mock_client, monkeypatch) -> None:
         )
         if isinstance(response, Error):
             assert False, response.message
-        result = await tasks.future(response)
+        result = await tasks.future(response, session)
         if isinstance(result, Error):
             assert False, result.message
         assert result.url.startswith("https://www.notion.so/test_save")

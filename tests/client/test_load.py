@@ -18,7 +18,7 @@ async def test_load_srt(mock_client, monkeypatch) -> None:
             task = await transcript.load(
                 source=stream, method="SRT", lang="en-US", session=session
             )
-            result = await tasks.future(task)
+            result = await tasks.future(task, session)
             if isinstance(result, Error):
                 assert False, result.message
 
@@ -48,7 +48,7 @@ async def test_load_ssmd(mock_client, monkeypatch) -> None:
             task = await transcript.load(
                 source=stream, method="SSMD", lang="en-US", session=session
             )
-            result = await tasks.future(task)
+            result = await tasks.future(task, session)
             if isinstance(result, Error):
                 assert False, result.message
 
@@ -81,7 +81,7 @@ async def test_load_subtitles(mock_client, monkeypatch) -> None:
             session=session,
         )
 
-        result = await tasks.future(task)
+        result = await tasks.future(task, session)
 
     if isinstance(result, Error):
         assert False, result.message
@@ -129,7 +129,7 @@ async def test_load_transcribe(mock_client, monkeypatch) -> None:
         ]
 
         result_a, result_b = await asyncio.gather(
-            *[tasks.future(response) for response in responses]
+            *[tasks.future(response, session) for response in responses]
         )
 
     # Check Machine A output
