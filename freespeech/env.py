@@ -167,18 +167,16 @@ def get_transcript_service_url() -> str:
     url = os.environ.get("FREESPEECH_TRANSCRIPT_SERVICE_URL", None)
 
     if not url:
-        raise RuntimeError(
-            "For Telegram, FREESPEECH_TRANSCRIPT_SERVICE_URL is not set."
-        )
+        raise RuntimeError("FREESPEECH_TRANSCRIPT_SERVICE_URL is not set.")
 
     return url
 
 
 @functools.cache
 def get_media_service_url() -> str:
-    url = os.environ.get("TELEGRAM_WEBHOOK_URL", None)
+    url = os.environ.get("FREESPEECH_MEDIA_SERVICE_URL", None)
 
     if not url:
-        raise RuntimeError("For Telegram, FREESPEECH_MEDIA_SERVICE_URL is not set.")
+        raise RuntimeError("FREESPEECH_MEDIA_SERVICE_URL is not set.")
 
     return url

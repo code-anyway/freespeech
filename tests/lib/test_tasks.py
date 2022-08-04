@@ -7,6 +7,7 @@ import pytest
 from freespeech.lib.tasks import cloud_tasks
 
 
+@pytest.mark.skip(reason="Remove after deployment (20220803)")
 @pytest.mark.asyncio
 async def test_schedule():
     url = "https://transcript-qux7zlmkmq-uc.a.run.app/transcript/translate"
@@ -19,12 +20,12 @@ async def test_schedule():
         "lang": "ru-RU",
     }
 
-    task = cloud_tasks.schedule(
+    task = await cloud_tasks.schedule(
         method="POST", url=url, payload=json.dumps(payload).encode("utf-8")
     )
 
     assert task.state == "Pending"
-    await asyncio.sleep(5.0)
+    await asyncio.sleep(10.0)
     task = await cloud_tasks.get(task.id)
     assert task.state == "Done"
     assert task.result

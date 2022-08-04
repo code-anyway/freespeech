@@ -1,4 +1,5 @@
 import functools
+import json
 import tempfile
 import uuid
 from pathlib import Path
@@ -91,7 +92,7 @@ async def _handler(
     task = await schedule_fn(
         web_request.method,
         f"{url}/{service}/{endpoint}",
-        pydantic_encoder(request).encode("utf-8"),
+        json.dumps(pydantic_encoder(request)).encode("utf-8"),
     )
 
     return web.json_response(pydantic_encoder(task))
@@ -99,7 +100,7 @@ async def _handler(
 
 async def _save(stream: BodyPartReader) -> str:
     assert stream.filename is not None
-    filename = f"{str(uuid.uuid4())}/{Path(stream.filename).suffix}"
+    filename = f"{str(uuid.uuid4())}{Path(stream.filename).suffix}"
     blob_url = f"{env.get_storage_url()}/blobs/{filename}"
 
     with tempfile.TemporaryDirectory() as temp_dir:

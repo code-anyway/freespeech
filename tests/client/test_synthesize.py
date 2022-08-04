@@ -49,7 +49,7 @@ async def test_synthesize_basic(mock_client, monkeypatch) -> None:
 
         # assert result.message == "Estimated wait time: 5 minutes"
 
-        task_result = await tasks.future(result)
+        task_result = await tasks.future(result, session)
 
     if isinstance(task_result, Error):
         assert False, task_result.message

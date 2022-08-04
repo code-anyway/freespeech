@@ -2,9 +2,8 @@ import asyncio
 import logging
 import os
 import tempfile
-import uuid
 
-from aiohttp import BodyPartReader, web
+from aiohttp import web
 from pydantic.json import pydantic_encoder
 
 from freespeech import env
@@ -20,41 +19,18 @@ routes = web.RouteTableDef()
 
 @routes.post("/media/ingest")
 async def ingest(web_request: web.Request) -> web.Response:
-    parts = await web_request.multipart()
-
-    part = await parts.next()
-    assert isinstance(part, BodyPartReader)
-
-    params = await part.json()
-    assert params
-
+    params = await web_request.json()
     request = IngestRequest(**params)
 
     source = request.source
+    assert source is not None
 
-    if not source:
-        # loading from stream then
-        stream = await parts.next()
-        assert isinstance(stream, BodyPartReader)
-        assert stream.filename is not None
-
-        media_url = (
-            f"{env.get_storage_url()}/media"
-            f"/v_{str(uuid.uuid4())}{os.path.splitext(stream.filename)[1]}"
+    if source.startswith("gs://"):
+        result = IngestResponse(
+            audio=obj.public_url(source), video=obj.public_url(source)
         )
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            video_file = os.path.join(temp_dir, stream.filename)
-            with open(video_file, "wb") as file:
-                file.write(await stream.read())
-
-            await obj.put(video_file, media_url)
-            result = IngestResponse(
-                audio=obj.public_url(media_url), video=obj.public_url(media_url)
-            )
-
-            return web.json_response(pydantic_encoder(result))
-
+        return web.json_response(pydantic_encoder(result))
     else:
         hashed_url = hash.string(source)
 

@@ -269,7 +269,7 @@ async def _transcribe(
         output_mono = await media_ops.multi_channel_audio_to_mono(audio_file, tmp_dir)
         with open(output_mono, "rb") as file:
             task = await media.ingest(file, filename=str(output_mono), session=session)
-            result = await tasks.future(task)
+            result = await tasks.future(task, session)
             if isinstance(result, Error):
                 raise RuntimeError(result.message)
             assert result.audio is not None
@@ -300,7 +300,7 @@ async def _ingest(
     session: aiohttp.ClientSession,
 ) -> IngestResponse:
     response = await media.ingest(source=source, filename=filename, session=session)
-    result = await tasks.future(response)
+    result = await tasks.future(response, session)
     if isinstance(result, Error):
         raise RuntimeError(result.message)
 
