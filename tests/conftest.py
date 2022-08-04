@@ -51,11 +51,6 @@ def const():
 async def client_session(
     aiohttp_client, aiohttp_server, monkeypatch
 ) -> Generator[AiohttpClient, None, None]:
-    port = 8080
-    monkeypatch.setenv("FREESPEECH_TRANSCRIPT_SERVICE_URL", f"http://localhost:{port}")
-    monkeypatch.setenv("FREESPEECH_MEDIA_SERVICE_URL", f"http://localhost:{port}")
-    monkeypatch.setenv("FREESPEECH_CHAT_SERVICE_URL", f"http://localhost:{port}")
-
     from freespeech.api import chat, edge, media, middleware, transcript
 
     app = web.Application(middlewares=[middleware.persist_results])
@@ -64,8 +59,13 @@ async def client_session(
     app.add_routes(chat.routes)
     app.add_routes(transcript.routes)
 
-    server = await aiohttp_server(app, port=port)
+    server = await aiohttp_server(app)
     client = await aiohttp_client(server)
+
+    port = server.port
+    monkeypatch.setenv("FREESPEECH_TRANSCRIPT_SERVICE_URL", f"http://127.0.0.1:{port}")
+    monkeypatch.setenv("FREESPEECH_MEDIA_SERVICE_URL", f"http://127.0.0.1:{port}")
+    monkeypatch.setenv("FREESPEECH_CHAT_SERVICE_URL", f"http://127.0.0.1:{port}")
 
     return client
 

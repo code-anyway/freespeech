@@ -21,7 +21,6 @@ async def test_ingest_jsononly_longvideo(client):
 async def test_ingest_local_stream(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
     session = mock_client()
-    # session = client.create()
 
     async with session:
         with open("tests/lib/data/media/dub-en-US-ru-RU.mp4", "rb") as file:
@@ -29,7 +28,7 @@ async def test_ingest_local_stream(mock_client, monkeypatch) -> None:
                 file, filename="dub-en-US-ru-RU.mp4", session=session
             )
 
-            result = await tasks.future(response)
+            result = await tasks.future(response, session)
             if isinstance(result, Error):
                 assert False, result.message
 
@@ -47,13 +46,12 @@ async def test_ingest_local_stream(mock_client, monkeypatch) -> None:
 async def test_ingest_youtube_short(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
     session = mock_client()
-    # session = client.create()
 
     async with session:
         response = await media.ingest(
             "https://www.youtube.com/watch?v=hgV8mB-M9po", session=session
         )
-        result = await tasks.future(response)
+        result = await tasks.future(response, session)
         if isinstance(result, Error):
             assert False, result.message
 
