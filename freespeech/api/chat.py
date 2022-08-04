@@ -113,6 +113,10 @@ async def _ask(
             if isinstance(result, Error):
                 return result
 
+            # As of now, call this handler will block
+            # until load() returns. I think we should move this to
+            # bot code (telegram, etc). This way we can return
+            # task from load immediately adding ETA and what not.
             save_response = await transcript.save(
                 result, method="Google", location=None, session=session
             )
@@ -132,6 +136,10 @@ async def _ask(
             if isinstance(result, Error):
                 return result
 
+            # As of now, call this handler will block
+            # until load() returns. I think we should move this to
+            # bot code (telegram, etc). This way we can return
+            # task from load immediately adding ETA and what not.
             save_response = await transcript.save(
                 result, method="Google", location=None, session=session
             )
@@ -145,6 +153,8 @@ async def _ask(
             response = await transcript.synthesize(
                 transcript=request.transcript, session=session
             )
+
+            # Return task?
             result = await tasks.future(response, session)
             if isinstance(result, Error):
                 return result

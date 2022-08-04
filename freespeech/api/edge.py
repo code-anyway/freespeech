@@ -89,6 +89,9 @@ async def _handler(
     except ValidationError as e:
         raise errors.bad_request(Error(message=str(e)))
 
+    # TODO: dispatch ask to chat without scheduling
+    # scheduling is done by actual operations invoked
+    # after intent is detected.
     task = await schedule_fn(
         web_request.method,
         f"{url}/{service}/{endpoint}",
