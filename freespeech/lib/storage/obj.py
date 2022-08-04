@@ -63,8 +63,10 @@ def stream(src: url, mode: str) -> Generator[BinaryIO, None, None]:
     with google_storage_client() as storage:
         bucket = storage.bucket(src_url.netloc)
         blob = bucket.blob(src_url.path[1:])
-        yield blob.open(mode)
-        storage._http.close()
+        try:
+            yield blob.open(mode)
+        finally:
+            storage._http.close()
 
 
 async def get(src: url, dst_dir: str | PathLike) -> str:

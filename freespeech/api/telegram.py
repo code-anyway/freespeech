@@ -3,7 +3,6 @@ import logging
 from urllib.parse import urlparse
 
 import aiogram as tg
-import aiohttp
 from aiogram import types as tg_types
 from aiogram.utils.exceptions import RetryAfter
 from aiogram.utils.executor import start_webhook
@@ -48,13 +47,6 @@ walkthrough_text = (
 )
 
 MAX_RETRIES = 5
-
-
-def get_chat_client():
-    return aiohttp.ClientSession(
-        base_url=env.get_chat_service_url(),
-        timeout=aiohttp.ClientTimeout(CLIENT_TIMEOUT),
-    )
 
 
 def handle_ratelimit(func):

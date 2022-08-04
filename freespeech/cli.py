@@ -9,12 +9,6 @@ from freespeech.api.middleware import error_handler_middleware
 from freespeech.lib import youtube
 from freespeech.lib.tasks import cloud_tasks
 
-SERVICE_ROUTES = {
-    "media": media.routes,
-    "transcript": transcript.routes,
-    "chat": chat.routes,
-    "edge": edge.routes(schedule_fn=cloud_tasks.schedule, get_fn=cloud_tasks.get),
-}
 
 logging_handler = ["google" if env.is_in_cloud_run() else "console"]
 
@@ -68,6 +62,13 @@ def start(port: int, services):
         logger=logger,
         middlewares=[error_handler_middleware, middleware.persist_results],
     )
+
+    SERVICE_ROUTES = {
+        "media": media.routes,
+        "transcript": transcript.routes,
+        "chat": chat.routes,
+        "edge": edge.routes(schedule_fn=cloud_tasks.schedule, get_fn=cloud_tasks.get),
+    }
 
     for service in services:
         if service not in SERVICE_ROUTES:
