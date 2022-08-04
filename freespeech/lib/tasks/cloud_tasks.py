@@ -1,8 +1,9 @@
+import uuid
+
 from google import api_core
 from google.cloud import tasks_v2
 
 from freespeech import env
-from freespeech.lib import hash
 from freespeech.lib.tasks import results
 from freespeech.types import Task
 
@@ -22,7 +23,7 @@ async def schedule(method: str, url: str, payload: bytes) -> Task:
     client = tasks_v2.CloudTasksClient()
     project = env.get_project_id()
     parent = client.queue_path(project, LOCATION, QUEUE_NAME)
-    task_id = hash.string(payload.decode("utf-8"))
+    task_id = str(uuid.uuid4())
     task = {
         "name": get_task_path(client, task_id),
         "http_request": {  # Specify the type of request.
