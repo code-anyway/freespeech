@@ -5,16 +5,15 @@ import click
 from aiohttp import ClientResponseError, web
 
 from freespeech import env
-from freespeech.api import chat, media, middleware, transcript, edge
+from freespeech.api import chat, edge, media, middleware, transcript
 from freespeech.lib import youtube
 from freespeech.lib.tasks import cloud_tasks
-
 
 SERVICE_ROUTES = {
     "media": media.routes,
     "transcript": transcript.routes,
     "chat": chat.routes,
-    "edge": edge.routes(schedule_fn=cloud_tasks.schedule, get_fn=cloud_tasks.get)
+    "edge": edge.routes(schedule_fn=cloud_tasks.schedule, get_fn=cloud_tasks.get),
 }
 
 logging_handler = ["google" if env.is_in_cloud_run() else "console"]
