@@ -64,6 +64,7 @@ def stream(src: url, mode: str) -> Generator[BinaryIO, None, None]:
         bucket = storage.bucket(src_url.netloc)
         blob = bucket.blob(src_url.path[1:])
         yield blob.open(mode)
+        storage._http.close()
 
 
 async def get(src: url, dst_dir: str | PathLike) -> str:
