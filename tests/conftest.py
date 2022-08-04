@@ -49,9 +49,14 @@ def const():
 
 @pytest_asyncio.fixture
 async def client_session(
-    aiohttp_client, aiohttp_server, monkeypatch
+    aiohttp_client, aiohttp_server, monkeypatch, unused_tcp_port_factory
 ) -> Generator[AiohttpClient, None, None]:
     from freespeech.api import chat, edge, media, middleware, transcript
+
+    port = unused_tcp_port_factory()
+    monkeypatch.setenv("FREESPEECH_TRANSCRIPT_SERVICE_URL", f"http://127.0.0.1:{port}")
+    monkeypatch.setenv("FREESPEECH_MEDIA_SERVICE_URL", f"http://127.0.0.1:{port}")
+    monkeypatch.setenv("FREESPEECH_CHAT_SERVICE_URL", f"http://127.0.0.1:{port}")
 
     app = web.Application(middlewares=[middleware.persist_results])
     app.add_routes(edge.routes(dummy.schedule, dummy.get))
@@ -59,14 +64,9 @@ async def client_session(
     app.add_routes(chat.routes)
     app.add_routes(transcript.routes)
 
-    server = await aiohttp_server(app)
+    server = await aiohttp_server(app, port=port)
+
     client = await aiohttp_client(server)
-
-    port = server.port
-    monkeypatch.setenv("FREESPEECH_TRANSCRIPT_SERVICE_URL", f"http://127.0.0.1:{port}")
-    monkeypatch.setenv("FREESPEECH_MEDIA_SERVICE_URL", f"http://127.0.0.1:{port}")
-    monkeypatch.setenv("FREESPEECH_CHAT_SERVICE_URL", f"http://127.0.0.1:{port}")
-
     return client
 
 

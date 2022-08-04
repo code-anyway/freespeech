@@ -1,4 +1,5 @@
 import logging
+from dataclasses import replace
 from typing import Dict, Tuple
 
 import aiohttp
@@ -7,16 +8,16 @@ from pydantic import ValidationError
 from pydantic.json import pydantic_encoder
 
 from freespeech.api import errors
-from freespeech.client import client, tasks, transcript
+from freespeech.client import client, transcript
 from freespeech.client.tasks import Task
 from freespeech.lib import chat
 from freespeech.types import (
     OPERATIONS,
     AskRequest,
-    AskResponse,
     Error,
     LoadRequest,
     SynthesizeRequest,
+    Transcript,
     TranslateRequest,
     assert_never,
     is_operation,
@@ -79,18 +80,18 @@ def _build_request(
 
     match operation:
         case "Transcribe":
-            return LoadRequest(**{"source": url, "method": method, "lang": lang}), state
+            return LoadRequest(source=url, method=method, lang=lang), state
         case "Translate":
-            return TranslateRequest(**{"transcript": url, "lang": lang}), state
+            return TranslateRequest(transcript=url, lang=lang), state
         case "Synthesize":
-            return SynthesizeRequest(**{"transcript": url}), state
+            return SynthesizeRequest(transcript=url), state
         case never:
             assert_never(never)
 
 
 async def _ask(
     ask_request: AskRequest, session: aiohttp.ClientSession
-) -> AskResponse | Error:
+) -> Task[Transcript] | Error:
     if ask_request.intent:
         intent = ask_request.intent
         entities: Dict = {}
@@ -109,22 +110,16 @@ async def _ask(
                 lang=request.lang,
                 session=client.create(),
             )
-            result = await tasks.future(response, session)
-            if isinstance(result, Error):
-                return result
-
-            # As of now, call this handler will block
-            # until load() returns. I think we should move this to
-            # bot code (telegram, etc). This way we can return
-            # task from load immediately adding ETA and what not.
-            save_response = await transcript.save(
-                result, method="Google", location=None, session=session
+            response = replace(
+                response,
+                operation="Transcribe",
+                message=(
+                    f"Transcribing {request.source} "
+                    f"with {request.method} in {request.lang}. Watch this space!"
+                ),
             )
-            saved = await tasks.future(save_response, session)
-            if isinstance(saved, Error):
-                return saved
 
-            return AskResponse(message=f"Here you are: {saved.url}", state=state)
+            return response
 
         case TranslateRequest():
             response = await transcript.translate(
@@ -132,35 +127,26 @@ async def _ask(
                 lang=request.lang,
                 session=client.create(),
             )
-            result = await tasks.future(response, session)
-            if isinstance(result, Error):
-                return result
-
-            # As of now, call this handler will block
-            # until load() returns. I think we should move this to
-            # bot code (telegram, etc). This way we can return
-            # task from load immediately adding ETA and what not.
-            save_response = await transcript.save(
-                result, method="Google", location=None, session=session
+            response = replace(
+                response,
+                operation="Translate",
+                message=f"Translating {request.transcript} to {request.lang}. Hold on!",
             )
-            saved = await tasks.future(save_response, session)
-            if isinstance(saved, Error):
-                return saved
 
-            return AskResponse(message=f"Here you are: {saved.url}", state=state)
+            return response
 
         case SynthesizeRequest():
             response = await transcript.synthesize(
                 transcript=request.transcript, session=session
             )
 
-            # Return task?
-            result = await tasks.future(response, session)
-            if isinstance(result, Error):
-                return result
+            response = replace(
+                response,
+                operation="Synthesize",
+                message=f"Dubbing {request.transcript}. Stay put!",
+            )
 
-            media_url = result.video or result.audio
-            return AskResponse(message=f"Here you are: {media_url}", state=state)
+            return response
 
 
 @routes.post("/chat/ask")

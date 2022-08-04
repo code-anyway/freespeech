@@ -4,7 +4,7 @@ import aiohttp
 from pydantic.json import pydantic_encoder
 
 from freespeech.client.tasks import Task
-from freespeech.types import AskRequest, AskResponse, Error, Operation
+from freespeech.types import AskRequest, Error, Operation, Transcript
 
 
 async def ask(
@@ -13,13 +13,13 @@ async def ask(
     intent: Operation | None,
     state: Dict,
     session: aiohttp.ClientSession
-) -> Task[AskResponse] | Error:
+) -> Task[Transcript] | Error:
     request = AskRequest(message=message, intent=intent, state=state)
 
     async with session.post("/api/chat/ask", json=pydantic_encoder(request)) as resp:
         result = await resp.json()
 
         if resp.ok:
-            return Task[AskResponse](**result)
+            return Task[Transcript](**result)
         else:
             return Error(**result)

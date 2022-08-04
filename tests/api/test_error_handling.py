@@ -7,7 +7,7 @@ import pytest_asyncio
 from aiohttp import ClientResponseError, web
 from aiohttp.pytest_plugin import AiohttpClient
 
-from freespeech import cli
+from freespeech.api.middleware import error_handler_middleware
 from freespeech.client.errors import _raise_if_error
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ async def webapp(aiohttp_server, aiohttp_client):
                 resp.raise_for_status()
                 assert False, "Should not reach here"
 
-    app = web.Application(middlewares=[cli.error_handler_middleware])
+    app = web.Application(middlewares=[error_handler_middleware])
     app.add_routes(routes)
     return app
 

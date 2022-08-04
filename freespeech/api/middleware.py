@@ -1,8 +1,12 @@
 import json
+import logging
 
-from aiohttp import web
+import aiohttp
+from aiohttp import ClientResponseError, web
 
 from freespeech.lib.storage import doc
+
+logger = logging.getLogger(__name__)
 
 
 @web.middleware
@@ -25,3 +29,21 @@ async def persist_results(request, handler):
         await doc.put(client, "results", task_id, record)
 
     return resp
+
+
+@web.middleware
+async def error_handler_middleware(request, handler):
+    """Here we handle specific types of errors we know should be 'recoverable' or
+    'user input errors', log them, and convert to HTTP Semantics"""
+    try:
+        resp = await handler(request)
+        return resp
+    except (AttributeError, NameError, ValueError, PermissionError, RuntimeError) as e:
+        logger.warning(f"User input error: {e}")
+        raise web.HTTPBadRequest(text=str(e)) from e
+    except ClientResponseError as e:
+        logger.warning(f"Downstream api call error: {e}")
+        raise web.HTTPBadRequest(text=e.message) from e
+    except aiohttp.web.HTTPError as e:
+        logger.warning(f"HTTPError: {e}")
+        raise e

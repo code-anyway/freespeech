@@ -334,6 +334,7 @@ class Task(Generic[TaskReturnType]):
     id: str
     result: TaskReturnType | Error | None = None
     message: str | None = None
+    operation: Operation | None = None
 
 
 def assert_never(x: NoReturn) -> NoReturn:

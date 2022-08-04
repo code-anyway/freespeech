@@ -10,24 +10,24 @@ async def test_transcribe(mock_client, monkeypatch) -> None:
     session = mock_client()
 
     message = (
-        "Transcribe https://www.youtube.com/watch?v=N9B59PHIFbA "
-        "in English using Machine A"
+        "Transcribe https://www.youtube.com/watch?v=bhRaND9jiOA "
+        "in English using Machine B"
     )
     response = await chat.ask(message=message, intent=None, state={}, session=session)
+
+    assert (
+        response.message == "Transcribing https://www.youtube.com/watch?v=bhRaND9jiOA"
+        " with Machine B in en-US. Watch this space!"
+    )
+
     if isinstance(response, Error):
         assert False, response.message
     result = await tasks.future(response, session)
     if isinstance(result, Error):
         assert False, result.message
-    assert result.message.startswith("Here you are: ")
 
-    load_response = await transcript.load(
-        source=result.message[14:], method="Google", lang=None, session=session
-    )
-    load_result = await tasks.future(load_response, session)
-    if isinstance(load_result, Error):
-        assert False, load_result.message
-    assert load_result.events
+    assert isinstance(result, Transcript)
+    assert result.events
 
 
 @pytest.mark.asyncio
@@ -35,50 +35,43 @@ async def test_translate(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
     session = mock_client()
 
-    message = (
-        "Translate https://docs.google.com/document/d/"
-        "1FbV0eW4Q-yKWYjPkMRCrGd2yD78n7MtswVmN9LSo4mA/edit to Ukrainian"
-    )
+    doc = "https://docs.google.com/document/d/1FbV0eW4Q-yKWYjPkMRCrGd2yD78n7MtswVmN9LSo4mA/"  # noqa: E501
+    message = f"Translate {doc} to Ukrainian"
 
-    response = await chat.ask(message=message, intent=None, state={}, session=session)
-    if isinstance(response, Error):
-        assert False, response.message
-    result = await tasks.future(response, session)
+    task = await chat.ask(message=message, intent=None, state={}, session=session)
+    assert task.message == f"Translating {doc} to uk-UA. Hold on!"
+
+    if isinstance(task, Error):
+        assert False, task.message
+
+    result = await tasks.future(task, session)
     if isinstance(result, Error):
         assert False, result.message
-    assert result.message.startswith("Here you are: ")
 
-    load_response = await transcript.load(
-        source=result.message[14:], method="Google", lang=None, session=session
-    )
-    load_result = await tasks.future(load_response, session)
-    if isinstance(load_result, Error):
-        assert False, load_result.message
-    assert load_result.events
-    assert load_result.events[0].chunks[0].startswith("Якщо ви можете згадати")
+    transcript_ua = result
+    assert transcript_ua.lang == "uk-UA"
+    assert transcript_ua.events
 
 
 @pytest.mark.asyncio
 async def test_synthesize(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
     session = mock_client()
-    test_doc = (
-        "https://docs.google.com/document/d/"
-        "1Oexfd27oToEWyxj9g7YCp3IYHqjYO8US0RtnoP32fXU/edit#"
-    )
+    test_doc = "https://docs.google.com/document/d/1Oexfd27oToEWyxj9g7YCp3IYHqjYO8US0RtnoP32fXU/edit#"  # noqa: E501
 
     test_message = f"Dub {test_doc}"
 
-    response = await chat.ask(
-        message=test_message, intent=None, state={}, session=session
-    )
-    if isinstance(response, Error):
-        assert False, response.message
-    result = await tasks.future(response, session)
+    task = await chat.ask(message=test_message, intent=None, state={}, session=session)
+    if isinstance(task, Error):
+        assert False, task.message
+    assert task.message == f"Dubbing {test_doc}. Stay put!"
+
+    result = await tasks.future(task, session)
     if isinstance(result, Error):
         assert False, result.message
-    assert result.message.startswith("Here you are: ")
-    new_video_url = result.message[14:]
+
+    transcript_dubbed = result
+    assert transcript_dubbed.video
 
     load_response = await transcript.load(
         source=test_doc, method="Google", lang=None, session=session
@@ -86,4 +79,4 @@ async def test_synthesize(mock_client, monkeypatch) -> None:
     old_transcript = await tasks.future(load_response, session)
     assert isinstance(old_transcript, Transcript)
 
-    assert new_video_url != old_transcript.video
+    assert transcript_dubbed.video != old_transcript.video

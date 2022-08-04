@@ -5,6 +5,7 @@ import uuid
 from pathlib import Path
 from typing import Awaitable, Callable, Sequence, Type
 
+import aiohttp
 from aiohttp import BodyPartReader, web
 from pydantic import ValidationError
 from pydantic.json import pydantic_encoder
@@ -31,20 +32,55 @@ GetFunction = Callable[[str], Awaitable[Task]]
 def routes(
     schedule_fn: ScheduleFunction, get_fn: GetFunction
 ) -> Sequence[web.RouteDef]:
-    handler = functools.partial(_handler, schedule_fn)
+
+    media_url = env.get_media_service_url()
+    transcript_url = env.get_transcript_service_url()
+    chat_url = env.get_chat_service_url()
     get = functools.partial(_get, get_fn)
 
     return [
-        web.post(path="/api/{service:media}/{endpoint:ingest}", handler=handler),
-        web.post(path="/api/{service:transcript}/{endpoint:save}", handler=handler),
-        web.post(path="/api/{service:transcript}/{endpoint:load}", handler=handler),
         web.post(
-            path="/api/{service:transcript}/{endpoint:translate}", handler=handler
+            path="/api/media/ingest",
+            handler=functools.partial(
+                _handler, f"{media_url}/media/ingest", IngestRequest, schedule_fn
+            ),
         ),
         web.post(
-            path="/api/{service:transcript}/{endpoint:synthesize}", handler=handler
+            path="/api/transcript/save",
+            handler=functools.partial(
+                _handler, f"{transcript_url}/transcript/save", SaveRequest, schedule_fn
+            ),
         ),
-        web.post(path="/api/{service:chat}/{endpoint:ask}", handler=handler),
+        web.post(
+            path="/api/transcript/load",
+            handler=functools.partial(
+                _handler, f"{transcript_url}/transcript/load", LoadRequest, schedule_fn
+            ),
+        ),
+        web.post(
+            path="/api/transcript/translate",
+            handler=functools.partial(
+                _handler,
+                f"{transcript_url}/transcript/translate",
+                TranslateRequest,
+                schedule_fn,
+            ),
+        ),
+        web.post(
+            path="/api/transcript/synthesize",
+            handler=functools.partial(
+                _handler,
+                f"{transcript_url}/transcript/synthesize",
+                SynthesizeRequest,
+                schedule_fn,
+            ),
+        ),
+        web.post(
+            path="/api/chat/ask",
+            handler=functools.partial(
+                _passthrough_handler, f"{chat_url}/chat/ask", AskRequest
+            ),
+        ),
         web.get(path="/api/tasks/{id}", handler=get),
     ]
 
@@ -56,49 +92,45 @@ async def _get(get_fn: GetFunction, web_request: web.Request) -> web.Response:
 
 
 async def _handler(
-    schedule_fn: ScheduleFunction, web_request: web.Request
+    url: str,
+    request_type: Type[RequestType],
+    schedule_fn: ScheduleFunction,
+    web_request: web.Request,
 ) -> web.Response:
-    service = web_request.match_info["service"]
-    endpoint = web_request.match_info["endpoint"]
-
-    service_urls = {
-        "media": env.get_media_service_url(),
-        "transcript": env.get_transcript_service_url(),
-        "chat": env.get_chat_service_url(),
-    }
-
-    url = service_urls.get(service, None)
-    if not url:
-        raise errors.bad_request(Error(f"Unknown service: {service}"))
-
-    endpoint_request_types = {
-        "synthesize": SynthesizeRequest,
-        "save": SaveRequest,
-        "translate": TranslateRequest,
-        "ask": AskRequest,
-        "load": LoadRequest,
-        "ingest": IngestRequest,
-        "synthesize": SynthesizeRequest,
-    }
-    request_type = endpoint_request_types.get(endpoint, None)
-    if not request_type:
-        raise errors.bad_request(Error(f"Unknown endpoint: {endpoint}"))
-
     try:
         request = await _build_request(request_type, web_request)
     except ValidationError as e:
         raise errors.bad_request(Error(message=str(e)))
 
-    # TODO: dispatch ask to chat without scheduling
-    # scheduling is done by actual operations invoked
-    # after intent is detected.
     task = await schedule_fn(
         web_request.method,
-        f"{url}/{service}/{endpoint}",
+        url,
         json.dumps(pydantic_encoder(request)).encode("utf-8"),
     )
 
     return web.json_response(pydantic_encoder(task))
+
+
+async def _passthrough_handler(
+    url: str, request_type: Type[RequestType], web_request: web.Request
+) -> web.Response:
+    try:
+        request = await _build_request(request_type, web_request)
+        async with aiohttp.ClientSession() as session:
+            async with session.request(
+                method=web_request.method,
+                url=url,
+                data=json.dumps(pydantic_encoder(request)).encode("utf-8"),
+            ) as response:
+                return web.Response(
+                    text=await response.text(),
+                    content_type=response.content_type,
+                    status=response.status,
+                    reason=response.reason,
+                )
+
+    except ValidationError as e:
+        raise errors.bad_request(Error(message=str(e)))
 
 
 async def _save(stream: BodyPartReader) -> str:
