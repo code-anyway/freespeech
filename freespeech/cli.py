@@ -9,6 +9,15 @@ from freespeech.api.middleware import error_handler_middleware
 from freespeech.lib import youtube
 from freespeech.lib.tasks import cloud_tasks
 
+SERVICE_ROUTES = {
+    "media": lambda: media.routes,
+    "transcript": lambda: transcript.routes,
+    "chat": lambda: chat.routes,
+    "edge": lambda: edge.routes(
+        schedule_fn=cloud_tasks.schedule, get_fn=cloud_tasks.get
+    ),
+}
+
 
 logging_handler = ["google" if env.is_in_cloud_run() else "console"]
 
@@ -63,13 +72,6 @@ def start(port: int, services):
         middlewares=[error_handler_middleware, middleware.persist_results],
     )
 
-    SERVICE_ROUTES = {
-        "media": media.routes,
-        "transcript": transcript.routes,
-        "chat": chat.routes,
-        "edge": edge.routes(schedule_fn=cloud_tasks.schedule, get_fn=cloud_tasks.get),
-    }
-
     for service in services:
         if service not in SERVICE_ROUTES:
             click.echo(
@@ -77,8 +79,8 @@ def start(port: int, services):
                 f"Expected values: {SERVICE_ROUTES.keys()}"
             )
             return -1
-        routes = SERVICE_ROUTES[service]
-        app.add_routes(routes)
+        get_routes = SERVICE_ROUTES[service]
+        app.add_routes(get_routes())
 
     web.run_app(app, port=port)
 
