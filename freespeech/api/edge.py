@@ -1,8 +1,5 @@
 import functools
 import json
-import tempfile
-import uuid
-from pathlib import Path
 from typing import Awaitable, Callable, Dict, Sequence, Type
 
 import aiohttp
@@ -12,7 +9,6 @@ from pydantic.json import pydantic_encoder
 
 from freespeech import env
 from freespeech.api import errors
-from freespeech.lib.storage import obj
 from freespeech.types import (
     AskRequest,
     Error,
@@ -99,6 +95,8 @@ async def _handler(
 ) -> web.Response:
     try:
         request = await _build_request(request_type, web_request)
+    except NotImplementedError as e:
+        raise errors.bad_request(Error(message=str(e)))
     except ValidationError as e:
         raise errors.bad_request(Error(message=str(e)))
 
@@ -135,20 +133,6 @@ async def _passthrough_handler(
         raise errors.bad_request(Error(message=str(e)))
 
 
-async def _save(stream: BodyPartReader) -> str:
-    assert stream.filename is not None
-    filename = f"{str(uuid.uuid4())}{Path(stream.filename).suffix}"
-    blob_url = f"{env.get_storage_url()}/blobs/{filename}"
-
-    with tempfile.TemporaryDirectory() as temp_dir:
-        video_file = Path(temp_dir) / filename
-        with open(video_file, "wb") as file:
-            file.write(await stream.read())
-        await obj.put(video_file, blob_url)
-
-    return blob_url
-
-
 async def _build_request(
     request_type: Type[RequestType], web_request: web.Request
 ) -> RequestType:
@@ -160,10 +144,7 @@ async def _build_request(
         assert params is not None
 
         if params.get("source", None) is None:
-            stream = await parts.next()
-            assert isinstance(stream, BodyPartReader)
-            blob_url = await _save(stream)
-            params = {**params, "source": blob_url}
+            raise NotImplementedError("Stream upload via multipart not supported now")
     else:
         params = await web_request.json()
     assert params is not None
