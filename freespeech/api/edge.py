@@ -1,5 +1,6 @@
 import functools
 import json
+import logging
 from typing import Awaitable, Callable, Dict, Sequence, Type
 
 import aiohttp
@@ -23,6 +24,8 @@ from freespeech.types import (
 
 ScheduleFunction = Callable[[str, str, Dict, bytes], Awaitable[Task]]
 GetFunction = Callable[[str], Awaitable[Task]]
+
+logger = logging.getLogger(__name__)
 
 
 def routes(
@@ -144,6 +147,9 @@ async def _build_request(
         assert params is not None
 
         if params.get("source", None) is None:
+            logger.error(
+                f"Attempting to save multipart, should not happen. Request: {params}"
+            )
             raise NotImplementedError("Stream upload via multipart not supported now")
     else:
         params = await web_request.json()
