@@ -1,4 +1,5 @@
 import uuid
+from typing import Dict
 
 from google import api_core
 from google.cloud import tasks_v2
@@ -16,7 +17,7 @@ def get_task_path(client, task_id):
     return client.task_path(project, LOCATION, QUEUE_NAME, task_id)
 
 
-async def schedule(method: str, url: str, payload: bytes) -> Task:
+async def schedule(method: str, url: str, headers: Dict, payload: bytes) -> Task:
     if method != "POST":
         raise ValueError("Only POST method is supported.")
 
@@ -30,7 +31,7 @@ async def schedule(method: str, url: str, payload: bytes) -> Task:
             "http_method": tasks_v2.HttpMethod.POST,
             "url": url,  # The full url path that the task will be sent to.
             "headers": {
-                "Content-type": "application/json",
+                "Content-Type": headers["Content-Type"],
                 # TODO (astaff): consider removing and relying on X-CloudTasks-TaskName
                 "X-Freespeech-Task-ID": task_id,
             },

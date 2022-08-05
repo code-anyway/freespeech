@@ -1,3 +1,5 @@
+from typing import Dict
+
 import aiohttp
 
 from freespeech.lib import hash
@@ -5,7 +7,7 @@ from freespeech.lib.tasks import results
 from freespeech.types import Error, Task
 
 
-async def schedule(method: str, url: str, payload: bytes) -> Task:
+async def schedule(method: str, url: str, headers: Dict, payload: bytes) -> Task:
     """Makes a synchronous call to downstream API endpoint."""
     task_id = "dummy_" + hash.string(payload.decode("utf-8"))
     async with aiohttp.ClientSession() as session:
@@ -13,7 +15,10 @@ async def schedule(method: str, url: str, payload: bytes) -> Task:
             method=method,
             url=url,
             data=payload,
-            headers={"X-Freespeech-Task-ID": task_id},
+            headers={
+                "Content-Type": headers["Content-Type"],
+                "X-Freespeech-Task-ID": task_id,
+            },
         ) as response:
             if response.ok:
                 return Task(state="Done", id=task_id, result=await response.json())

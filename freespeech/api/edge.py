@@ -3,7 +3,7 @@ import json
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Awaitable, Callable, Sequence, Type
+from typing import Awaitable, Callable, Dict, Sequence, Type
 
 import aiohttp
 from aiohttp import BodyPartReader, web
@@ -25,7 +25,7 @@ from freespeech.types import (
     TranslateRequest,
 )
 
-ScheduleFunction = Callable[[str, str, bytes], Awaitable[Task]]
+ScheduleFunction = Callable[[str, str, Dict, bytes], Awaitable[Task]]
 GetFunction = Callable[[str], Awaitable[Task]]
 
 
@@ -105,6 +105,7 @@ async def _handler(
     task = await schedule_fn(
         web_request.method,
         url,
+        dict(web_request.headers),
         json.dumps(pydantic_encoder(request)).encode("utf-8"),
     )
 
@@ -120,6 +121,7 @@ async def _passthrough_handler(
             async with session.request(
                 method=web_request.method,
                 url=url,
+                headers={"Content-Type": web_request.headers["Content-Type"]},
                 data=json.dumps(pydantic_encoder(request)).encode("utf-8"),
             ) as response:
                 return web.Response(
