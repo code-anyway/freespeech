@@ -27,7 +27,6 @@ async def schedule(method: str, url: str, headers: Dict, payload: bytes) -> Task
     task_id = str(uuid.uuid4())
     task = {
         "name": get_task_path(client, task_id),
-        "dispatchDeadline": "1800s",
         "http_request": {  # Specify the type of request.
             "http_method": tasks_v2.HttpMethod.POST,
             "url": url,  # The full url path that the task will be sent to.
@@ -38,6 +37,8 @@ async def schedule(method: str, url: str, headers: Dict, payload: bytes) -> Task
             },
             "body": payload,
         },
+        # more here: https://github.com/googleapis/python-tasks/issues/93
+        "dispatch_deadline": "1800s",
     }
 
     client.create_task(request={"parent": parent, "task": task})
