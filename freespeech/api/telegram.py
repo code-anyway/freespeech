@@ -125,7 +125,9 @@ async def _handle_message(message: tg_types.Message):
     result = await chat.ask(
         message=message.text, intent=None, state={}, session=session
     )
-    await message.reply(result.message, parse_mode="Markdown")
+    await message.answer(
+        result.message, parse_mode="Markdown", disable_web_page_preview=True
+    )
 
     match result:
         case tasks.Task():
