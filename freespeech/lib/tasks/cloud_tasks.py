@@ -47,9 +47,9 @@ async def schedule(method: str, url: str, headers: Dict, payload: bytes) -> Task
     # Add dispatch deadline for requests sent to the worker.
     # more here: https://github.com/googleapis/python-tasks/issues/93
     duration = duration_pb2.Duration()
-    dispatch_deadline = duration.FromSeconds(TASK_TIMEOUT_SEC)  # type: ignore
-    logger.warning(f"Setting dispatch_deadline to {dispatch_deadline}")
-    task["dispatch_deadline"] = dispatch_deadline
+    duration.FromSeconds(TASK_TIMEOUT_SEC)
+    logger.info(f"Setting dispatch_deadline to {duration}")
+    task["dispatch_deadline"] = duration
 
     client.create_task(request={"parent": parent, "task": task})
 
