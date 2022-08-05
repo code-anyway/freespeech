@@ -4,6 +4,7 @@ from typing import BinaryIO
 import aiohttp
 from pydantic.json import pydantic_encoder
 
+from freespeech.client.client import save_stream_to_blob
 from freespeech.client.tasks import Task
 from freespeech.types import (
     Error,
@@ -79,14 +80,12 @@ async def load(
     result = await tasks.future(task)
     ```
     """
-    url = source if isinstance(source, str) else None
-    request = LoadRequest(source=url, method=method, lang=lang)
+    if not isinstance(source, str):
+        source = await save_stream_to_blob("", source)
+    request = LoadRequest(source=source, method=method, lang=lang)
 
     with aiohttp.MultipartWriter("form-data") as writer:
         writer.append_json(pydantic_encoder(request))
-
-        if not request.source:
-            writer.append(source)
 
         async with session.post("/api/transcript/load", data=writer) as resp:
             result = await resp.json()

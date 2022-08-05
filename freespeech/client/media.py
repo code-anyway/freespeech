@@ -1,44 +1,12 @@
 import asyncio
-import tempfile
-import uuid
-from pathlib import Path
-from typing import Awaitable, BinaryIO
+from typing import BinaryIO
 
 import aiohttp
 from pydantic.json import pydantic_encoder
 
-from freespeech import env
+from freespeech.client.client import save_stream_to_blob
 from freespeech.client.tasks import Task
-from freespeech.lib.storage import obj
 from freespeech.types import Error, IngestRequest, IngestResponse
-
-BUFFER_SIZE = 65535
-
-
-async def _read_chunk(
-    stream: aiohttp.StreamReader | asyncio.StreamReader | BinaryIO,
-) -> bytes:
-    result = stream.read(BUFFER_SIZE)
-    if isinstance(result, Awaitable):
-        return await result
-    else:
-        return result
-
-
-async def _save(
-    filename: str, stream: aiohttp.StreamReader | asyncio.StreamReader | BinaryIO
-) -> str:
-    filename = f"{str(uuid.uuid4())}{Path(filename).suffix}"
-    blob_url = f"{env.get_storage_url()}/blobs/{filename}"
-
-    with tempfile.TemporaryDirectory() as temp_dir:
-        video_file = Path(temp_dir) / filename
-        with open(video_file, "wb") as file:
-            while chunk := await _read_chunk(stream):
-                file.write(chunk)
-        await obj.put(video_file, blob_url)
-
-    return blob_url
 
 
 async def ingest(
@@ -51,7 +19,7 @@ async def ingest(
 
     if not isinstance(source, str):
         assert filename
-        source = await _save(filename, source)
+        source = await save_stream_to_blob(filename, source)
 
     request = IngestRequest(source=source)
 
