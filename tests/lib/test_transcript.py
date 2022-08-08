@@ -2,7 +2,43 @@ import os
 import time
 
 from freespeech.lib import transcript
-from freespeech.types import Voice
+from freespeech.types import Event, Settings, Source, Transcript, Voice
+
+EXPECTED_EVENTS = [
+    Event(
+        time_ms=0,
+        duration_ms=1000,
+        chunks=["Hello, Bill!", "How are you?"],
+        voice=Voice(character="Grace Hopper", pitch=0.0, speech_rate=1.0),
+    ),
+    Event(
+        time_ms=2000,
+        chunks=["It was a huge mistake."],
+        voice=Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.4),
+    ),
+]
+EXPECTED_TRANSCRIPT = Transcript(
+    title=None,
+    lang="en-US",
+    source=Source(method="Subtitles", url="https://youtube.com/foo"),
+    settings=Settings(),
+    events=EXPECTED_EVENTS,
+)
+EXPECTED_TEXT = """origin: https://youtube.com/foo
+language: en-US
+voice: Alonzo Church
+clip_id: deadbeef239
+method: Subtitles
+original_audio_level: 2
+video:
+
+00:00:00.000000/00:00:01.000000 (Grace Hopper)
+Hello, Bill!
+How are you?
+
+00:00:02.000000@1.40
+It was a huge mistake.
+"""
 
 
 def test_unparse_time_interval():
@@ -101,3 +137,13 @@ def test_srt():
         with open(file) as lines:
             text = "".join(lines)
             assert transcript.events_to_srt(transcript.srt_to_events(text)) == text
+
+
+def test_parse():
+    t = transcript.parse_transcript(EXPECTED_TEXT)
+    assert t == EXPECTED_TRANSCRIPT
+
+
+def test_parse_properties():
+    text = "foo: bar\nboo: baz"
+    assert transcript.parse_properties(text) == {"foo": "bar", "boo": "baz"}

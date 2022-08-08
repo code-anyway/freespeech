@@ -31,7 +31,9 @@ setup(
         "freespeech",
         "freespeech.lib",
         "freespeech.lib.storage",
+        "freespeech.lib.tasks",
         "freespeech.api",
+        "freespeech.client",
     ],
     entry_points="""
         [console_scripts]
@@ -51,6 +53,7 @@ setup(
         "google-cloud-translate",
         "google-cloud-storage",
         "google-cloud-speech",
+        "google-cloud-tasks",
         "google-cloud-logging",
         "google-cloud-firestore",
         "azure-cognitiveservices-speech",
@@ -59,11 +62,22 @@ setup(
         "google-auth-oauthlib",
         "google-auth-httplib2",
         "hypothesis",
+        "pydantic",
         "requests",
         "types-requests",
     ],
     extras_require={
+        "docs": [
+            "markdown-include",
+            "mdx_truly_sane_lists",
+            "mkdocs",
+            "mkdocs-autorefs",
+            "mkdocs-exclude",
+            "mkdocs-material",
+            "mkdocstrings-python",
+        ],
         "test": [
+            "coverage",
             "pytest",
             "pytest-aiohttp",
             "pytest-asyncio",

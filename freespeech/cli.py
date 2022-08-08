@@ -1,22 +1,24 @@
 import logging.config
 
-import aiohttp.web
 import click
-from aiohttp import ClientResponseError, web
+from aiohttp import web
 
 from freespeech import env
-from freespeech.api import chat, crud, dub, language, notion, pub, speech, telegram
+from freespeech.api import chat, edge, media, middleware, transcript
+from freespeech.api.middleware import error_handler_middleware
 from freespeech.lib import youtube
+from freespeech.lib.tasks import cloud_tasks
 
 SERVICE_ROUTES = {
-    "crud": crud.routes,
-    "dub": dub.routes,
-    "language": language.routes,
-    "notion": notion.routes,
-    "pub": pub.routes,
-    "speech": speech.routes,
-    "chat": chat.routes,
+    "media": lambda: media.routes,
+    "transcript": lambda: transcript.routes,
+    "chat": lambda: chat.routes,
+    "edge": lambda: edge.routes(
+        schedule_fn=cloud_tasks.schedule, get_fn=cloud_tasks.get
+    ),
 }
+
+
 logging_handler = ["google" if env.is_in_cloud_run() else "console"]
 
 LOGGING_CONFIG = {
@@ -46,24 +48,6 @@ logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
 
 
-@web.middleware
-async def error_handler_middleware(request, handler):
-    """Here we handle specific types of errors we know should be 'recoverable' or
-    'user input errors', log them, and convert to HTTP Semantics"""
-    try:
-        resp = await handler(request)
-        return resp
-    except (AttributeError, NameError, ValueError, PermissionError, RuntimeError) as e:
-        logger.warning(f"User input error: {e}")
-        raise web.HTTPBadRequest(text=str(e)) from e
-    except ClientResponseError as e:
-        logger.warning(f"Downstream api call error: {e}")
-        raise web.HTTPBadRequest(text=e.message) from e
-    except aiohttp.web.HTTPError as e:
-        logger.warning(f"HTTPError: {e}")
-        raise e
-
-
 @click.group()
 @click.version_option()
 def cli():
@@ -83,7 +67,10 @@ def cli():
 def start(port: int, services):
     """Start HTTP API Server"""
     logger.info(f"Starting aiohttp server on port {port}")
-    app = web.Application(logger=logger, middlewares=[error_handler_middleware])
+    app = web.Application(
+        logger=logger,
+        middlewares=[error_handler_middleware, middleware.persist_results],
+    )
 
     for service in services:
         if service not in SERVICE_ROUTES:
@@ -92,9 +79,8 @@ def start(port: int, services):
                 f"Expected values: {SERVICE_ROUTES.keys()}"
             )
             return -1
-        routes = SERVICE_ROUTES[service]
-        logger.info(f"Adding routes for {service}: {[r for r in routes]}")
-        app.add_routes(routes)
+        get_routes = SERVICE_ROUTES[service]
+        app.add_routes(get_routes())
 
     web.run_app(app, port=port)
 
@@ -151,6 +137,8 @@ def upload(video_file, meta_file, credentials_file):
 )
 @cli.command(name="start-telegram")
 def start_telegram(port: int):
+    from freespeech.api import telegram
+
     telegram.start_bot(port)
 
 

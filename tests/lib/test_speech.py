@@ -14,6 +14,11 @@ AUDIO_EN_GS = "gs://freespeech-tests/test_speech/en-US-mono.wav"
 
 TEST_OUTPUT_GS = "gs://freespeech-tests/test_speech/output/"
 
+# Tolerance in milliseconds for event time and duration
+# Our tests are relying on synthesizing/transcribing and
+# numbers do fluctuate depending on models and other hyper-parameters.
+ABSOLUTE_ERROR_MS = 50
+
 
 def test_wrap_ssml():
     assert (
@@ -61,14 +66,13 @@ def test_text_to_chunks():
 
 
 @pytest.mark.asyncio
-async def test_transcribe() -> None:
-    await obj.put(AUDIO_EN_LOCAL, AUDIO_EN_GS)
-    (audio, *_), _ = media.probe(AUDIO_EN_LOCAL)
-    assert not _
-
-    t_en = await speech.transcribe(
-        AUDIO_EN_GS, audio, "en-US", model="default", provider="Deepgram"
+async def test_transcribe(tmp_path) -> None:
+    downmixed_local = await media.multi_channel_audio_to_mono(
+        file=AUDIO_EN_LOCAL, output_dir=tmp_path
     )
+    await obj.put(downmixed_local, AUDIO_EN_GS)
+
+    t_en = await speech.transcribe(AUDIO_EN_GS, "en-US", provider="Deepgram")
 
     voice = Voice(character="Alan Turing", pitch=0.0, speech_rate=1.0)
     event = Event(
@@ -76,14 +80,11 @@ async def test_transcribe() -> None:
     )
     assert t_en == [event]
 
-    t_en = await speech.transcribe(AUDIO_EN_GS, audio, "en-US", model="default")
+    t_en = await speech.transcribe(AUDIO_EN_GS, "en-US")
 
-    event = Event(
-        time_ms=0,
-        duration_ms=3230,
-        chunks=["1, 2 3."],
-    )
-    assert t_en == [event]
+    assert event.time_ms == 971
+    assert event.duration_ms == pytest.approx(2006, abs=ABSOLUTE_ERROR_MS)
+    assert event.chunks == ["one, two three,"]
 
 
 @pytest.mark.asyncio
@@ -104,13 +105,15 @@ async def test_synthesize_text(tmp_path) -> None:
     assert voice.character == "Grace Hopper"
     assert voice.pitch == 0.0
 
-    output_gs = await obj.put(output, f"{TEST_OUTPUT_GS}{output.name}")
-    (first, second) = await speech.transcribe(
-        output_gs, audio, "en-US", model="default"
+    downmixed_local = await media.multi_channel_audio_to_mono(
+        output, output_dir=tmp_path
     )
+    output_gs = await obj.put(downmixed_local, f"{TEST_OUTPUT_GS}{output.name}")
 
-    assert first.chunks == ["One, two."]
-    assert second.chunks == [" 3."]
+    (first, second) = await speech.transcribe(output_gs, "en-US")
+    print(obj.public_url(output_gs))
+    assert first.chunks == ["1 2"]
+    assert second.chunks == [" 3"]
 
     fast_output, voice = await speech.synthesize_text(
         text="One. Two. #2# Three.",
@@ -143,12 +146,14 @@ async def test_synthesize_azure_transcribe_google(tmp_path) -> None:
         lang="en-US",
         output_dir=tmp_path,
     )
-    (audio, *_), _ = media.probe(output)
-    output_gs = await obj.put(output, f"{TEST_OUTPUT_GS}{output.name}")
-    (first, second) = await speech.transcribe(
-        output_gs, audio, "en-US", model="default"
-    )
 
+    downmixed_local = await media.multi_channel_audio_to_mono(
+        output, output_dir=tmp_path
+    )
+    output_gs = await obj.put(downmixed_local, f"{TEST_OUTPUT_GS}{output.name}")
+
+    print(obj.public_url(output_gs))
+    (first, second) = await speech.transcribe(output_gs, "en-US")
     assert first.chunks == ["Testing quite a long sentence."]
     assert second.chunks == [" Hello."]
 
@@ -178,22 +183,22 @@ async def test_synthesize_events(tmp_path) -> None:
     eps = 100
     assert abs(audio.duration_ms - 7000) < eps
 
-    output_gs = await obj.put(output, f"{TEST_OUTPUT_GS}{output.name}")
+    downmixed_local = await media.multi_channel_audio_to_mono(
+        output, output_dir=tmp_path
+    )
+    output_gs = await obj.put(downmixed_local, f"{TEST_OUTPUT_GS}{output.name}")
 
-    t_en = await speech.transcribe(output_gs, audio, "en-US", model="default")
+    t_en = await speech.transcribe(output_gs, "en-US")
 
-    assert t_en == [
-        Event(
-            time_ms=0,
-            duration_ms=3270,
-            chunks=["One hen two ducks."],
-        ),
-        Event(
-            time_ms=3270,
-            duration_ms=3720,
-            chunks=[" Three, squawking geese."],
-        ),
-    ]
+    first, second = t_en
+
+    assert first.time_ms == 0
+    assert first.duration_ms == pytest.approx(3270, abs=ABSOLUTE_ERROR_MS)
+    assert first.chunks == ["One, hen two ducks."]
+
+    assert second.time_ms == pytest.approx(3270, abs=ABSOLUTE_ERROR_MS)
+    assert second.duration_ms == pytest.approx(3720, abs=ABSOLUTE_ERROR_MS)
+    assert second.chunks == [" three squawking geese"]
 
     voice_1, voice_2 = voices
 
@@ -246,6 +251,7 @@ async def test_synthesize_long_event(tmp_path) -> None:
             "Delegation and the embassies of friendly countries resumed "
             "work in Kyiv."
         ],
+        voice=Voice(character="Alan Turing"),
     )
 
     _, voices = await speech.synthesize_events(
@@ -375,7 +381,7 @@ async def test_synthesize_azure(tmp_path) -> None:
 
     (voice,) = voices
 
-    assert voice.speech_rate == pytest.approx(0.87, rel=1e-2)
+    assert voice.speech_rate == pytest.approx(0.87, abs=0.02)
 
 
 def test_voices_and_languages_completeness() -> None:

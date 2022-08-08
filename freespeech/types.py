@@ -1,20 +1,24 @@
-import uuid
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import List, Literal, NoReturn, Sequence, Tuple, TypeGuard
+from typing import Dict, Generic, List, Literal, NoReturn, Sequence, TypeGuard, TypeVar
 
+from pydantic.dataclasses import dataclass
+
+url = str
 AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC"]
 VideoEncoding = Literal["H264", "HEVC", "AV1"]
 ServiceProvider = Literal["Google", "Deepgram", "Azure"]
 TranscriptionModel = Literal["default", "latest_long", "general"]
 
+SpeechToTextBackend = Literal["Machine A", "Machine B", "Machine C"]
+SPEECH_BACKENDS = ["Machine A", "Machine B", "Machine C"]
+
+TranscriptBackend = Literal["Google", "Notion", "SRT", "SSMD"]
+TRANSCRIPT_BACKENDS = ["Google", "Notion", "SRT", "SSMD"]
 
 Language = Literal["en-US", "uk-UA", "ru-RU", "pt-PT", "es-US", "de-DE"]
+LANGUAGES = ["en-US", "uk-UA", "ru-RU", "pt-PT", "es-US", "de-DE"]
 
-
-def is_language(val: str) -> TypeGuard[Language]:
-    return val in ("en-US", "uk-UA", "ru-RU", "pt-PT", "es-US", "de-DE")
-
+Operation = Literal["Transcribe", "Translate", "Synthesize"]
+OPERATIONS = ["Transcribe", "Translate", "Synthesize"]
 
 Character = Literal[
     "Alan Turing",
@@ -24,57 +28,127 @@ Character = Literal[
     "Bill",
     "Melinda",
 ]
+CHARACTERS = [
+    "Alan Turing",
+    "Grace Hopper",
+    "Ada Lovelace",
+    "Alonzo Church",
+    "Bill",
+    "Melinda",
+]
+
+Method = Literal[SpeechToTextBackend, TranscriptBackend, "Subtitles"]
+METHODS = SPEECH_BACKENDS + TRANSCRIPT_BACKENDS + ["Subtitles"]
+
+BlankFillMethod = Literal["Crop", "Blank", "Fill"]
+BLANK_FILL_METHODS = ["Crop", "Blank", "Fill"]
+
+
+def is_language(val: str) -> TypeGuard[Language]:
+    return val in LANGUAGES
+
+
+def is_operation(val: str) -> TypeGuard[Operation]:
+    return val in OPERATIONS
 
 
 def is_character(val: str) -> TypeGuard[Character]:
-    return val in (
-        "Bill",
-        "Melinda",
-        "Alan Turing",
-        "Grace Hopper",
-        "Ada Lovelace",
-        "Alonzo Church",
-        "Original",
-    )
+    return val in CHARACTERS
 
 
-Source = Literal[
-    "Machine", "Machine A", "Machine B", "Machine C", "Subtitles", "Translate"
-]
+def is_method(val: str) -> TypeGuard[Method]:
+    return val in METHODS
 
 
-def is_source(val: str) -> TypeGuard[Source]:
-    return val in (
-        "Machine",
-        "Machine A",
-        "Machine B",
-        "Machine C",
-        "Subtitles",
-        "Translate",
-    )
-
-
-url = str
-_last_updated = datetime.now(tz=timezone.utc).isoformat
-
-
-def _uuid_in_str():
-    return str(uuid.uuid4())
+def is_blank_fill_method(val: str) -> TypeGuard[BlankFillMethod]:
+    return val in BLANK_FILL_METHODS
 
 
 @dataclass(frozen=True)
 class Voice:
-    character: Character
+    """Voice settings for speech synthesis.
+
+    Attributes:
+        character (str): Who's voice to use? (Default: `"Ada Lovelace"`)
+
+            - Female characters: `"Ada Lovelace"`, `"Grace Hopper"`, `"Melinda"`.
+            - Male characters: `"Alonzo Church"`, `"Alan Turing"`, `"Bill"`.
+
+        pitch (float): Voice pitch. (Default: `0.0`)
+
+            Examples:
+
+            - `0.0` is neutral.
+            - `2.0` is higher pitch.
+            - `-2.0` is lower pitch.
+
+        speech_rate (float): Speaking rate. (Default: `1.0`)
+
+            Examples:
+
+            - `1.0` is normal rate.
+            - `2.0` is 2x faster.
+            - `0.5` is 2x slower.
+    """
+
+    character: Character = "Ada Lovelace"
     pitch: float = 0.0
     speech_rate: float = 1.0
 
 
 @dataclass(frozen=True)
 class Event:
+    """A timed speech event.
+
+    Contains timed text chunks and information required for speech synthesis:
+    pitch, speed, duration.
+
+    Attributes:
+        time_ms (int): Time of the event in milliseconds.
+        chunks (List[str]): Portions of text (parts, paragraphs).
+
+            Following special tokens are supported:
+
+            - `#1.0#` — speech break for 1 sec.
+
+        duration_ms (int, optional): Event duration.
+        voice (Voice): Voice settings.
+    """
+
     time_ms: int
-    duration_ms: int | None
     chunks: List[str]
-    voice: Voice = Voice(character="Alan Turing")
+    duration_ms: int | None = None
+    voice: Voice = Voice()
+
+
+@dataclass(frozen=True)
+class Source:
+    """Transcript source information.
+
+    Attributes:
+        url (str): Public url for the source.
+        method (str): How to extract the Transcript from url.
+
+            Machine-based transcription:
+
+            - `"Machine A"`.
+            - `"Machine B"`.
+            - `"Machine C"`.
+
+            Subtitles:
+
+            - `"Subtitles"` — extract from the video container.
+            - `"SRT"` — popular subtitle format.
+            - `"SSMD"` — freespeech's speech synthesis markdown.
+
+            Document platforms:
+
+            - `"Google"` — Google Docs.
+            - `"Notion"` — Notion.
+    """
+
+    method: Method
+    url: str | None
 
 
 @dataclass(frozen=True)
@@ -89,11 +163,69 @@ class Audio:
 class Video:
     duration_ms: int
     encoding: VideoEncoding
-    # TODO (astaff): add fps, HxW, etc
 
 
-AudioStream = Tuple[url, Audio]
-VideoStream = Tuple[url, Video]
+MediaType = TypeVar("MediaType", Audio, Video)
+
+
+@dataclass(frozen=True)
+class Media(Generic[MediaType]):
+    url: str
+    info: MediaType | None
+
+
+@dataclass(frozen=True)
+class Settings:
+    original_audio_level: int = 2
+    space_between_events: BlankFillMethod = "Blank"
+
+
+@dataclass(frozen=True)
+class Transcript:
+    """Information about the transcript.
+
+    Contains information necessary for synthesis, dubbing, and translation.
+
+    Attributes:
+        events (Sequence[Event]): A sequence of timed speech events.
+            Contains timed text chunks and information required for speech synthesis:
+            pitch, speed, duration.
+        lang (str): A BCP 47 tag indicating language of a transcript.
+
+            Supported values:
+
+            - `"en-US"` (English).
+            - `"uk-UA"` (Ukrainian).
+            - `"ru-RU"` (Russian).
+            - `"pt-PT"` (Portuguese).
+            - `"es-US"` (Spanish).
+            - `"de-DE"` (German).
+
+        title (str, optional): Transcript title. Meta-information for transcript
+            formats that require a title, such as Google Docs, or Notion.
+        source (Source, optional): Transcript source. Contains a `url` and a `method`
+            to produce transcript.
+
+            Example:
+                ```json
+                {
+                    "url": "https://www.youtube.com/watch?v=qbYu4OPoKJM",
+                    "method": "Subtitles"
+                }
+                ```
+        video (str, optional): Public url for video track for the transcript.
+        audio (str, optional): Public url for audio track for the transcript.
+        settings (Settings): Settings that specify the behavior of speech
+            synthesis and dubbing.
+    """
+
+    events: Sequence[Event]
+    lang: Language
+    title: str | None = None
+    source: Source | None = None
+    video: str | None = None
+    audio: str | None = None
+    settings: Settings = Settings()
 
 
 @dataclass(frozen=True)
@@ -104,22 +236,105 @@ class Meta:
 
 
 @dataclass(frozen=True)
-class Clip:
-    origin: url
-    lang: Language
-    audio: AudioStream
-    video: VideoStream | None
-    transcript: Sequence[Event]
-    meta: Meta
-    parent_id: str | None
-    _id: str = field(default_factory=_uuid_in_str)
-    last_updated: str = field(default_factory=_last_updated)
+class Error:
+    message: str
+    details: str | None = None
 
 
 @dataclass(frozen=True)
-class Job:
-    status: Literal["Successful", "Cancelled", "Pending", "Failed"]
-    _id: uuid.UUID = field(default_factory=uuid.uuid4)
+class SynthesizeRequest:
+    transcript: Transcript | str
+
+
+@dataclass(frozen=True)
+class TranslateRequest:
+    transcript: Transcript | str
+    lang: Language
+
+
+@dataclass(frozen=True)
+class LoadRequest:
+    source: str | None
+    method: Method
+    lang: Language | None
+
+
+@dataclass(frozen=True)
+class IngestRequest:
+    source: str | None
+
+
+@dataclass(frozen=True)
+class IngestResponse:
+    audio: str | None
+    video: str | None
+
+
+@dataclass(frozen=True)
+class AskRequest:
+    message: str
+    intent: str | None
+    state: Dict
+
+
+@dataclass(frozen=True)
+class AskResponse:
+    message: str
+    state: Dict
+
+
+@dataclass(frozen=True)
+class SaveRequest:
+    """Request to save Transcript.
+
+    Attributes:
+        transcript (Transcript): Target transcript to save.
+        method (str):
+
+            - `"SRT"` — SRT to Google Docs.
+            - `"SSMD"` — freespeech's speech synthesis markdown to Google Docs.
+            - `"Google"` — Google Docs.
+            - `"Notion"` — Notion.
+
+        location (str, optional):
+
+            - Database ID for Notion.
+
+    """
+
+    transcript: Transcript
+    method: Method
+    location: str | None
+
+
+@dataclass(frozen=True)
+class SaveResponse:
+    url: str
+
+
+TaskReturnType = TypeVar(
+    "TaskReturnType", Transcript, IngestResponse, AskResponse, SaveResponse
+)
+
+RequestType = TypeVar(
+    "RequestType",
+    SynthesizeRequest,
+    SaveRequest,
+    TranslateRequest,
+    AskRequest,
+    LoadRequest,
+    IngestRequest,
+    SynthesizeRequest,
+)
+
+
+@dataclass(frozen=True)
+class Task(Generic[TaskReturnType]):
+    state: Literal["Done", "Pending", "Failed"]
+    id: str
+    result: TaskReturnType | Error | None = None
+    message: str | None = None
+    operation: Operation | None = None
 
 
 def assert_never(x: NoReturn) -> NoReturn:

@@ -37,7 +37,6 @@ async def test_intent():
     assert entities == {
         "url": ["https://youtube.com/a", "https://youTUBE.com/b"],
         "language": ["en-US"],
-        "method": ["Machine B"],
     }
 
 

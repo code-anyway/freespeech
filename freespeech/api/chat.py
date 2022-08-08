@@ -1,39 +1,30 @@
 import logging
 from dataclasses import replace
-from tempfile import TemporaryDirectory
-from typing import Any, Dict, Sequence, Tuple
+from typing import Dict, Tuple
 
 import aiohttp
 from aiohttp import web
+from pydantic import ValidationError
+from pydantic.json import pydantic_encoder
 
-from freespeech import client, env
-from freespeech.lib import chat, gdocs, language, media, speech
-from freespeech.lib.storage import obj
+from freespeech.api import errors
+from freespeech.client import client, transcript
+from freespeech.client.tasks import Task
+from freespeech.lib import chat
 from freespeech.types import (
-    Audio,
-    Character,
-    Event,
-    Language,
-    ServiceProvider,
-    Source,
+    OPERATIONS,
+    AskRequest,
+    Error,
+    LoadRequest,
+    SynthesizeRequest,
+    Transcript,
+    TranslateRequest,
     assert_never,
-    is_character,
-    is_language,
-    is_source,
-    url,
+    is_operation,
 )
 
 routes = web.RouteTableDef()
 logger = logging.getLogger(__name__)
-
-DUB_CLIENT_TIMEOUT = 3600
-CRUD_CLIENT_TIMEOUT = 3600
-
-# Events with the gap greater than GAP_MS won't be contatenated.
-GAP_MS = 1400
-
-# Won't attempt concatenating events if one is longer than LENGTH.
-PHRASE_LENGTH = 600
 
 # no newlines allowed in messages - would break HTTPError contract!
 USER_EXAMPLES = {
@@ -56,12 +47,12 @@ USER_EXAMPLES = {
 }
 
 
-def normalize_speech(
-    events: Sequence[Event], method: speech.Normalization
-) -> Sequence[Event]:
-    return speech.normalize_speech(
-        events, gap_ms=GAP_MS, length=PHRASE_LENGTH, method=method
-    )
+def handle_response(response: Task | Error) -> web.Response:
+    match response:
+        case Error():
+            raise web.HTTPBadRequest(body=pydantic_encoder(response))
+        case Task():
+            return web.Response(body=pydantic_encoder(response))
 
 
 def _raise_unknown_query(intent: str | None = None):
@@ -70,292 +61,103 @@ def _raise_unknown_query(intent: str | None = None):
     )
 
 
-@routes.post("/say")
-async def say(request):
-    params = await request.json()
+def _build_request(
+    intent: str, entities: Dict
+) -> Tuple[LoadRequest | TranslateRequest | SynthesizeRequest, Dict]:
+    operation = intent.capitalize()
+    # todo (alex) remove when new training data arrives
+    if operation == "Dub":
+        operation = "Synthesize"
+    if not is_operation(operation):
+        raise ValueError(f"Unknown intent: {operation}. Expected: {OPERATIONS}")
 
-    text = params["text"]
-    state = params.get("state", {})
+    url, *_ = entities.get("url", None) or [None]
+    method, *_ = entities.get("method", None) or ["Machine B"]
+    lang, *_ = entities.get("language", None) or [None]
 
-    intent: str = ""
-    try:
-        intent, entities = await chat.intent(text)
-        state = {**state, **entities}
-    except ValueError:
-        _raise_unknown_query(intent)
+    state = {"url": url, "method": method, "lang": lang}
+    state = {k: v for k, v in state.items() if v}
 
-    match intent:
-        case "transcribe":
-            try:
-                origin, lang, method = get_transcribe_arguments(state)
-            except (AttributeError, ValueError) as e:
-                raise web.HTTPBadRequest(
-                    text=f"{str(e)}\n{USER_EXAMPLES['transcribe']}"
-                ) from e
-
-            document_url = await transcribe(origin, lang, method)
-            return web.json_response(
-                {
-                    "text": f"Here you are: {document_url}",
-                    "result": document_url,
-                    "state": state,
-                }
-            )
-
-        case "translate":
-            try:
-                document_url, lang = get_translate_arguments(state)
-            except (AttributeError, ValueError) as e:
-                raise web.HTTPBadRequest(
-                    text=f"{str(e)}\n{USER_EXAMPLES['translate']}"
-                ) from e
-
-            translated_url = await translate(document_url, lang)
-            return web.json_response(
-                {
-                    "text": f"Here you are: {translated_url}",
-                    "result": translated_url,
-                    "state": state,
-                }
-            )
-
-        case "dub":
-            try:
-                document_url, voice = get_dub_arguments(state)
-            except (AttributeError, ValueError) as e:
-                raise web.HTTPBadRequest(
-                    text=f"{str(e)}\n{USER_EXAMPLES['dub']}"
-                ) from e
-
-            video_url = await dub(document_url, voice=voice)
-            return web.json_response(
-                {
-                    "text": f"Here you are: {video_url}",
-                    "result": video_url,
-                    "state": state,
-                }
-            )
-
-        case _:
-            _raise_unknown_query(intent=intent)
-
-
-def get_dub_arguments(state: Dict[str, Any]) -> Tuple[url, Character | None]:
-    document_url = get_page_url(state)
-    voice = get_voice(state)
-
-    return document_url, voice
-
-
-def get_translate_arguments(state: Dict[str, Any]) -> Tuple[url, Language]:
-    document_url = get_page_url(state)
-    lang = get_language(state)
-
-    return document_url, lang
-
-
-def get_transcribe_arguments(state: Dict[str, Any]) -> Tuple[str, Language, Source]:
-    origin = get_origin(state)
-    lang = get_language(state)
-    method = get_method(state)
-
-    return origin, lang, method
-
-
-def get_voice(state: Dict[str, Any]) -> Character | None:
-    voice = state.get("voice", None)
-
-    if voice is None:
-        return None
-
-    if len(voice) > 1:
-        logger.warning(f"Multiple voices in the intent: {voice}")
-    voice, *_ = voice
-
-    if not is_character(voice):
-        raise ValueError(
-            f"Unsupported voice: {voice}. Try Alan Turing, Grace Hopper, Bill or Melinda."  # noqa: E501
-        )
-
-    return voice
-
-
-def get_method(state: Dict[str, Any]) -> Source:
-    method = state.get("method", None)
-    if not method:
-        raise AttributeError(
-            "Missing transcript method. Try Machine A, Machine B, or Subtitles."
-        )
-    if len(method) > 1:
-        logger.warning(f"Multiple transcription methods in the intent: {method}")
-    method, *_ = method
-
-    if not is_source(method):
-        raise ValueError(
-            f"Unsupported transcript method: {method}. Try Machine A, Machine B, or Subtitles."  # noqa: E501
-        )
-
-    return method
-
-
-def get_language(state: Dict[str, Any]) -> Language:
-    lang = state.get("language", None)
-    if not lang:
-        raise AttributeError("Missing language.")
-
-    if len(lang) > 1:
-        logger.warning(f"Multiple languages in the intent: {lang}")
-    lang, *_ = lang
-
-    if not is_language(lang):
-        raise ValueError(f"Unsupported language: {lang}")
-    return lang
-
-
-def get_origin(state: Dict[str, Any]) -> str:
-    origin = state.get("url", None)
-    if not origin:
-        raise AttributeError(
-            "Missing origin url. Try something that starts with https://youtube.com"
-        )
-    if len(origin) > 1:
-        logger.warning(f"Multiple origins in the intent: {origin}")
-    origin, *_ = origin
-    return origin
-
-
-def get_page_url(state: Dict[str, Any]) -> str:
-    page_url = state.get("url", None)
-    if not page_url:
-        raise AttributeError(
-            "Missing document url. Try something that starts with https://docs.google.com/"  # noqa: E501
-        )
-    if len(page_url) > 1:
-        logger.warning(f"Multiple documents in the intent: {page_url}")
-    page_url, *_ = page_url
-    return page_url
-
-
-async def transcribe(origin: url, lang: Language, method: Source) -> url:
-    async with get_crud_client() as _client:
-        clip = await client.upload(
-            http_client=_client,
-            video_url=origin,
-            lang=lang,
-        )
-
-    match (method):
-        case "Subtitles":
-            events = clip.transcript
-        case "Machine" | "Machine A" | "Machine B" | "Machine C":
-            uri, audio = await get_audio(clip._id)
-
-            # TODO (astaff): move this to lib.transcribe
-            provider: ServiceProvider
-            match method:
-                case "Machine A":
-                    provider = "Google"
-                case "Machine B":
-                    provider = "Deepgram"
-                case "Machine C":
-                    provider = "Azure"
-
-            events = await speech.transcribe(
-                uri=uri, audio=audio, lang=lang, provider=provider
-            )
+    match operation:
+        case "Transcribe":
+            return LoadRequest(source=url, method=method, lang=lang), state
         case "Translate":
-            raise ValueError(f"Unsupported transcription method: {method}")
+            return TranslateRequest(transcript=url, lang=lang), state
+        case "Synthesize":
+            return SynthesizeRequest(transcript=url), state
         case never:
             assert_never(never)
 
-    events = normalize_speech(events, method="break_ends_sentence")
 
-    title = f"{clip.meta.title} ({lang})"
+async def _ask(
+    ask_request: AskRequest, session: aiohttp.ClientSession
+) -> Task[Transcript] | Error:
+    if ask_request.intent:
+        intent = ask_request.intent
+        entities: Dict = {}
+    else:
+        intent, entities = await chat.intent(ask_request.message)
 
-    async with get_crud_client() as _client:
-        video_url = await client.video(_client, clip._id)
+    state = {**ask_request.state, **entities}
+    request, state = _build_request(intent, state)
 
-    page = gdocs.Page(
-        origin=origin,
-        language=lang,
-        voice="Alan Turing",
-        clip_id=clip._id,
-        method=method,
-        original_audio_level=2,
-        video=video_url,
-    )
+    match request:
+        case LoadRequest():
+            assert isinstance(request.source, str)
+            response = await transcript.load(
+                source=request.source,
+                method=request.method,
+                lang=request.lang,
+                session=client.create(),
+            )
+            response = replace(
+                response,
+                operation="Transcribe",
+                message=(
+                    f"Transcribing {request.source} "
+                    f"with {request.method} in {request.lang}. Watch this space!"
+                ),
+            )
 
-    doc_url = gdocs.create(title, page=page, events=events)
+            return response
 
-    return doc_url
+        case TranslateRequest():
+            response = await transcript.translate(
+                transcript=request.transcript,
+                lang=request.lang,
+                session=client.create(),
+            )
+            response = replace(
+                response,
+                operation="Translate",
+                message=f"Translating {request.transcript} to {request.lang}. Hold on!",
+            )
 
+            return response
 
-async def dub(transcript: url, voice: Character | None) -> url:
-    page, events = gdocs.parse(gdocs.extract(transcript))
+        case SynthesizeRequest():
+            response = await transcript.synthesize(
+                transcript=request.transcript, session=session
+            )
 
-    async with get_crud_client() as _client:
-        clip = await client.clip(_client, page.clip_id)
+            response = replace(
+                response,
+                operation="Synthesize",
+                message=f"Dubbing {request.transcript}. Stay put!",
+            )
 
-    async with get_dub_client() as _client:
-        dubbed_clip = await client.dub(
-            http_client=_client,
-            clip_id=clip._id,
-            transcript=events,
-            default_character=voice or page.voice,
-            lang=page.language,
-            pitch=0.0,
-            weights=(page.original_audio_level, 10),
-        )
-
-    async with get_crud_client() as _client:
-        public_url = await client.video(_client, dubbed_clip._id)
-
-    return public_url
-
-
-async def translate(transcript: url, lang: Language) -> str:
-    page, events = gdocs.parse(gdocs.extract(transcript))
-    events = language.translate_events(
-        events,
-        source=page.language,
-        target=lang,
-    )
-
-    page = replace(page, language=lang)
-    async with get_crud_client() as _client:
-        clip = await client.clip(_client, page.clip_id)
-
-    title = f"{clip.meta.title} ({lang})"
-    doc_url = gdocs.create(title, page=page, events=events)
-
-    return doc_url
+            return response
 
 
-def get_dub_client():
-    return aiohttp.ClientSession(
-        base_url=env.get_dub_service_url(),
-        timeout=aiohttp.ClientTimeout(DUB_CLIENT_TIMEOUT),
-    )
+@routes.post("/chat/ask")
+async def ask(web_request: web.Request) -> web.Response:
+    params = await web_request.json()
 
+    try:
+        response = await _ask(ask_request=AskRequest(**params), session=client.create())
+        if isinstance(response, Error):
+            raise errors.bad_request(response)
 
-def get_crud_client():
-    return aiohttp.ClientSession(
-        base_url=env.get_crud_service_url(),
-        timeout=aiohttp.ClientTimeout(CRUD_CLIENT_TIMEOUT),
-    )
-
-
-async def get_audio(clip_id: str) -> Tuple[str, Audio]:
-    async with get_crud_client() as _client:
-        clip = await client.clip(_client, clip_id)
-
-    audio_url, _ = clip.audio
-
-    with TemporaryDirectory() as tmp_dir:
-        audio_file = await obj.get(audio_url, tmp_dir)
-        mono_file = await media.multi_channel_audio_to_mono(audio_file, tmp_dir)
-        ((audio_info, *_), _) = media.probe(mono_file)
-        output_url = f"{env.get_storage_url()}/transcribe/{mono_file.name}"
-        await obj.put(mono_file, output_url)
-
-    return output_url, audio_info
+        return web.json_response(pydantic_encoder(response))
+    except (ValidationError, ValueError) as e:
+        raise errors.bad_request(Error(message=str(e)))

@@ -27,6 +27,7 @@ from freespeech.lib.text import (
     split_sentences,
 )
 from freespeech.types import (
+    CHARACTERS,
     Audio,
     Character,
     Event,
@@ -115,7 +116,9 @@ SPEECH_RATE_MAXIMUM = 1.3
 SYNTHESIS_RETRIES = 10
 
 # Speech-to-text API call timeout.
-TRANSCRIBE_TIMEOUT_SEC = 300
+# Upper limit is 480 seconds
+# Details: https://cloud.google.com/speech-to-text/docs/async-recognize#speech_transcribe_async_gcs-python  # noqa: E501
+GOOGLE_TRANSCRIBE_TIMEOUT_SEC = 480 * 60
 
 
 @cache
@@ -139,44 +142,39 @@ def supported_azure_voices() -> Dict[str, Sequence[str]]:
 
 async def transcribe(
     uri: str,
-    audio: Audio,
     lang: Language,
-    model: TranscriptionModel = "default",
+    model: TranscriptionModel = "latest_long",
     provider: ServiceProvider = "Google",
 ) -> Sequence[Event]:
     """Transcribe audio.
 
     Args:
         uri: URI to the file. Supported: `gs://bucket/path`
-        audio: audio stream info.
         lang: speaker's language-region (i.e. en-US, pt-BR)
             as per https://www.rfc-editor.org/rfc/rfc5646
-        model: transcription model (default: `"default"`).
+        model: transcription model (default: `"latest_long"`).
             https://cloud.google.com/speech-to-text/docs/transcription-model
+
+    Notes:
+        To save on probing and transcoding in a streaming environment,
+        we are making hard assumptions on what input audio format is gonna be.
 
     Returns:
         Transcript containing timed phrases as `List[Event]`.
     """
 
-    if audio.num_channels != 1:
-        raise ValueError(
-            ("Audio should be mono for best results. " "Set audio.num_channels to 1.")
-        )
-
     match provider:
         case "Google":
-            return await _transcribe_google(uri, audio, lang, model)
+            return await _transcribe_google(uri, lang, model)
         case "Deepgram":
-            return await _transcribe_deepgram(uri, audio, lang, model)
+            return await _transcribe_deepgram(uri, lang, model)
         case "Azure":
             raise NotImplementedError()
         case never:
             assert_never(never)
 
 
-async def _transcribe_deepgram(
-    uri: url, audio: Audio, lang: Language, model: TranscriptionModel
-):
+async def _transcribe_deepgram(uri: url, lang: Language, model: TranscriptionModel):
     # For more info see language section of
     # https://developers.deepgram.com/api-reference/#transcription-prerecorded
     LANGUAGE_OVERRIDE = {
@@ -189,10 +187,7 @@ async def _transcribe_deepgram(
     if model in ("default", "latest_long"):
         model = "general"
 
-    if audio.encoding == "LINEAR16":
-        mime_type = "audio/wav"
-    else:
-        raise ValueError(f"Unsupported audio encoding: {audio.encoding}")
+    mime_type = "audio/wav"
 
     deepgram = Deepgram(env.get_deepgram_token())
 
@@ -214,11 +209,9 @@ async def _transcribe_deepgram(
                 },
             )
 
-    characters = ("Alan Turing", "Alonzo Church")
-
     events = []
     for utterance in response["results"]["utterances"]:
-        character = characters[int(utterance["speaker"]) % len(characters)]
+        character = CHARACTERS[int(utterance["speaker"]) % len(CHARACTERS)]
         assert is_character(character)
 
         event = Event(
@@ -235,16 +228,8 @@ async def _transcribe_deepgram(
 
 
 async def _transcribe_google(
-    uri: url, audio: Audio, lang: Language, model: TranscriptionModel
+    uri: url, lang: Language, model: TranscriptionModel
 ) -> Sequence[Event]:
-    if audio.encoding not in GOOGLE_CLOUD_ENCODINGS:
-        raise ValueError(
-            (
-                f"Invalid audio encoding: {audio.encoding} "
-                f"Expected values {','.join(GOOGLE_CLOUD_ENCODINGS)}."
-            )
-        )
-
     client = speech_api.SpeechClient()
 
     try:
@@ -252,9 +237,11 @@ async def _transcribe_google(
         def _api_call() -> LongRunningRecognizeResponse:
             operation = client.long_running_recognize(
                 config=speech_api.RecognitionConfig(
-                    audio_channel_count=audio.num_channels,
-                    encoding=GOOGLE_CLOUD_ENCODINGS[audio.encoding],
-                    sample_rate_hertz=audio.sample_rate_hz,
+                    # NOTE (astaff, 20220728): apparently Google Cloud doesn't
+                    # need those and calculates everything on the fly.
+                    # audio_channel_count=num_channels,
+                    # encoding=GOOGLE_CLOUD_ENCODINGS[encoding],
+                    # sample_rate_hertz=sample_rate_hz,
                     language_code=lang,
                     model=model,
                     enable_automatic_punctuation=True,
@@ -267,7 +254,7 @@ async def _transcribe_google(
                 ),
                 audio=speech_api.RecognitionAudio(uri=uri),
             )
-            result = operation.result(timeout=TRANSCRIBE_TIMEOUT_SEC)  # type: ignore
+            result = operation.result(timeout=GOOGLE_TRANSCRIBE_TIMEOUT_SEC)  # type: ignore  # noqa: E501
             assert isinstance(
                 result, LongRunningRecognizeResponse
             ), f"type(result)={type(result)}"
@@ -536,10 +523,15 @@ def concat_events(e1: Event, e2: Event, break_sentence: bool) -> Event:
         first = " ".join(e1.chunks)
         second = " ".join(e2.chunks)
 
+    if gap_sec > 0.01:
+        chunk = f"{first} #{gap_sec:.2f}# {second}"
+    else:
+        chunk = f"{first} {second}"
+
     return Event(
         time_ms=e1.time_ms,
         duration_ms=shift_ms + e2.duration_ms,
-        chunks=[f"{first} #{gap_sec:.2f}# {second}"],
+        chunks=[chunk],
         voice=e2.voice,
     )
 

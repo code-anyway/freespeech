@@ -2,7 +2,6 @@ import pytest
 
 from freespeech.lib import hash, media, speech
 from freespeech.lib.storage import obj
-from freespeech.types import Event
 
 VIDEO_RU = "tests/lib/data/media/ru-RU.mp4"
 VIDEO_EN = "tests/lib/data/media/en-US.mp4"
@@ -52,17 +51,20 @@ async def test_mix(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_dub(tmp_path):
+async def test_dub(tmp_path) -> None:
     # Add RU dub over EN video
     output = await media.dub(VIDEO_EN, AUDIO_RU, tmp_path)
 
     # And confirm by transcribing it
     output_mono = await media.multi_channel_audio_to_mono(output, tmp_path)
     uri = await obj.put(output_mono, AUDIO_RU_GS)
-    (audio, *_), _ = media.probe(output_mono)
 
-    t_ru = await speech.transcribe(uri, audio, "ru-RU")
-    assert t_ru == [Event(time_ms=0, duration_ms=3180, chunks=["123"])]
+    t_ru = await speech.transcribe(uri, "ru-RU")
+    event, *tail = t_ru
+    assert not tail, "Expected only one event sequence."
+    assert event.time_ms == 0
+    assert event.duration_ms == pytest.approx(3180, abs=10)
+    assert event.chunks == ["1 2 3"]
 
 
 @pytest.mark.asyncio
@@ -90,3 +92,12 @@ async def test_cut(tmp_path):
     (audio, *_), (video, *_) = media.probe(output)
     assert audio.duration_ms == 2_000
     assert video.duration_ms == 2_032
+
+
+@pytest.mark.asyncio
+async def test_video_as_audio(tmp_path):
+    audio = await media.multi_channel_audio_to_mono(AUDIO_DUB_EN_RU, tmp_path)
+    ((audio_meta, *_), *_) = media.probe(audio)
+
+    assert audio_meta.duration_ms == 3221
+    assert audio_meta.encoding == "LINEAR16"

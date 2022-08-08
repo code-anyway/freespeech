@@ -93,7 +93,6 @@ def get_crud_service_url() -> str:
     return url
 
 
-@functools.cache
 def get_chat_service_url() -> str:
     url = os.environ.get("FREESPEECH_CHAT_SERVICE_URL", None)
 
@@ -158,5 +157,23 @@ def get_telegram_webhook_url() -> str:
 
     if not url:
         raise RuntimeError("For Telegram, TELEGRAM_WEBHOOK_URL should be set.")
+
+    return url
+
+
+def get_transcript_service_url() -> str:
+    url = os.environ.get("FREESPEECH_TRANSCRIPT_SERVICE_URL", None)
+
+    if not url:
+        raise RuntimeError("FREESPEECH_TRANSCRIPT_SERVICE_URL is not set.")
+
+    return url
+
+
+def get_media_service_url() -> str:
+    url = os.environ.get("FREESPEECH_MEDIA_SERVICE_URL", None)
+
+    if not url:
+        raise RuntimeError("FREESPEECH_MEDIA_SERVICE_URL is not set.")
 
     return url

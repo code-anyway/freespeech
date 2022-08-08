@@ -1,15 +1,15 @@
 import logging
 import re
 from contextlib import contextmanager
-from typing import List, Sequence, Tuple
+from dataclasses import replace
+from typing import List, Tuple
 
 import google.auth
 import googleapiclient.discovery
 from google.oauth2 import service_account
 
-from freespeech.lib import transcript
-from freespeech.lib.transcript import Page
-from freespeech.types import Event
+from freespeech.lib.transcript import parse_transcript, render_transcript
+from freespeech.types import Transcript
 
 logger = logging.getLogger(__name__)
 
@@ -87,14 +87,14 @@ def get_credentials(scopes: List[str]) -> service_account.Credentials:
     return credentials
 
 
-def extract(url: str) -> str:
-    """Extracts text contents of Google Docs document.
+def extract(url: str) -> Tuple[str, str]:
+    """Extracts title and text contents of Google Docs document.
 
     Args:
         url: Google Docs document URL.
 
     Returns:
-        Plain text with contents of the document.
+        A tuple containing title and plain text with contents of the document.
     """
     try:
         document_id, *_ = re.findall(r"\/document\/d\/([a-zA-Z0-9-_]+)", url)
@@ -109,7 +109,9 @@ def extract(url: str) -> str:
             documents = client.documents()
             document = documents.get(documentId=document_id).execute()
 
-        return _read_structural_elements(document.get("body").get("content"))
+        return document.get("title"), _read_structural_elements(
+            document.get("body").get("content")
+        )
     except googleapiclient.errors.HttpError as e:
         match e.status_code:
             case 403:
@@ -120,56 +122,18 @@ def extract(url: str) -> str:
                 raise e
 
 
-def parse_properties(text: str) -> Page:
-    """Parses the properties of a transcript from the input string.
+def load(url: str) -> Transcript:
+    """Loads transcript from Google Docs document.
 
     Args:
-        text: a string containing the properties for a transcript.
+        url: Google Docs document URL.
 
-    Returns:
-        a Page object.
+    Return:
+        Instance of Transcript initialized from the document.
     """
-    page_attributes = [
-        "origin",
-        "language",
-        "voice",
-        "clip_id",
-        "method",
-        "original_audio_level",
-        "video",
-    ]
-    properties = dict(
-        re.findall(rf"({'|'.join(page_attributes)}):\s*(.*)$", text, flags=re.M)
-    )
-
-    keys = properties.keys()
-    for attribute in page_attributes:
-        if attribute not in keys and attribute != "video":
-            raise AttributeError(
-                f"Error reading doc properties: {attribute} must be defined"
-            )
-
-    properties["original_audio_level"] = int(properties["original_audio_level"])
-
-    if "video" not in keys or properties["video"] == "":
-        properties["video"] = None
-
-    return Page(**properties)
-
-
-def parse(text: str) -> Tuple[Page, Sequence[Event]]:
-    match = transcript.timecode_parser.search(text)
-
-    if not match:
-        raise ValueError("Invalid document content")
-
-    transcript_start = match.start()
-    properties = text[:transcript_start]
-    page = parse_properties(properties)
-
-    events = transcript.parse_events(text=text[transcript_start:], context=page)
-
-    return page, events
+    title, text = extract(url)
+    transcript = parse_transcript(text)
+    return replace(transcript, title=title)
 
 
 def share_with_all(document_id: str):
@@ -187,8 +151,14 @@ def share_with_all(document_id: str):
         ).execute()
 
 
-def create(title: str, page: Page, events: Sequence[Event]) -> str:
-    text = text_from_properties_and_events(page, events)
+def create(source: Transcript) -> str:
+    text = render_transcript(source)
+    return create_from_text(source.title, text)
+
+
+def create_from_text(title: str | None, text: str) -> str:
+    title = title or "Untitled"
+
     body = {
         "title": title,
     }
@@ -216,28 +186,3 @@ def create(title: str, page: Page, events: Sequence[Event]) -> str:
     share_with_all(_id)
 
     return f"https://docs.google.com/document/d/{_id}/edit#"
-
-
-def text_from_properties_and_events(page: Page, events: Sequence[Event]) -> str:
-    output = ""
-
-    # putting up properties
-    properties = vars(page)
-    for property, value in properties.items():
-        attribute_value = " " + str(value) if value else ""
-        output += f"{property}:{attribute_value}\n"
-
-    # putting up events
-    for event in events:
-        output += "\n"
-        output += (
-            transcript.unparse_time_interval(
-                event.time_ms,
-                event.duration_ms,
-                event.voice,
-            )
-            + "\n"
-        )
-        output += "\n".join(event.chunks) + "\n"
-
-    return output

@@ -3,14 +3,15 @@ import logging
 from urllib.parse import urlparse
 
 import aiogram as tg
-import aiohttp
 from aiogram import types as tg_types
 from aiogram.utils.exceptions import RetryAfter
 from aiogram.utils.executor import start_webhook
-from aiohttp import ClientResponseError
 
-from freespeech import client, env
-from freespeech.api.chat import DUB_CLIENT_TIMEOUT
+from freespeech import env
+from freespeech.client import chat, client, tasks, transcript
+from freespeech.types import Error, assert_never
+
+CLIENT_TIMEOUT = 1800
 
 logger = logging.getLogger(__name__)
 
@@ -46,13 +47,6 @@ walkthrough_text = (
 )
 
 MAX_RETRIES = 5
-
-
-def get_chat_client():
-    return aiohttp.ClientSession(
-        base_url=env.get_chat_service_url(),
-        timeout=aiohttp.ClientTimeout(DUB_CLIENT_TIMEOUT),
-    )
 
 
 def handle_ratelimit(func):
@@ -112,62 +106,102 @@ async def _handle_message(message: tg_types.Message):
     if not await _is_message_for_bot(message):
         return
 
-    async with get_chat_client() as _client:
-        try:
-            logger.info(
-                f"user_says: {message.text}",
-                extra={
-                    "labels": {"interface": "conversation_telegram"},
-                    "json_fields": {
-                        "client": "telegram_1",
-                        "user_id": message.from_user.id,
-                        "username": message.from_user.username,
-                        "full_name": message.from_user.full_name,
-                        "text": message.text,
-                    },
-                },
-            )
+    logger.info(
+        f"user_says: {message.text}",
+        extra={
+            "labels": {"interface": "conversation_telegram"},
+            "json_fields": {
+                "client": "telegram_1",
+                "user_id": message.from_user.id,
+                "username": message.from_user.username,
+                "full_name": message.from_user.full_name,
+                "text": message.text,
+            },
+        },
+    )
 
-            text, result, state = await client.say(_client, message.text)
+    session = client.create()
 
-            logger.info(
-                f"conversation_success: {text}",
-                extra={
-                    "labels": {"interface": "conversation_telegram"},
-                    "json_fields": {
-                        "client": "telegram_1",
-                        "user_id": message.from_user.id,
-                        "username": message.from_user.username,
-                        "full_name": message.from_user.full_name,
-                        "request": message.text,
-                        "reply": text,
-                        "result": result,
-                        "state": state,
-                    },
-                },
-            )
+    result = await chat.ask(
+        message=message.text, intent=None, state={}, session=session
+    )
+    await message.answer(
+        result.message, parse_mode="Markdown", disable_web_page_preview=True
+    )
 
-            await _reply(message, text)
-        except ClientResponseError as e:
-            logger.error(
-                f"conversation_error: {e.message}",
-                extra={
-                    "labels": {"interface": "conversation_telegram"},
-                    "json_fields": {
-                        "client": "telegram_1",
-                        "user_id": message.from_user.id,
-                        "username": message.from_user.username,
-                        "full_name": message.from_user.full_name,
-                        "request": message.text,
-                        "error_details": str(e),
-                    },
-                },
-            )
-            await _reply(
-                message,
-                e.message,
-                parse_mode="Markdown",
-            )
+    match result:
+        case tasks.Task():
+            transcript_ready = await tasks.future(result, session)
+            if isinstance(transcript_ready, Error):
+                await _handle_error(transcript_ready, message)
+                return
+
+            assert result.operation is not None
+            match result.operation:
+                case "Transcribe" | "Translate":
+                    response = await transcript.save(
+                        transcript_ready,
+                        method="Google",
+                        location=None,
+                        session=session,
+                    )
+                    if isinstance(response, Error):
+                        await _handle_error(response, message)
+                        return
+
+                    save_result = await tasks.future(response, session)
+                    if isinstance(save_result, Error):
+                        await _handle_error(save_result, message)
+                        return
+
+                    await _handle_success(f"Here you are: {save_result.url}", message)
+                case "Synthesize":
+                    link = transcript_ready.video or transcript_ready.audio
+                    await _handle_success(
+                        f"Here you are: {link}",
+                        message,
+                    )
+                case never:
+                    assert_never(never)
+
+        case Error():
+            await _handle_error(result, message)
+
+
+async def _handle_success(reply: str, message: tg_types.Message):
+    logger.info(
+        f"conversation_success: {reply}",
+        extra={
+            "labels": {"interface": "conversation_telegram"},
+            "json_fields": {
+                "client": "telegram_1",
+                "user_id": message.from_user.id,
+                "username": message.from_user.username,
+                "full_name": message.from_user.full_name,
+                "request": message.text,
+                "reply": reply,
+            },
+        },
+    )
+    await message.reply(reply)
+
+
+async def _handle_error(error: Error, message: tg_types.Message) -> None:
+    logger.error(
+        f"conversation_error: {error.message}",
+        extra={
+            "labels": {"interface": "conversation_telegram"},
+            "json_fields": {
+                "client": "telegram_1",
+                "user_id": message.from_user.id,
+                "username": message.from_user.username,
+                "full_name": message.from_user.full_name,
+                "request": message.text,
+                "error_details": error.details,
+            },
+        },
+    )
+    await message.reply(error.message)
 
 
 def start_bot(port: int):

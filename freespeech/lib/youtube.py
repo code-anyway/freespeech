@@ -2,6 +2,7 @@ import html
 import http.client
 import json
 import logging
+import os
 import random
 import time
 import xml.etree.ElementTree as ET
@@ -16,7 +17,6 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
-from freespeech.lib import media
 from freespeech.types import Event, Language, Meta
 
 logger = logging.getLogger(__name__)
@@ -154,15 +154,24 @@ def upload(video_file, meta_file, credentials_file):
 
 
 def download_stream(
-    stream: pytube.Stream, output_dir: str | PathLike, max_retries: int
+    stream: pytube.Stream,
+    output_dir: str | PathLike,
+    output_filename: str | PathLike,
+    max_retries: int,
 ) -> PathLike:
-    file = Path(f"{media.new_file(output_dir)}.{stream.subtype}")
-    stream.download(output_path=output_dir, filename=file.name, max_retries=max_retries)
-    return Path(file)
+    # file = Path(f"{media.new_file(output_dir)}.{stream.subtype}")
+    stream.download(
+        output_path=output_dir, filename=output_filename, max_retries=max_retries
+    )
+    return Path(os.path.join(output_dir, output_filename))
 
 
 def download(
-    url: str, output_dir: str | PathLike, max_retries: int = 0
+    url: str,
+    output_dir: str | PathLike,
+    audio_filename: str | PathLike,
+    video_filename: str | PathLike,
+    max_retries: int = 0,
 ) -> Tuple[PathLike, PathLike, Meta, Dict[str, Sequence[Event]]]:
     """Downloads YouTube video from URL into output_dir.
 
@@ -174,10 +183,14 @@ def download(
         A tuple (audio_stream, video_stream, info).
     """
     yt = pytube.YouTube(url)
-
-    filtered = yt.streams.filter(only_audio=True, audio_codec="opus")
+    filtered = yt.streams.filter(only_audio=True)
     *_, audio = filtered.order_by("abr")
-
+    audio_stream = download_stream(
+        stream=audio,
+        output_dir=output_dir,
+        output_filename=audio_filename,
+        max_retries=max_retries,
+    )
     video = yt.streams.get_highest_resolution()
     video_streams = list(yt.streams.filter(resolution="720p", mime_type="video/mp4"))
 
@@ -190,16 +203,15 @@ def download(
 
     logger.info(f"Downloading {audio} and {video}")
 
-    audio_stream = download_stream(
-        stream=audio, output_dir=output_dir, max_retries=max_retries
-    )
-
-    video_stream = None
     for stream in video_streams:
         try:
             video_stream = download_stream(
-                stream=stream, output_dir=output_dir, max_retries=max_retries
+                stream=stream,
+                output_dir=output_dir,
+                output_filename=video_filename,
+                max_retries=max_retries,
             )
+            break
         except http.client.IncompleteRead as e:
             # Some streams won't download.
             logger.warning(f"Incomplete read for stream {stream} of {url}: {str(e)}")
@@ -220,9 +232,12 @@ def download(
 
 def get_captions(url: str, lang: Language) -> Sequence[Event]:
     yt = pytube.YouTube(url)
-    captions = dict((caption.code, caption.xml_captions) for caption in yt.captions)
+    xml_captions = [(caption.code, caption.xml_captions) for caption in yt.captions]
+
+    captions = convert_captions(xml_captions)
     if lang not in captions:
         raise ValueError(f"{url} has no captions for {lang}")
+
     return captions[lang]
 
 
