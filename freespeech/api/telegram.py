@@ -6,6 +6,7 @@ import aiogram as tg
 from aiogram import types as tg_types
 from aiogram.utils.exceptions import RetryAfter
 from aiogram.utils.executor import start_webhook
+from pydantic.json import pydantic_encoder
 
 from freespeech import env
 from freespeech.client import chat, client, tasks, transcript
@@ -125,9 +126,11 @@ async def _handle_message(message: tg_types.Message):
     result = await chat.ask(
         message=message.text, intent=None, state={}, session=session
     )
+    logger.info("chat_ask", extra={"json_fields": {"result": pydantic_encoder(result)}})
     await message.answer(
         result.message, parse_mode="Markdown", disable_web_page_preview=True
     )
+    logger.info("message_answer")
 
     match result:
         case tasks.Task():
