@@ -130,7 +130,7 @@ async def _handle_message(message: tg_types.Message):
 
     try:
         sent_message = await message.answer(
-            result.message, parse_mode="Markdown", disable_web_page_preview=True
+            result.message, disable_web_page_preview=True
         )
         logger.info(
             "message_answer", extra={"json_fields": {"result": str(sent_message)}}
