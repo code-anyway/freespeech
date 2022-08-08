@@ -127,10 +127,17 @@ async def _handle_message(message: tg_types.Message):
         message=message.text, intent=None, state={}, session=session
     )
     logger.info("chat_ask", extra={"json_fields": {"result": pydantic_encoder(result)}})
-    await message.answer(
-        result.message, parse_mode="Markdown", disable_web_page_preview=True
-    )
-    logger.info("message_answer")
+
+    try:
+        sent_message = await message.answer(
+            result.message, parse_mode="Markdown", disable_web_page_preview=True
+        )
+        logger.info(
+            "message_answer", extra={"json_fields": {"result": str(sent_message)}}
+        )
+    except Exception as e:
+        logger.error(f"Couldn't reply to TG message: {str(e)}")
+        return
 
     match result:
         case tasks.Task():
