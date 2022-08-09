@@ -214,6 +214,36 @@ async def _handle_error(error: Error, message: tg_types.Message) -> None:
     await message.reply(error.message)
 
 
+async def _handle_exception(update: tg_types.Update, error):
+    msg = update.message
+    logger.error(
+        "Unhandled exception in user dialogue ",
+        exc_info=error,
+        extra={
+            "labels": {"interface": "conversation_telegram"},
+            "json_fields": {
+                "client": "telegram_1",
+                "user_id": msg.from_user.id if msg else "",
+                "username": msg.from_user.username if msg else "",
+                "full_name": msg.from_user.full_name if msg else "",
+                "request": msg.text if msg else "",
+                "error_details": str(error),
+            },
+        },
+    )
+
+    try:
+        if msg:
+            await msg.answer(
+                "Sorry! Something went wrong. I could not complete your "
+                "request, but already notified developers about it."
+            )
+    except Exception as e:
+        logger.error(
+            "Got an unhandled chat exception, but could not answer the user", exc_info=e
+        )
+
+
 def start_bot(port: int):
     webhook_route = urlparse(env.get_telegram_webhook_url()).path
 
@@ -225,6 +255,8 @@ def start_bot(port: int):
         dispatcher.async_task(_help), commands=["start", "help"]
     )
     dispatcher.register_message_handler(dispatcher.async_task(_handle_message))
+    dispatcher.register_errors_handler(_handle_exception)
+
     logger.info(f"Going to start telegram bot webhook on port {port}. ")
 
     start_webhook(
