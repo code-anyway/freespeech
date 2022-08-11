@@ -94,7 +94,7 @@ def _log_extras(
         Google logging
 
     """
-    return {
+    extras: Dict = {
         "labels": {"interface": "conversation_telegram"},
         "json_fields": {
             "client": "telegram_1",
@@ -102,9 +102,11 @@ def _log_extras(
             "username": msg.from_user.username if msg else None,
             "full_name": msg.from_user.full_name if msg else None,
             "request": msg.text if msg else None,
-            "error_details": str(error),
         },
     }
+    if error is not None:
+        extras["error_details"] = str(error)
+    return extras
 
 
 # not using aiogram decorators to have full control over order of rules
