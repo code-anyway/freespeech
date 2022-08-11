@@ -94,7 +94,7 @@ def _log_extras(
         Google logging
 
     """
-    extras = {
+    extras: Dict = {
         "labels": {"interface": "conversation_telegram"},
         "json_fields": {
             "client": "telegram_1",
