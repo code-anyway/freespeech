@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from typing import Dict
 from urllib.parse import urlparse
 
 import aiogram as tg
@@ -80,6 +81,32 @@ async def _reply(message: tg_types.Message, text: str, **kwargs):
     await message.reply(text, **kwargs)
 
 
+def _log_extras(
+    msg: tg_types.Message | None, error: Error | Exception | None = None
+) -> Dict:
+    """
+    Prepares metadata from structured logging.
+    Args:
+        msg: telegram message to relate to
+
+    Returns:
+        ready object ot put to `extra` field of the logger to show up properly on
+        Google logging
+
+    """
+    return {
+        "labels": {"interface": "conversation_telegram"},
+        "json_fields": {
+            "client": "telegram_1",
+            "user_id": msg.from_user.id if msg else None,
+            "username": msg.from_user.username if msg else None,
+            "full_name": msg.from_user.full_name if msg else None,
+            "request": msg.text if msg else None,
+            "error_details": str(error),
+        },
+    }
+
+
 # not using aiogram decorators to have full control over order of rules
 async def _help(message: tg_types.Message):
     await _answer(
@@ -109,16 +136,7 @@ async def _handle_message(message: tg_types.Message):
 
     logger.info(
         f"user_says: {message.text}",
-        extra={
-            "labels": {"interface": "conversation_telegram"},
-            "json_fields": {
-                "client": "telegram_1",
-                "user_id": message.from_user.id,
-                "username": message.from_user.username,
-                "full_name": message.from_user.full_name,
-                "text": message.text,
-            },
-        },
+        extra=_log_extras(message),
     )
 
     session = client.create()
@@ -143,7 +161,8 @@ async def _handle_message(message: tg_types.Message):
         case tasks.Task():
             transcript_ready = await tasks.future(result, session)
             if isinstance(transcript_ready, Error):
-                await _handle_error(transcript_ready, message)
+                error = transcript_ready
+                await _handle_error(message, error)
                 return
 
             assert result.operation is not None
@@ -156,12 +175,12 @@ async def _handle_message(message: tg_types.Message):
                         session=session,
                     )
                     if isinstance(response, Error):
-                        await _handle_error(response, message)
+                        await _handle_error(message, response)
                         return
 
                     save_result = await tasks.future(response, session)
                     if isinstance(save_result, Error):
-                        await _handle_error(save_result, message)
+                        await _handle_error(message, save_result)
                         return
 
                     await _handle_success(f"Here you are: {save_result.url}", message)
@@ -175,43 +194,56 @@ async def _handle_message(message: tg_types.Message):
                     assert_never(never)
 
         case Error():
-            await _handle_error(result, message)
+            await _handle_error(message, result)
 
 
 async def _handle_success(reply: str, message: tg_types.Message):
     logger.info(
         f"conversation_success: {reply}",
-        extra={
-            "labels": {"interface": "conversation_telegram"},
-            "json_fields": {
-                "client": "telegram_1",
-                "user_id": message.from_user.id,
-                "username": message.from_user.username,
-                "full_name": message.from_user.full_name,
-                "request": message.text,
-                "reply": reply,
-            },
-        },
+        extra=_log_extras(message),
     )
     await message.reply(reply)
 
 
-async def _handle_error(error: Error, message: tg_types.Message) -> None:
+async def _handle_error(
+    msg: tg_types.Message | tg_types.Update | None, error: Exception | Error
+):
+    """
+    Handler for both conversation errors and unhandled exceptions happening during the
+    conversation. Makes sure to thoroughly log details and answer something to the user.
+    Args:
+        message: a telegram message object or an update
+        error: a freespeech.types.Error for the case we know what happened or an
+         Exception for the case we don't
+
+    Returns:
+
+    """
+    if isinstance(msg, tg_types.Update):
+        msg = msg.message
+
     logger.error(
-        f"conversation_error: {error.message}",
-        extra={
-            "labels": {"interface": "conversation_telegram"},
-            "json_fields": {
-                "client": "telegram_1",
-                "user_id": message.from_user.id,
-                "username": message.from_user.username,
-                "full_name": message.from_user.full_name,
-                "request": message.text,
-                "error_details": error.details,
-            },
-        },
+        f"Error in user dialogue: {error}",
+        exc_info=error if isinstance(error, Exception) else None,
+        extra=_log_extras(msg, error),
     )
-    await message.reply(error.message)
+
+    try:
+        if msg:
+            if isinstance(error, Error):
+                await _reply(msg, error.message)
+            else:
+                await _reply(
+                    msg,
+                    "Sorry! Something went wrong. I could not complete your request. "
+                    "I will let the team know about it.",
+                )
+    except Exception as e:
+        logger.error(
+            "Got a chat exception, but could not answer the user",
+            exc_info=e,
+            extra=_log_extras(msg, e),
+        )
 
 
 def start_bot(port: int):
@@ -225,6 +257,8 @@ def start_bot(port: int):
         dispatcher.async_task(_help), commands=["start", "help"]
     )
     dispatcher.register_message_handler(dispatcher.async_task(_handle_message))
+    dispatcher.register_errors_handler(_handle_error)
+
     logger.info(f"Going to start telegram bot webhook on port {port}. ")
 
     start_webhook(
