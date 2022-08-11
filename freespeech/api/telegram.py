@@ -235,8 +235,8 @@ async def _handle_error(
             else:
                 await _reply(
                     msg,
-                    "Sorry! Something went wrong. I could not complete your "
-                    "request, but already notified developers about it.",
+                    "Sorry! Something went wrong. I could not complete your request. "
+                    "I will let the team know about it.",
                 )
     except Exception as e:
         logger.error(
