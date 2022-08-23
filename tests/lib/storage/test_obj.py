@@ -1,7 +1,7 @@
 import uuid
 
+import aiohttp
 import pytest
-import requests
 
 from freespeech.lib.storage import obj
 
@@ -53,5 +53,6 @@ async def test_upload_content_type(tmp_path):
     await obj.put("tests/lib/data/media/ru-RU.mp4", url)
 
     public_url = obj.public_url(url)
-    with requests.head(public_url) as resp:
-        assert resp.headers["Content-Type"] == "video/mp4"
+    async with aiohttp.ClientSession() as session:
+        async with session.head(public_url) as resp:
+            assert resp.headers["Content-Type"] == "video/mp4"

@@ -1,4 +1,5 @@
 import logging
+import mimetypes
 import shutil
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -7,7 +8,6 @@ from pathlib import Path
 from typing import BinaryIO, Generator
 from urllib.parse import urlparse
 
-import magic
 from google.api_core import exceptions as google_api_exceptions
 from google.cloud import storage  # type: ignore
 
@@ -107,7 +107,8 @@ def _gs_copy_from_local(src: Path, dst: GoogleStorageObject):
         with google_storage_client() as storage:
             bucket = storage.bucket(dst.bucket)
             blob = bucket.blob(dst.obj)
-            blob.content_type = magic.from_file(src, mime=True)
+            mime_type, encoding = mimetypes.guess_type(src)
+            blob.content_type = mime_type
             with open(str(src), "rb") as src_file:
                 with blob.open("wb") as dst_file:
                     while bytes := src_file.read(BLOCK_SIZE):

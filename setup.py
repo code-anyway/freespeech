@@ -61,7 +61,6 @@ setup(
         "google-auth",
         "google-auth-oauthlib",
         "google-auth-httplib2",
-        "python-magic",
         "hypothesis",
         "pydantic",
         "requests",
