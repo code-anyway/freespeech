@@ -1,5 +1,6 @@
 import uuid
 
+import aiohttp
 import pytest
 
 from freespeech.lib.storage import obj
@@ -42,3 +43,16 @@ async def test_put_get_local(tmp_path):
 @pytest.mark.asyncio
 async def test_put_get_google_cloud_storage(tmp_path):
     await do_put_get(tmp_path, f"gs://{GS_TEST_BUCKET}/test_storage")
+
+
+@pytest.mark.asyncio
+async def test_upload_content_type(tmp_path):
+    location = f"test_open/video-{uuid.uuid4()}"
+    url = f"gs://{GS_TEST_BUCKET}/{location}"
+
+    await obj.put("tests/lib/data/media/ru-RU.mp4", url)
+
+    public_url = obj.public_url(url)
+    async with aiohttp.ClientSession() as session:
+        async with session.head(public_url) as resp:
+            assert resp.headers["Content-Type"] == "video/mp4"
