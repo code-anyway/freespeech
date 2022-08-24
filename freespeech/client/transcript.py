@@ -93,8 +93,6 @@ async def load(
             if resp.ok:
                 return Task[Transcript](**result)
             else:
-                print("bruuuh")
-                print(result)
                 return Error(**result)
 
 
