@@ -1,4 +1,5 @@
 import logging
+import mimetypes
 import shutil
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -106,6 +107,8 @@ def _gs_copy_from_local(src: Path, dst: GoogleStorageObject):
         with google_storage_client() as storage:
             bucket = storage.bucket(dst.bucket)
             blob = bucket.blob(dst.obj)
+            mime_type, encoding = mimetypes.guess_type(src)
+            blob.content_type = mime_type
             with open(str(src), "rb") as src_file:
                 with blob.open("wb") as dst_file:
                     while bytes := src_file.read(BLOCK_SIZE):
