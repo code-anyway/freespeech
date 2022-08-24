@@ -11,8 +11,8 @@ NOTION_TRANSCRIPT_DATABASE_ID = "e1a094dbac5845409d2e995d4ce3675e"
 @pytest.mark.asyncio
 async def test_save(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
-    # session = mock_client()
-    session = client.create()
+    session = mock_client()
+    # session = client.create()
 
     async with session:
         with open("tests/lib/data/transcript/karlsson.srt", "rb") as stream:
