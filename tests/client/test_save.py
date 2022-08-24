@@ -15,7 +15,7 @@ async def test_save(mock_client, monkeypatch) -> None:
     session = client.create()
 
     async with session:
-        with open("lib/data/transcript/karlsson.srt", "rb") as stream:
+        with open("tests/lib/data/transcript/karlsson.srt", "rb") as stream:
             task = await transcript.load(
                 source=stream, method="SRT", lang="en-US", session=session
             )
