@@ -27,13 +27,13 @@ async def test_load_srt(mock_client, monkeypatch) -> None:
                 time_ms=27110,
                 chunks=['"America has heard the bugle call'],
                 duration_ms=5050,
-                voice=Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.0),
+                voice=Voice(character="Ada", pitch=0.0, speech_rate=1.0),
             )
             assert last == Event(
                 time_ms=6716480,
                 chunks=["And I am not afraid."],
                 duration_ms=1580,
-                voice=Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.0),
+                voice=Voice(character="Ada", pitch=0.0, speech_rate=1.0),
             )
 
 
@@ -57,13 +57,13 @@ async def test_load_ssmd(mock_client, monkeypatch) -> None:
                 time_ms=0,
                 chunks=["Hello, Bill!", "How are you?"],
                 duration_ms=1000,
-                voice=Voice(character="Grace Hopper", pitch=0.0, speech_rate=1.0),
+                voice=Voice(character="Grace", pitch=0.0, speech_rate=1.0),
             )
             assert last == Event(
                 time_ms=2000,
                 chunks=["It was a huge mistake."],
                 duration_ms=None,
-                voice=Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.4),
+                voice=Voice(character="Ada", pitch=0.0, speech_rate=1.4),
             )
 
 
@@ -93,12 +93,12 @@ async def test_load_subtitles(mock_client, monkeypatch) -> None:
         "The way the work week works is the worst. Waking up on monday, you've got."
     )
     assert first.duration_ms == 41166
-    assert first.voice == Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.0)
+    assert first.voice == Voice(character="Ada", pitch=0.0, speech_rate=1.0)
 
     assert last.time_ms == 114946
     assert last.chunks[0].endswith("[soft brooding electronic music fades slowly]")
     assert first.duration_ms == 41166
-    assert first.voice == Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.0)
+    assert first.voice == Voice(character="Ada", pitch=0.0, speech_rate=1.0)
 
     assert result.audio
     assert result.audio.startswith("https://")

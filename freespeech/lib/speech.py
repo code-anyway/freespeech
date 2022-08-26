@@ -51,7 +51,7 @@ MAX_CHUNK_LENGTH = 1000  # Google Speech API Limit
 # https://docs.microsoft.com/en-us/azure/cognitive-services/speech-service/language-support
 # https://cloud.google.com/text-to-speech/docs/voices
 VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
-    "Ada Lovelace": {
+    "Ada": {
         "en-US": ("Google", "en-US-Wavenet-F"),
         "ru-RU": ("Google", "ru-RU-Wavenet-E"),
         "pt-PT": ("Google", "pt-PT-Wavenet-D"),
@@ -60,16 +60,16 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "es-US": ("Google", "es-US-Wavenet-A"),
         "uk-UA": ("Google", "uk-UA-Wavenet-A"),
     },
-    "Grace Hopper": {
+    "Grace": {
         "en-US": ("Google", "en-US-Wavenet-C"),
         "ru-RU": ("Google", "ru-RU-Wavenet-C"),
         "pt-PT": ("Google", "pt-PT-Wavenet-A"),
         "pt-BR": ("Google", "pt-BR-Wavenet-C"),
         "de-DE": ("Google", "de-DE-Wavenet-F"),
-        "uk-UA": ("Google", "uk-UA-Wavenet-A"),
         "es-US": ("Google", "es-US-Wavenet-A"),
+        "uk-UA": ("Google", "uk-UA-Wavenet-A"),
     },
-    "Alan Turing": {
+    "Alan": {
         "en-US": ("Google", "en-US-Wavenet-I"),
         "ru-RU": ("Google", "ru-RU-Wavenet-D"),
         "pt-PT": ("Google", "pt-PT-Wavenet-C"),
@@ -78,7 +78,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "es-US": ("Google", "es-US-Wavenet-B"),
         "uk-UA": ("Azure", "uk-UA-OstapNeural"),
     },
-    "Alonzo Church": {
+    "Alonzo": {
         "en-US": ("Google", "en-US-Wavenet-D"),
         "ru-RU": ("Google", "ru-RU-Wavenet-B"),
         "pt-PT": ("Google", "pt-PT-Wavenet-B"),
@@ -102,6 +102,15 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "pt-PT": ("Azure", "pt-PT-RaquelNeural"),
         "pt-BR": ("Azure", "pt-BR-FranciscaNeural"),
         "de-DE": ("Azure", "de-DE-KlarissaNeural"),
+        "es-US": ("Azure", "es-US-PalomaNeural"),
+        "uk-UA": ("Azure", "uk-UA-PolinaNeural"),
+    },
+    "Greta": {
+        "ru-RU": ("Azure", "ru-RU-SvetlanaNeural"),
+        "en-US": ("Azure", "en-US-AnaNeural"),
+        "pt-PT": ("Azure", "pt-PT-FernandaNeural"),
+        "pt-BR": ("Azure", "pt-BR-GiovannaNeural"),
+        "de-DE": ("Azure", "de-DE-GiselaNeural"),
         "es-US": ("Azure", "es-US-PalomaNeural"),
         "uk-UA": ("Azure", "uk-UA-PolinaNeural"),
     },

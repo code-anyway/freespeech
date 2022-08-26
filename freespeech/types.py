@@ -21,20 +21,22 @@ Operation = Literal["Transcribe", "Translate", "Synthesize"]
 OPERATIONS = ["Transcribe", "Translate", "Synthesize"]
 
 Character = Literal[
-    "Alan Turing",
-    "Grace Hopper",
-    "Ada Lovelace",
-    "Alonzo Church",
-    "Bill",
-    "Melinda",
+    "Alan",     # Alan Turing
+    "Grace",    # Grace Hopper
+    "Ada",      # Ada Lovelace
+    "Alonzo",   # Alonzo Church
+    "Bill",     # Bill Gates
+    "Melinda",  # Melinda Gates
+    "Greta"     # Greta Thunberg
 ]
 CHARACTERS = [
-    "Alan Turing",
-    "Grace Hopper",
-    "Ada Lovelace",
-    "Alonzo Church",
+    "Alan",
+    "Grace",
+    "Ada",
+    "Alonzo",
     "Bill",
     "Melinda",
+    "Greta"
 ]
 
 Method = Literal[SpeechToTextBackend, TranscriptBackend, "Subtitles"]
@@ -71,8 +73,8 @@ class Voice:
     Attributes:
         character (str): Who's voice to use? (Default: `"Ada Lovelace"`)
 
-            - Female characters: `"Ada Lovelace"`, `"Grace Hopper"`, `"Melinda"`.
-            - Male characters: `"Alonzo Church"`, `"Alan Turing"`, `"Bill"`.
+            - Female characters: `"Ada"`, `"Grace"`, `"Melinda"`, `"Greta"`.
+            - Male characters: `"Alonzo"`, `"Alan"`, `"Bill"`.
 
         pitch (float): Voice pitch. (Default: `0.0`)
 
@@ -91,7 +93,7 @@ class Voice:
             - `0.5` is 2x slower.
     """
 
-    character: Character = "Ada Lovelace"
+    character: Character = "Ada"
     pitch: float = 0.0
     speech_rate: float = 1.0
 
