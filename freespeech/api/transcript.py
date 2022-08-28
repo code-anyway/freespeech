@@ -95,7 +95,7 @@ async def _synthesize(
     input = await _transcript(request.transcript, session)
 
     with TemporaryDirectory() as tmp_dir:
-        synth_file, _ = await speech.synthesize_events(
+        synth_file, _, spans = await speech.synthesize_events(
             events=input.events,
             lang=input.lang,
             output_dir=tmp_dir,
@@ -106,11 +106,25 @@ async def _synthesize(
             mono_audio = await media_ops.multi_channel_audio_to_mono(
                 audio_file, output_dir=tmp_dir
             )
-            synth_file = await media_ops.mix(
-                files=(mono_audio, synth_file),
-                weights=(input.settings.original_audio_level, 10),
-                output_dir=tmp_dir,
-            )
+            match input.settings.space_between_events:
+                case "Fill" | "Crop":
+                    # has side effects :(
+                    synth_file = await media_ops.mix(
+                        files=(mono_audio, synth_file),
+                        weights=(input.settings.original_audio_level, 10),
+                        output_dir=tmp_dir,
+                    )
+                case "Blank":
+                    synth_stream = media_ops.mix_events(
+                        real_file=mono_audio,
+                        synth_file=synth_file,
+                        spans=spans,
+                        weights=(input.settings.original_audio_level, 10),
+                    )
+                    synth_file = await media_ops.write_stream(
+                        stream=synth_stream, output_dir=tmp_dir, extension="wav"
+                    )
+                    # writes only here ^
 
         with open(synth_file, "rb") as file:
             audio_url = (await _ingest(file, str(synth_file), session)).audio
@@ -125,6 +139,8 @@ async def _synthesize(
 
             with open(dub_file, "rb") as file:
                 video_url = (await _ingest(file, str(dub_file), session)).video
+
+        # slice up video & audio if in Crop
 
     return replace(input, video=video_url, audio=audio_url)
 

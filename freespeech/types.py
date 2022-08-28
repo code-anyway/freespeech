@@ -177,7 +177,7 @@ class Media(Generic[MediaType]):
 @dataclass(frozen=True)
 class Settings:
     original_audio_level: int = 2
-    space_between_events: BlankFillMethod = "Blank"
+    space_between_events: BlankFillMethod = "Fill"
 
 
 @dataclass(frozen=True)
