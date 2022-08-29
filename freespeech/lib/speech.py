@@ -127,7 +127,7 @@ GOOGLE_CLOUD_ENCODINGS = {
 SYNTHESIS_ERROR_MS = 200
 
 SPEECH_RATE_MINIMUM = 0.7
-SPEECH_RATE_MAXIMUM = 1.3
+SPEECH_RATE_MAXIMUM = 1.5
 
 # Number of retries when iteratively adjusting speaking rate.
 SYNTHESIS_RETRIES = 10
@@ -394,17 +394,38 @@ def is_valid_ssml(text: str) -> bool:
     return root.tag == "{http://www.w3.org/2001/10/synthesis}speak"
 
 
-def _wrap_in_ssml(text: str, voice: str, speech_rate: float) -> str:
-    text = "".join([f"<s>{sentence}</s>" for sentence in split_sentences(text)])
+def _wrap_in_ssml(text: str, voice: str, speech_rate: float, lang: Language = "en-US") -> str:
+    def _google():
+        text = "".join([f"<s>{sentence}</s>" for sentence in split_sentences(text)])
 
-    result = (
-        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
-        'xml:lang="en-US">'
-        '<voice name="{VOICE}"><prosody rate="{RATE:f}">{TEXT}</prosody></voice>'
-        "</speak>".format(TEXT=text, VOICE=voice, RATE=speech_rate)
-    )
-    assert is_valid_ssml(result), f"text={text} result={result}"
-    return result
+        result = (
+            '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
+            'xml:lang="{LANG}">'
+            '<voice name="{VOICE}"><prosody rate="{RATE:f}">{TEXT}</prosody></voice>'
+            "</speak>".format(TEXT=text, VOICE=voice, RATE=speech_rate, LANG=lang)
+        )
+        assert is_valid_ssml(result), f"text={text} result={result}"
+        return result
+
+    def _azure():
+        rate_percent = (speech_rate - 1.0) * 100.0
+        if rate_percent >= 0:
+            rate_str = f"+{rate_percent}%"
+        else:
+            rate_str = f"{rate_percent}%"
+
+        result = (
+            '<speak xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" xmlns:emo="http://www.w3.org/2009/10/emotionml" xml:lang="{LANG}" version="1.0">'
+            '<voice name="{VOICE}"><prosody rate="{RATE}"><mstts:silence  type="Sentenceboundary" value="100ms"/>{TEXT}</prosody></voice>'
+            "</speak>".format(TEXT=text, VOICE=voice, RATE=rate_str, LANG=lang)
+        )
+        assert is_valid_ssml(result), f"text={text} result={result}"
+        return result
+
+    if voice.endswith("Neural"):  # Assuming all azure voices end with Neural
+        return _azure()
+    else:
+        return _google()
 
 
 def text_to_chunks(
