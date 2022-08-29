@@ -388,9 +388,11 @@ async def synthesize_text(
 
         if duration_ms is not None:
             if rate < SPEECH_RATE_MINIMUM:
+                logger.warning(f"Below SPEECH_RATE_MINIMUM: text={text} rate={rate}")
                 return await _synthesize_step(SPEECH_RATE_MINIMUM, retries=None)
 
             if rate > SPEECH_RATE_MAXIMUM:
+                logger.warning(f"Above SPEECH_RATE_MAXIMUM: text={text} rate={rate}")
                 return await _synthesize_step(SPEECH_RATE_MAXIMUM, retries=None)
 
         def _google_api_call(ssml_phrase: str) -> bytes:
@@ -499,8 +501,9 @@ async def synthesize_events(
 
     for event in events:
         padding_ms = event.time_ms - current_time_ms
-        clip, voice_info = await synthesize_text(
-            text=" ".join(event.chunks),
+        text = " ".join(event.chunks)
+        clip, voice = await synthesize_text(
+            text=text,
             duration_ms=event.duration_ms,
             voice=event.voice,
             lang=lang,
@@ -509,10 +512,13 @@ async def synthesize_events(
         (audio, *_), _ = media.probe(clip)
         assert isinstance(audio, Audio)
 
+        if padding_ms < 0:
+            logger.warning(f"Negative padding ({padding_ms}) in front of: {text}")
+
         clips += [(padding_ms, clip)]
         current_time_ms = event.time_ms + audio.duration_ms
 
-        voices += [voice_info]
+        voices += [voice]
 
     output_file = await media.concat_and_pad(clips, output_dir)
 
