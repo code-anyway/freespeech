@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import re
 import tempfile
@@ -293,6 +294,25 @@ async def _transcribe_google(
         current_time_ms = end_time_ms
         events += [event]
     return events
+
+
+def _transcribe_azure(uri: url, lang: Language, model: TranscriptionModel):
+    with open(uri) as output:
+        result = json.load(output)
+
+    def build_events():
+        for phrase in result["recognizedPhrases"]:
+            speaker = phrase["speaker"]
+            time_ms = int(phrase["offsetInTicks"] / 10000)
+            duration_ms = int(phrase["durationInTicks"] / 10000)
+            text = phrase["nBest"][0]["display"]
+            yield Event(
+                time_ms,
+                chunks=[text],
+                duration_ms=duration_ms,
+                voice=Voice(character=CHARACTERS[speaker]),
+            )
+    return list(build_events())
 
 
 def is_valid_ssml(text: str) -> bool:

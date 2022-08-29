@@ -455,3 +455,15 @@ async def test_azure_speech_quality():
         assert audio.num_channels == 1
         assert audio.sample_rate_hz == 44100
         assert audio.encoding == "LINEAR16"
+
+
+def test_azure_transcribe_output_parsing():
+    events = speech._transcribe_azure(
+        "tests/lib/data/speech/azure-stt-output.json", lang="en-US", model="default"
+    )
+
+    from freespeech.lib import gdocs
+    from freespeech.types import Transcript
+
+    url = gdocs.create(Transcript(events=events, lang="en-US", title="Adam Grant"))
+    assert not url
