@@ -1,9 +1,8 @@
 import logging
-import os
-from tempfile import TemporaryDirectory
 import uuid
-from os import PathLike
+from os import PathLike, system
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Dict, Sequence, Tuple
 
 import ffmpeg
@@ -281,7 +280,7 @@ async def keep_events(
         with open(clip_list, "w", encoding="utf-8") as f:
             f.writelines(bundle)
 
-        os.system(f"ffmpeg -f concat -safe 0 -i {clip_list} {output_file}")
+        system(f"ffmpeg -f concat -safe 0 -i {clip_list} {output_file}")
 
     return output_file
 
