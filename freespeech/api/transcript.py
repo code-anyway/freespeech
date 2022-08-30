@@ -122,7 +122,7 @@ async def _synthesize(
                         weights=(input.settings.original_audio_level, 10),
                     )
                     synth_file = await media_ops.write_streams(
-                        stream=[synth_stream], output_dir=tmp_dir, extension="wav"
+                        streams=[synth_stream], output_dir=tmp_dir, extension="wav"
                     )
                     # writes only here ^
 
