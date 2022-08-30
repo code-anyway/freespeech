@@ -125,7 +125,10 @@ async def _synthesize(
                         streams=[synth_stream], output_dir=tmp_dir, extension="wav"
                     )
                     # writes only here ^
-
+            if input.settings.space_between_events == "Crop":
+                synth_file = media_ops.keep_events(
+                    file=synth_file, spans=spans, output_dir=tmp_dir, mode="audio"
+                )
         with open(synth_file, "rb") as file:
             audio_url = (await _ingest(file, str(synth_file), session)).audio
 
@@ -137,10 +140,13 @@ async def _synthesize(
                 video=video_file, audio=synth_file, output_dir=tmp_dir
             )
 
+            if input.settings.space_between_events == "Crop":
+                dub_file = media_ops.keep_events(
+                    file=dub_file, spans=spans, output_dir=tmp_dir, mode="both"
+                )
+
             with open(dub_file, "rb") as file:
                 video_url = (await _ingest(file, str(dub_file), session)).video
-
-        # slice up video & audio if in Crop
 
     return replace(input, video=video_url, audio=audio_url)
 

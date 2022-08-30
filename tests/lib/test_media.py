@@ -78,13 +78,14 @@ async def test_mix_spans(tmp_path):
 @pytest.mark.asyncio
 async def test_keep_events(tmp_path):
     out = await media.keep_events(
-        summed_file=VIDEO_POTATO,
+        file=VIDEO_POTATO,
         spans=[
             ("event", 1000, 10000),
             ("blank", 10000, 15000),
             ("event", 15000, 20000),
         ],
-        output_file=str(tmp_path) + "/cropped-potato.mp4",
+        output_dir=tmp_path,
+        mode="both",
     )
     assert hash.file(out) == hash.file(VIDEO_CROPPED_POTATO)
 
