@@ -323,9 +323,9 @@ async def keep_events(
             # i haven't slept in 24 hrs
             match mode:
                 case "video":
-                    trimmed = trim_audio(file, start_ms, end_ms).filter_("asetpts", pts)
-                case "audio":
                     trimmed = trim_video(file, start_ms, end_ms).setpts(pts)
+                case "audio":
+                    trimmed = trim_audio(file, start_ms, end_ms).filter_("asetpts", pts)
                 case "both":
                     v_trim = trim_video(file, start_ms, end_ms).setpts(pts)
                     a_trim = trim_audio(file, start_ms, end_ms).filter_("asetpts", pts)
