@@ -1,6 +1,11 @@
+from tempfile import TemporaryDirectory
+
+import ffmpeg
 import pytest
 
 from freespeech.client import chat, client, tasks, transcript
+from freespeech.lib import media
+from freespeech.lib.storage import obj
 from freespeech.types import Error, Transcript
 
 
@@ -80,3 +85,26 @@ async def test_synthesize(mock_client, monkeypatch) -> None:
     assert isinstance(old_transcript, Transcript)
 
     assert transcript_dubbed.video != old_transcript.video
+
+    # cropping
+
+    test_doc = "https://docs.google.com/document/d/1krVxccWUgK_958WS9W_BWG5YwCOqqKCkJRbZWjXhbuE/edit"  # noqa: E501
+
+    test_message = f"Dub {test_doc}"
+
+    task = await chat.ask(message=test_message, intent=None, state={}, session=session)
+    if isinstance(task, Error):
+        assert False, task.message
+    assert task.message == f"Dubbing {test_doc}. Stay put!"
+
+    result = await tasks.future(task, session)
+    if isinstance(result, Error):
+        assert False, result.message
+
+    with TemporaryDirectory() as tmp_dir:
+        transcript_dubbed = await obj.get(
+            obj.storage_url(result.video), dst_dir=tmp_dir
+        )
+        assert float(
+            ffmpeg.probe(transcript_dubbed).get("format", {}).get("duration", None)
+        ) == pytest.approx(1.36, 0.1)

@@ -98,7 +98,7 @@ async def test_keep_events(tmp_path):
             ("blank", 10000, 15000),
             ("event", 15000, 20000),
         ],
-        output_dir="./",
+        output_dir=tmp_path,
         mode="audio",
     )
     assert hash.file(out) == hash.file(AUDIO_CROPPED_POTATO)
