@@ -138,7 +138,7 @@ async def _synthesize(
 
             if input.settings.space_between_events == "Crop":
                 video_file = media_ops.keep_events(
-                    file=video_file, spans=spans, output_dir=tmp_dir, mode="video"
+                    file=video_file, spans=spans, output_dir=tmp_dir, mode="both"
                 )
 
             dub_file = await media_ops.dub(
