@@ -126,7 +126,7 @@ async def _synthesize(
                     )
                     # writes only here ^
             if input.settings.space_between_events == "Crop":
-                synth_file = media_ops.keep_events(
+                synth_file = await media_ops.keep_events(
                     file=synth_file, spans=spans, output_dir=tmp_dir, mode="audio"
                 )
         with open(synth_file, "rb") as file:
@@ -137,8 +137,10 @@ async def _synthesize(
             video_file = await obj.get(obj.storage_url(input.video), dst_dir=tmp_dir)
 
             if input.settings.space_between_events == "Crop":
-                video_file = media_ops.keep_events(
-                    file=video_file, spans=spans, output_dir=tmp_dir, mode="both"
+                video_file = str(
+                    await media_ops.keep_events(
+                        file=video_file, spans=spans, output_dir=tmp_dir, mode="both"
+                    )
                 )
 
             dub_file = await media_ops.dub(

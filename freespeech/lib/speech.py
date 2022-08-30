@@ -482,7 +482,7 @@ async def synthesize_events(
     events: Sequence[Event],
     lang: Language,
     output_dir: Path | str,
-) -> Tuple[Path, Sequence[Voice], Tuple[str, int, int]]:
+) -> Tuple[Path, Sequence[Voice], list[Tuple[str, int, int]]]:
     output_dir = Path(output_dir)
     current_time_ms = 0
     clips = []

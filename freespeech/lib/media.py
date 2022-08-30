@@ -347,7 +347,7 @@ async def keep_events(
         output_file = str(new_file(output_dir)) + extension
         system(f"ffmpeg -f concat -safe 0 -i {clip_list} {output_file}")
 
-    return output_file
+    return Path(output_file)
 
 
 async def dub(
