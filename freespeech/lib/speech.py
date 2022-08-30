@@ -302,7 +302,7 @@ def _transcribe_azure(uri: url, lang: Language, model: TranscriptionModel):
 
     def build_events():
         for phrase in result["recognizedPhrases"]:
-            speaker = phrase["speaker"]
+            speaker = phrase.get("speaker", 0)
             time_ms = int(phrase["offsetInTicks"] / 10000)
             duration_ms = int(phrase["durationInTicks"] / 10000)
             text = phrase["nBest"][0]["display"]
