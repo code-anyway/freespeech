@@ -5,12 +5,17 @@ from freespeech.lib.storage import obj
 
 VIDEO_RU = "tests/lib/data/media/ru-RU.mp4"
 VIDEO_EN = "tests/lib/data/media/en-US.mp4"
+VIDEO_POTATO = "tests/lib/data/media/potato-video.mp4"
+
 AUDIO_RU = "tests/lib/data/media/ru-RU-mono.wav"
 AUDIO_EN = "tests/lib/data/media/en-US-mono.wav"
 AUDIO_MIX_RU_EN = "tests/lib/data/media/mix-ru-RU-1-en-US-10.wav"
 AUDIO_DUB_EN_RU = "tests/lib/data/media/dub-en-US-ru-RU.mp4"
 
 AUDIO_RU_GS = "gs://freespeech-tests/test_media/ru-RU-mono.wav"
+AUDIO_POTATO = "tests/lib/data/media/dubstep-audio.mp3"
+AUDIO_DUBSTEP = "tests/lib/data/media/potato-audio.mp3"
+AUDIO_MIX_DUBSTEP_POTATO = "tests/lib/data/media/mix-dubstep-potato.wav"
 
 
 @pytest.mark.asyncio
@@ -48,6 +53,42 @@ async def test_mix(tmp_path):
     weights = (1, 10)
     output = await media.mix(files=files, weights=weights, output_dir=tmp_path)
     assert hash.file(output) == hash.file(AUDIO_MIX_RU_EN)
+
+
+@pytest.mark.asyncio
+async def test_mix_spans(tmp_path):
+    weights = (3, 10)
+    synth_stream = media.mix_events(
+        real_file=AUDIO_DUBSTEP,
+        synth_file=AUDIO_POTATO,
+        spans=[
+            ("blank", 0, 5000),
+            ("event", 5000, 10000),
+            ("blank", 10000, 20000),
+        ],
+        weights=weights,
+    )
+    synth_file = await media.write_streams(
+        streams=[synth_stream], output_dir=tmp_path, extension="wav"
+    )
+    assert hash.file(synth_file) == hash.file(AUDIO_MIX_DUBSTEP_POTATO)
+
+
+@pytest.mark.asyncio
+async def test_keep_events(tmp_path):
+    kept_streams = media.keep_events(
+        summed_file=VIDEO_POTATO,
+        spans=[
+            ("event", 5000, 10000),
+            ("blank", 10000, 15000),
+            ("event", 15000, 20000),
+        ],
+    )
+    print(kept_streams)
+    # assert False
+    media.write_kept_events(kept_streams)
+    # print(result)
+    assert False
 
 
 @pytest.mark.asyncio

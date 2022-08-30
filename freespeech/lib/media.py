@@ -1,3 +1,4 @@
+from fileinput import filename
 import logging
 import uuid
 from os import PathLike
@@ -169,7 +170,9 @@ async def concat(clips: Sequence[str], output_dir: str | PathLike) -> Path:
 
 
 async def mix(
-    files: Sequence[str | PathLike], weights: Sequence[int], output_dir: str | PathLike
+    files: Sequence[str | PathLike],
+    weights: Sequence[int],
+    output_dir: str | PathLike,
 ) -> Path:
     """Mix multiple audio files into a single file.
 
@@ -187,18 +190,90 @@ async def mix(
 
     audio_streams = [ffmpeg.input(file).audio for file in files if file]
 
-    mixed_audio = ffmpeg.filter(
-        audio_streams,
+    mixed_audio = amix_streams(streams=audio_streams, weights=weights)
+
+    return await write_streams(
+        streams=[mixed_audio], output_dir=output_dir, extension="wav"
+    )
+
+
+def trim_audio(file: str | PathLike, start_ms: int, end_ms: int):
+    audio_stream = ffmpeg.input(file).audio
+    return audio_stream.filter_(
+        "atrim", start=str(start_ms) + "ms", end=str(end_ms) + "ms"
+    )
+
+
+def trim_video_and_audio(file: str | PathLike, start_ms: int, end_ms: int):
+    stream = ffmpeg.input(file)
+    pts = "PTS-STARTPTS"
+    video_trim = stream.trim(start=str(start_ms) + "ms", end=str(end_ms) + "ms").setpts(
+        pts
+    )
+    audio_trim = stream.filter_(
+        "atrim", start=str(start_ms) + "ms", end=str(end_ms) + "ms"
+    ).filter_("asetpts", pts)
+    return ffmpeg.concat(video_trim, audio_trim, v=1, a=1)
+
+
+async def write_streams(
+    streams: list, output_dir: str | PathLike, extension: str, args={}
+) -> Path:
+    output_file = Path(f"{new_file(output_dir)}.{extension}")
+    pipeline = ffmpeg.output(*streams, **args, filename=output_file)
+    await _run(pipeline)
+
+    return output_file
+
+
+def amix_streams(streams: list, weights: Sequence[int]):
+    return ffmpeg.filter(
+        streams,
         filter_name="amix",
         weights=" ".join(str(weight) for weight in weights),
     )
 
-    output_file = Path(f"{new_file(output_dir)}.wav")
-    pipeline = ffmpeg.output(mixed_audio, filename=output_file)
 
-    await _run(pipeline)
+def mix_events(
+    real_file: str | PathLike,
+    synth_file: str | PathLike,
+    spans: list[Tuple[str, int, int]],
+    weights: Sequence,
+):
+    # returns a list of streams
+    bundle = []
+    for t, start, end in spans:
+        real_trim = trim_audio(real_file, start, end)
+        if t == "event":
+            synth_trim = trim_audio(synth_file, start, end)
+            bundle += [
+                amix_streams(
+                    streams=[real_trim, synth_trim],
+                    weights=weights,
+                )
+            ]
+        elif t == "blank":
+            bundle += [real_trim]
+    return ffmpeg.concat(*bundle, v=0, a=1)
 
-    return output_file
+
+def keep_events(summed_file: str | PathLike, spans: list[Tuple[str, int, int]]):
+    bundle = [
+        trim_video_and_audio(summed_file, start, end)
+        for t, start, end in spans
+        if t == "event"
+    ]
+    video_and_audio_streams = [
+        item
+        for sublist in map(lambda f: [f.video, f.audio], bundle)
+        for item in sublist
+    ]
+    print(video_and_audio_streams)
+    return ffmpeg.concat(*video_and_audio_streams, v=1, a=1).node
+
+
+def write_kept_events(events):
+    return ffmpeg.output(*events, vcodec="copy", filename="out.mp4").run()
 
 
 async def dub(

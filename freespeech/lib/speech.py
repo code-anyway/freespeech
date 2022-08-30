@@ -482,14 +482,16 @@ async def synthesize_events(
     events: Sequence[Event],
     lang: Language,
     output_dir: Path | str,
-) -> Tuple[Path, Sequence[Voice]]:
+) -> Tuple[Path, Sequence[Voice], Tuple[str, int, int]]:
     output_dir = Path(output_dir)
     current_time_ms = 0
     clips = []
     voices = []
+    spans = []
 
     for event in events:
         padding_ms = event.time_ms - current_time_ms
+        spans += [("blank", current_time_ms, event.time_ms)]
         clip, voice_info = await synthesize_text(
             text=" ".join(event.chunks),
             duration_ms=event.duration_ms,
@@ -502,12 +504,12 @@ async def synthesize_events(
 
         clips += [(padding_ms, clip)]
         current_time_ms = event.time_ms + audio.duration_ms
+        spans += [("event", event.time_ms, current_time_ms)]
 
         voices += [voice_info]
-
     output_file = await media.concat_and_pad(clips, output_dir)
 
-    return output_file, voices
+    return output_file, voices, spans
 
 
 def concat_events(e1: Event, e2: Event, break_sentence: bool) -> Event:
