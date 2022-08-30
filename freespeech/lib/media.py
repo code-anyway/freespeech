@@ -1,5 +1,6 @@
-from fileinput import filename
 import logging
+import os
+from tempfile import TemporaryDirectory
 import uuid
 from os import PathLike
 from pathlib import Path
@@ -257,23 +258,45 @@ def mix_events(
     return ffmpeg.concat(*bundle, v=0, a=1)
 
 
-def keep_events(summed_file: str | PathLike, spans: list[Tuple[str, int, int]]):
-    bundle = [
-        trim_video_and_audio(summed_file, start, end)
-        for t, start, end in spans
-        if t == "event"
-    ]
-    video_and_audio_streams = [
-        item
-        for sublist in map(lambda f: [f.video, f.audio], bundle)
-        for item in sublist
-    ]
-    print(video_and_audio_streams)
-    return ffmpeg.concat(*video_and_audio_streams, v=1, a=1).node
+async def keep_events(
+    summed_file: str | PathLike,
+    spans: list[Tuple[str, int, int]],
+    output_file: str | PathLike,
+):
+    event_spans = [span for span in spans if span[0] == "event"]
+    with TemporaryDirectory() as temp:
+        bundle = []
+        for _, start_ms, end_ms in event_spans:
+            trimmed = trim_video_and_audio(
+                summed_file, start_ms=start_ms, end_ms=end_ms
+            )
+            trimmed_clip = await write_streams(
+                [trimmed], output_dir=temp, extension=".mp4"
+            )
+            bundle += [f"file '{trimmed_clip}'\n"]
+
+        # caveman mode
+        clip_list = str(new_file(temp)) + ".txt"
+
+        with open(clip_list, "w", encoding="utf-8") as f:
+            f.writelines(bundle)
+
+        os.system(f"ffmpeg -f concat -safe 0 -i {clip_list} {output_file}")
+
+    return output_file
+
+    # return [ffmpeg.concat()]
+    # video_and_audio_streams = [
+    #    item
+    #    for sublist in map(lambda f: [f.video, f.audio], bundle[:1])
+    #    for item in sublist
+    # ]
+    # print(video_and_audio_streams)
+    return bundle
 
 
 def write_kept_events(events):
-    return ffmpeg.output(*events, vcodec="copy", filename="out.mp4").run()
+    return ffmpeg.output(*events, filename="fml.mp4").run()
 
 
 async def dub(

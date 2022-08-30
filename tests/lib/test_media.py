@@ -6,6 +6,7 @@ from freespeech.lib.storage import obj
 VIDEO_RU = "tests/lib/data/media/ru-RU.mp4"
 VIDEO_EN = "tests/lib/data/media/en-US.mp4"
 VIDEO_POTATO = "tests/lib/data/media/potato-video.mp4"
+VIDEO_CROPPED_POTATO = "tests/lib/data/media/cropped-potato.mp4"
 
 AUDIO_RU = "tests/lib/data/media/ru-RU-mono.wav"
 AUDIO_EN = "tests/lib/data/media/en-US-mono.wav"
@@ -76,19 +77,16 @@ async def test_mix_spans(tmp_path):
 
 @pytest.mark.asyncio
 async def test_keep_events(tmp_path):
-    kept_streams = media.keep_events(
+    out = await media.keep_events(
         summed_file=VIDEO_POTATO,
         spans=[
-            ("event", 5000, 10000),
+            ("event", 1000, 10000),
             ("blank", 10000, 15000),
             ("event", 15000, 20000),
         ],
+        output_file=str(tmp_path) + "/cropped-potato.mp4",
     )
-    print(kept_streams)
-    # assert False
-    media.write_kept_events(kept_streams)
-    # print(result)
-    assert False
+    assert hash.file(out) == hash.file(VIDEO_CROPPED_POTATO)
 
 
 @pytest.mark.asyncio
