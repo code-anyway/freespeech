@@ -416,7 +416,7 @@ def _wrap_in_ssml(text: str, voice: str, speech_rate: float, lang: Language = "e
 
         result = (
             '<speak xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" xmlns:emo="http://www.w3.org/2009/10/emotionml" xml:lang="{LANG}" version="1.0">'
-            '<voice name="{VOICE}"><prosody rate="{RATE}"><mstts:silence  type="Sentenceboundary" value="100ms"/>{TEXT}</prosody></voice>'
+            '<voice name="{VOICE}"><prosody rate="{RATE}"><mstts:express-as style="calm"><mstts:silence type="Sentenceboundary" value="100ms"/>{TEXT}</mstts:express-as></prosody></voice>'
             "</speak>".format(TEXT=text, VOICE=voice, RATE=rate_str, LANG=lang)
         )
         assert is_valid_ssml(result), f"text={text} result={result}"
