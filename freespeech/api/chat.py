@@ -156,8 +156,8 @@ async def ask(web_request: web.Request) -> web.Response:
     try:
         response = await _ask(ask_request=AskRequest(**params), session=client.create())
         if isinstance(response, Error):
-            raise errors.bad_request(response)
+            raise errors.input_error(response)
 
         return web.json_response(pydantic_encoder(response))
     except (ValidationError, ValueError) as e:
-        raise errors.bad_request(Error(message=str(e)))
+        raise errors.input_error(Error(message=str(e)))
