@@ -1,7 +1,7 @@
-from freespeech.client import client
+import pytest
 from pydantic.json import pydantic_encoder
 
-import pytest
+from freespeech.client import client
 
 
 @pytest.mark.asyncio
