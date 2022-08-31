@@ -90,7 +90,7 @@ async def load(
         async with session.post("/api/transcript/load", data=writer) as resp:
             result = await resp.json()
 
-            if resp.ok:
+            if resp.ok and resp.status != 299:
                 return Task[Transcript](**result)
             else:
                 return Error(**result)
@@ -107,7 +107,7 @@ async def synthesize(
         "/api/transcript/synthesize", json=pydantic_encoder(request)
     ) as resp:
         result = await resp.json()
-        if resp.ok:
+        if resp.ok and resp.status != 299:
             return Task[Transcript](**result)
         else:
             return Error(**result)
@@ -122,7 +122,7 @@ async def translate(
         "/api/transcript/translate", json=pydantic_encoder(request)
     ) as resp:
         result = await resp.json()
-        if resp.ok:
+        if resp.ok and resp.status != 299:
             return Task[Transcript](**result)
         else:
             return Error(**result)
@@ -140,7 +140,7 @@ async def save(
         "/api/transcript/save", json=pydantic_encoder(request)
     ) as resp:
         result = await resp.json()
-        if resp.ok:
+        if resp.ok and resp.status != 299:
             return Task[SaveResponse](**result)
         else:
             return Error(**result)

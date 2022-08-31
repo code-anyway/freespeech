@@ -19,7 +19,7 @@ async def ask(
     async with session.post("/api/chat/ask", json=pydantic_encoder(request)) as resp:
         result = await resp.json()
 
-        if resp.ok:
+        if resp.ok and resp.status != 299:
             return Task[Transcript](**result)
         else:
             return Error(**result)

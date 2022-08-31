@@ -7,7 +7,7 @@ async def _raise_if_error(resp) -> None:
     we are passing exception details in response body rather than in HTTP response
     reason.
     """
-    if resp.ok:
+    if resp.ok and resp.status != 299:
         return
     error_message = await resp.text()
     raise ClientResponseError(

@@ -33,7 +33,7 @@ async def ingest(
         async with session.post("/api/media/ingest", data=writer) as resp:
             result = await resp.json()
 
-            if resp.ok:
+            if resp.ok and resp.status != 299:
                 return Task[IngestResponse](**result)
             else:
                 return Error(**result)

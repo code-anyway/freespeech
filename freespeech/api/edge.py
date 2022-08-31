@@ -102,6 +102,8 @@ async def _handler(
         raise errors.input_error(Error(message=str(e)))
     except ValidationError as e:
         raise errors.input_error(Error(message=str(e)))
+    except TypeError as e:
+        raise errors.input_error(Error(message=str(e)))
 
     task = await schedule_fn(
         web_request.method,
@@ -153,5 +155,6 @@ async def _build_request(
             raise NotImplementedError("Stream upload via multipart not supported now")
     else:
         params = await web_request.json()
+    print(params)
     assert params is not None
     return request_type(**params)
