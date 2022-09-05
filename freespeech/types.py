@@ -21,23 +21,15 @@ Operation = Literal["Transcribe", "Translate", "Synthesize"]
 OPERATIONS = ["Transcribe", "Translate", "Synthesize"]
 
 Character = Literal[
-    "Alan",     # Alan Turing
-    "Grace",    # Grace Hopper
-    "Ada",      # Ada Lovelace
-    "Alonzo",   # Alonzo Church
-    "Bill",     # Bill Gates
+    "Alan",  # Alan Turing
+    "Grace",  # Grace Hopper
+    "Ada",  # Ada Lovelace
+    "Alonzo",  # Alonzo Church
+    "Bill",  # Bill Gates
     "Melinda",  # Melinda Gates
-    "Greta"     # Greta Thunberg
+    "Greta",  # Greta Thunberg
 ]
-CHARACTERS = [
-    "Alan",
-    "Grace",
-    "Ada",
-    "Alonzo",
-    "Bill",
-    "Melinda",
-    "Greta"
-]
+CHARACTERS = ["Alan", "Grace", "Ada", "Alonzo", "Bill", "Melinda", "Greta"]
 
 Method = Literal[SpeechToTextBackend, TranscriptBackend, "Subtitles"]
 METHODS = SPEECH_BACKENDS + TRANSCRIPT_BACKENDS + ["Subtitles"]
