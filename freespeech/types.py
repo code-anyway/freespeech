@@ -14,8 +14,8 @@ SPEECH_BACKENDS = ["Machine A", "Machine B", "Machine C"]
 TranscriptBackend = Literal["Google", "Notion", "SRT", "SSMD"]
 TRANSCRIPT_BACKENDS = ["Google", "Notion", "SRT", "SSMD"]
 
-Language = Literal["en-US", "uk-UA", "ru-RU", "pt-PT", "pt-BR", "es-US", "de-DE"]
-LANGUAGES = ["en-US", "uk-UA", "ru-RU", "pt-PT", "pt-BR", "es-US", "de-DE"]
+Language = Literal["en-US", "uk-UA", "ru-RU", "pt-PT", "pt-BR", "es-US", "de-DE", "es-MX"]
+LANGUAGES = ["en-US", "uk-UA", "ru-RU", "pt-PT", "pt-BR", "es-US", "de-DE", "es-MX"]
 
 Operation = Literal["Transcribe", "Translate", "Synthesize"]
 OPERATIONS = ["Transcribe", "Translate", "Synthesize"]

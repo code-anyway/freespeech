@@ -94,6 +94,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "pt-BR": ("Azure", "pt-BR-JulioNeural"),
         "de-DE": ("Azure", "de-DE-ConradNeural"),
         "es-US": ("Azure", "es-US-AlonsoNeural"),
+        "es-MX": ("Azure", "es-MX-CecilioNeural"),
         "uk-UA": ("Azure", "uk-UA-OstapNeural"),
     },
     "Melinda": {
