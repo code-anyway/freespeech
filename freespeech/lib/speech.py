@@ -127,7 +127,7 @@ GOOGLE_CLOUD_ENCODINGS = {
 SYNTHESIS_ERROR_MS = 200
 
 SPEECH_RATE_MINIMUM = 0.7
-SPEECH_RATE_MAXIMUM = 1.3
+SPEECH_RATE_MAXIMUM = 1.5
 
 # Number of retries when iteratively adjusting speaking rate.
 SYNTHESIS_RETRIES = 10
@@ -394,17 +394,46 @@ def is_valid_ssml(text: str) -> bool:
     return root.tag == "{http://www.w3.org/2001/10/synthesis}speak"
 
 
-def _wrap_in_ssml(text: str, voice: str, speech_rate: float) -> str:
-    text = "".join([f"<s>{sentence}</s>" for sentence in split_sentences(text)])
+def _wrap_in_ssml(
+    text: str, voice: str, speech_rate: float, lang: Language = "en-US"
+) -> str:
+    def _google():
+        decorated_text = "".join(
+            [f"<s>{sentence}</s>" for sentence in split_sentences(text)]
+        )
 
-    result = (
-        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
-        'xml:lang="en-US">'
-        '<voice name="{VOICE}"><prosody rate="{RATE:f}">{TEXT}</prosody></voice>'
-        "</speak>".format(TEXT=text, VOICE=voice, RATE=speech_rate)
-    )
-    assert is_valid_ssml(result), f"text={text} result={result}"
-    return result
+        result = (
+            '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
+            'xml:lang="{LANG}">'
+            '<voice name="{VOICE}"><prosody rate="{RATE:f}">{TEXT}</prosody></voice>'
+            "</speak>".format(
+                TEXT=decorated_text, VOICE=voice, RATE=speech_rate, LANG=lang
+            )
+        )
+        assert is_valid_ssml(result), f"text={decorated_text} result={result}"
+        return result
+
+    def _azure():
+        rate_percent = (speech_rate - 1.0) * 100.0
+        if rate_percent >= 0:
+            rate_str = f"+{rate_percent}%"
+        else:
+            rate_str = f"{rate_percent}%"
+
+        result = (
+            '<speak xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" xmlns:emo="http://www.w3.org/2009/10/emotionml" xml:lang="{LANG}" version="1.0">'  # noqa: E501
+            '<voice name="{VOICE}"><prosody rate="{RATE}"><mstts:express-as style="calm"><mstts:silence type="Sentenceboundary" value="100ms"/>{TEXT}</mstts:express-as></prosody></voice>'  # noqa: E501
+            "</speak>".format(TEXT=text, VOICE=voice, RATE=rate_str, LANG=lang)
+        )
+        assert is_valid_ssml(result), f"text={text} result={result}"
+        return result
+
+    # TODO (astaff, 20220906): Refactor this and remove guessing
+    # the provider from the name of their voice.
+    if voice.endswith("Neural"):  # Assuming all azure voices end with Neural
+        return _azure()
+    else:
+        return _google()
 
 
 def text_to_chunks(
@@ -478,9 +507,11 @@ async def synthesize_text(
 
         if duration_ms is not None:
             if rate < SPEECH_RATE_MINIMUM:
+                logger.warning(f"Below SPEECH_RATE_MINIMUM: text={text} rate={rate}")
                 return await _synthesize_step(SPEECH_RATE_MINIMUM, retries=None)
 
             if rate > SPEECH_RATE_MAXIMUM:
+                logger.warning(f"Above SPEECH_RATE_MAXIMUM: text={text} rate={rate}")
                 return await _synthesize_step(SPEECH_RATE_MAXIMUM, retries=None)
 
         def _google_api_call(ssml_phrase: str) -> bytes:
@@ -589,8 +620,9 @@ async def synthesize_events(
 
     for event in events:
         padding_ms = event.time_ms - current_time_ms
-        clip, voice_info = await synthesize_text(
-            text=" ".join(event.chunks),
+        text = " ".join(event.chunks)
+        clip, voice = await synthesize_text(
+            text=text,
             duration_ms=event.duration_ms,
             voice=event.voice,
             lang=lang,
@@ -599,10 +631,13 @@ async def synthesize_events(
         (audio, *_), _ = media.probe(clip)
         assert isinstance(audio, Audio)
 
+        if padding_ms < 0:
+            logger.warning(f"Negative padding ({padding_ms}) in front of: {text}")
+
         clips += [(padding_ms, clip)]
         current_time_ms = event.time_ms + audio.duration_ms
 
-        voices += [voice_info]
+        voices += [voice]
 
     output_file = await media.concat_and_pad(clips, output_dir)
 
