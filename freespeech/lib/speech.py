@@ -394,17 +394,23 @@ def is_valid_ssml(text: str) -> bool:
     return root.tag == "{http://www.w3.org/2001/10/synthesis}speak"
 
 
-def _wrap_in_ssml(text: str, voice: str, speech_rate: float, lang: Language = "en-US") -> str:
+def _wrap_in_ssml(
+    text: str, voice: str, speech_rate: float, lang: Language = "en-US"
+) -> str:
     def _google():
-        text = "".join([f"<s>{sentence}</s>" for sentence in split_sentences(text)])
+        decorated_text = "".join(
+            [f"<s>{sentence}</s>" for sentence in split_sentences(text)]
+        )
 
         result = (
             '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
             'xml:lang="{LANG}">'
             '<voice name="{VOICE}"><prosody rate="{RATE:f}">{TEXT}</prosody></voice>'
-            "</speak>".format(TEXT=text, VOICE=voice, RATE=speech_rate, LANG=lang)
+            "</speak>".format(
+                TEXT=decorated_text, VOICE=voice, RATE=speech_rate, LANG=lang
+            )
         )
-        assert is_valid_ssml(result), f"text={text} result={result}"
+        assert is_valid_ssml(result), f"text={decorated_text} result={result}"
         return result
 
     def _azure():
@@ -415,8 +421,8 @@ def _wrap_in_ssml(text: str, voice: str, speech_rate: float, lang: Language = "e
             rate_str = f"{rate_percent}%"
 
         result = (
-            '<speak xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" xmlns:emo="http://www.w3.org/2009/10/emotionml" xml:lang="{LANG}" version="1.0">'
-            '<voice name="{VOICE}"><prosody rate="{RATE}"><mstts:express-as style="calm"><mstts:silence type="Sentenceboundary" value="100ms"/>{TEXT}</mstts:express-as></prosody></voice>'
+            '<speak xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" xmlns:emo="http://www.w3.org/2009/10/emotionml" xml:lang="{LANG}" version="1.0">'  # noqa: E501
+            '<voice name="{VOICE}"><prosody rate="{RATE}"><mstts:express-as style="calm"><mstts:silence type="Sentenceboundary" value="100ms"/>{TEXT}</mstts:express-as></prosody></voice>'  # noqa: E501
             "</speak>".format(TEXT=text, VOICE=voice, RATE=rate_str, LANG=lang)
         )
         assert is_valid_ssml(result), f"text={text} result={result}"

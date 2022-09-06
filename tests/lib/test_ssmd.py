@@ -24,9 +24,3 @@ def test_wrap_ssml():
         "<s>One. </s><s>Two.</s>"
         "</prosody></voice></speak>"
     )
-
-
-def test_speaker_override():
-    ssml = speech._wrap_in_ssml("Hello\n(Melinda)\nWorld.", voice="Bill", speech_rate=1.0)
-    inner_1 = '<voice name="Bill"><prosody rate="1.000000"><s>hello</s></prosody></voice>'
-    inner_1 = '<voice name="Melinda"><prosody rate="1.000000"><s>world</s></prosody></voice>'
