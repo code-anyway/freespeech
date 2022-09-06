@@ -334,7 +334,7 @@ async def _transcribe_azure(uri: url, lang: Language, model: TranscriptionModel)
             "/speechtotext/v3.0/transcriptions", json=body
         ) as response:
             result = await response.json()
-            if response.status >= 400:
+            if not response.ok:
                 raise RuntimeError(result["message"])
             transcription_id = response.headers["location"].split("/")[-1]
 
@@ -345,7 +345,7 @@ async def _transcribe_azure(uri: url, lang: Language, model: TranscriptionModel)
                 f"/speechtotext/v3.0/transcriptions/{transcription_id}"
             ) as response:
                 result = await response.json()
-                if response.status >= 400:
+                if not response.ok:
                     raise RuntimeError(result["message"])
 
                 if result["status"] == "Succeeded":
@@ -361,7 +361,7 @@ async def _transcribe_azure(uri: url, lang: Language, model: TranscriptionModel)
             f"/speechtotext/v3.0/transcriptions/{transcription_id}/files"
         ) as response:
             result = await response.json()
-            if response.status >= 400:
+            if not response.ok:
                 raise RuntimeError(result["message"])
             content_url = result["values"][0]["links"]["contentUrl"]
 
