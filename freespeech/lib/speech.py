@@ -428,6 +428,7 @@ def _wrap_in_ssml(
         assert is_valid_ssml(result), f"text={text} result={result}"
         return result
 
+    # TODO (astaff, 20220906): Refactor this and remove guessing the provider from the name of their voice.
     if voice.endswith("Neural"):  # Assuming all azure voices end with Neural
         return _azure()
     else:
