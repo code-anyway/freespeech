@@ -19,6 +19,7 @@ jobs:
       FREESPEECH_STORAGE_BUCKET: freespeech-tests
       NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
       # following key is required, but for integration tests it is required to have the
       # externally accessible public endpoint which we don't have in this scenarios
       # so for now setting an arbitrary URL to enable unit-level tests
