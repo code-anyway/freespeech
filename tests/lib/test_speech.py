@@ -162,7 +162,7 @@ async def test_synthesize_google_transcribe_azure(tmp_path) -> None:
     output, _ = await speech.synthesize_text(
         text="Testing quite a long sentence. #2# Hello.",
         duration_ms=5_000,
-        voice=Voice(character="Alonzo Church"),
+        voice=Voice(character="Alonzo"),
         lang="en-US",
         output_dir=tmp_path,
     )
