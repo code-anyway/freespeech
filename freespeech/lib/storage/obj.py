@@ -8,9 +8,11 @@ from pathlib import Path
 from typing import BinaryIO, Generator
 from urllib.parse import urlparse
 
+from azure.storage.blob import BlobServiceClient
 from google.api_core import exceptions as google_api_exceptions
 from google.cloud import storage  # type: ignore
 
+from freespeech import env
 from freespeech.lib import concurrency
 from freespeech.types import url
 
@@ -54,6 +56,26 @@ async def put(src: str | PathLike, dst: url) -> str:
 
             await concurrency.run_in_thread_pool(_copy)
             return f"gs://{dst_obj.bucket}/{dst_obj.obj}"
+        case "az":
+            blob_service_client: BlobServiceClient = (
+                BlobServiceClient.from_connection_string(
+                    env.get_azure_storage_connection_string()
+                )
+            )
+            # TODO (astaff, 20220905): let's extract hardcoded stuff into variables
+            # I am leaving this as is, because storage hierarchy (containers, blobs)
+            # in Azure is a mess. On top of that access management is a world of pain.
+            # I manually configured storage account (freespeech),
+            # created a container (freespeech-files) with public read permissions.
+            container_client = blob_service_client.get_container_client(
+                "freespeech-files"
+            )
+            blob_name = dst_url.path[1:]
+            with open(src, "rb") as data:
+                container_client.upload_blob(name=blob_name, data=data)
+            return (
+                f"https://freespeech.blob.core.windows.net/freespeech-files/{blob_name}"
+            )
         case scheme:
             raise ValueError(f"Unsupported url scheme ({scheme}) for {dst_url}.")
 

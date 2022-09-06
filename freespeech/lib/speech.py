@@ -8,7 +8,9 @@ from functools import cache
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Dict, Sequence, Tuple
+from uuid import uuid4
 
+import aiohttp
 import azure.cognitiveservices.speech as azure_tts
 from deepgram import Deepgram
 from google.api_core import exceptions as google_api_exceptions
@@ -131,9 +133,10 @@ SPEECH_RATE_MAXIMUM = 1.3
 SYNTHESIS_RETRIES = 10
 
 # Speech-to-text API call timeout.
-# Upper limit is 480 seconds
+# Upper limit is 480 minutes
 # Details: https://cloud.google.com/speech-to-text/docs/async-recognize#speech_transcribe_async_gcs-python  # noqa: E501
 GOOGLE_TRANSCRIBE_TIMEOUT_SEC = 480 * 60
+AZURE_TRANSCRIBE_TIMEOUT_SEC = 60 * 60
 
 
 @cache
@@ -184,7 +187,7 @@ async def transcribe(
         case "Deepgram":
             return await _transcribe_deepgram(uri, lang, model)
         case "Azure":
-            raise NotImplementedError()
+            return await _transcribe_azure(uri, lang, model)
         case never:
             assert_never(never)
 
@@ -293,6 +296,93 @@ async def _transcribe_google(
         current_time_ms = end_time_ms
         events += [event]
     return events
+
+
+async def _transcribe_azure(uri: url, lang: Language, model: TranscriptionModel):
+    with TemporaryDirectory() as tmp_dir:
+        file = await obj.get(uri, tmp_dir)
+        # NOTE:
+        # 1. To avoid collisions, we are generating new name every time
+        # 2. To make naming easier, we are re-assigning the uri
+        uri = await obj.put(
+            file, f"az://freespeech-files/{str(uuid4())}.{Path(file).suffix}"
+        )
+
+    key, region = env.get_azure_config()
+    # more info: https://westus.dev.cognitive.microsoft.com/docs/services/speech-to-text-api-v3-0/operations/CreateTranscription  # noqa: E501
+    headers = {
+        "Content-Type": "application/json",
+        "Ocp-Apim-Subscription-Key": key,
+    }
+    body = {
+        "contentUrls": [uri],
+        "properties": {
+            "punctuationMode": "DictatedAndAutomatic",
+            "profanityFilterMode": "None",  # "Masked"
+            "wordLevelTimestampsEnabled": True,
+            "diarizationEnabled": False,
+        },
+        "locale": lang,
+        "displayName": f"Transcription using default model for {lang}",
+    }
+
+    async with aiohttp.ClientSession(
+        f"https://{region}.api.cognitive.microsoft.com", headers=headers
+    ) as session:
+        # Submit transcription job
+        async with session.post(
+            "/speechtotext/v3.0/transcriptions", json=body
+        ) as response:
+            result = await response.json()
+            if not response.ok:
+                raise RuntimeError(result["message"])
+            transcription_id = response.headers["location"].split("/")[-1]
+
+        # Monitor job status and wait for Succeeded
+        time_elapsed_sec = 0.0
+        while time_elapsed_sec < AZURE_TRANSCRIBE_TIMEOUT_SEC:
+            async with session.get(
+                f"/speechtotext/v3.0/transcriptions/{transcription_id}"
+            ) as response:
+                result = await response.json()
+                if not response.ok:
+                    raise RuntimeError(result["message"])
+
+                if result["status"] == "Succeeded":
+                    break
+                elif result["status"] == "Failed":
+                    raise RuntimeError(f"Transcription job {transcription_id} failed!")
+
+            time_elapsed_sec += 5.0
+            await asyncio.sleep(5.0)
+
+        # For successful job, retrieve the actual content URL
+        async with session.get(
+            f"/speechtotext/v3.0/transcriptions/{transcription_id}/files"
+        ) as response:
+            result = await response.json()
+            if not response.ok:
+                raise RuntimeError(result["message"])
+            content_url = result["values"][0]["links"]["contentUrl"]
+
+    async with aiohttp.ClientSession(headers=headers) as session:
+        async with session.get(content_url) as response:
+            result = await response.json()
+
+    def build_events():
+        for phrase in result["recognizedPhrases"]:
+            speaker = phrase.get("speaker", 0)
+            time_ms = int(phrase["offsetInTicks"] / 10000)
+            duration_ms = int(phrase["durationInTicks"] / 10000)
+            text = phrase["nBest"][0]["display"]
+            yield Event(
+                time_ms,
+                chunks=[text],
+                duration_ms=duration_ms,
+                voice=Voice(character=CHARACTERS[speaker]),
+            )
+
+    return list(build_events())
 
 
 def is_valid_ssml(text: str) -> bool:

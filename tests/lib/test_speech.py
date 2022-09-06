@@ -152,10 +152,29 @@ async def test_synthesize_azure_transcribe_google(tmp_path) -> None:
     )
     output_gs = await obj.put(downmixed_local, f"{TEST_OUTPUT_GS}{output.name}")
 
-    print(obj.public_url(output_gs))
     (first, second) = await speech.transcribe(output_gs, "en-US")
     assert first.chunks == ["Testing quite a long sentence."]
     assert second.chunks == [" Hello."]
+
+
+@pytest.mark.asyncio
+async def test_synthesize_google_transcribe_azure(tmp_path) -> None:
+    output, _ = await speech.synthesize_text(
+        text="Testing quite a long sentence. #2# Hello.",
+        duration_ms=5_000,
+        voice=Voice(character="Alonzo"),
+        lang="en-US",
+        output_dir=tmp_path,
+    )
+
+    downmixed_local = await media.multi_channel_audio_to_mono(
+        output, output_dir=tmp_path
+    )
+    output_gs = await obj.put(downmixed_local, f"{TEST_OUTPUT_GS}{output.name}")
+
+    (first, second) = await speech.transcribe(output_gs, lang="en-US", provider="Azure")
+    assert first.chunks == ["Testing quite a long sentence."]
+    assert second.chunks == ["Hello."]
 
 
 @pytest.mark.asyncio
