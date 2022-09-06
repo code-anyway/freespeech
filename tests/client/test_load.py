@@ -137,7 +137,7 @@ async def test_load_transcribe(mock_client, monkeypatch) -> None:
 
     chunk, *_ = event.chunks
     assert chunk.startswith(
-        "One hand two ducks three squawking geese for Limerick oysters five corporate and purposes six pair of done alverzos"  # noqa: E501
+        "One hand two ducks three squawking geese"  # noqa: E501
     )
     assert chunk.endswith(
         "Apathetic sympathetic diabetic old men on roller skates with a marked propensity towards procrastination and sloth"  # noqa: E501
