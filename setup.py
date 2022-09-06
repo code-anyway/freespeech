@@ -43,6 +43,7 @@ setup(
         "aiohttp",
         "aiogram",
         "azure-ai-language-conversations",
+        "azure-storage-blob",
         "click",
         "deepgram-sdk",
         "ffmpeg-python",

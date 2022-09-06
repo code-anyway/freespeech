@@ -142,6 +142,18 @@ def get_azure_conversations_token() -> str:
 
 
 @functools.cache
+def get_azure_storage_connection_string() -> str:
+    token = os.environ.get("AZURE_STORAGE_CONNECTION_STRING", None)
+
+    if not token:
+        raise RuntimeError(
+            "Environment variable `AZURE_STORAGE_CONNECTION_STRING` is not set"
+        )
+
+    return token
+
+
+@functools.cache
 def get_telegram_bot_token() -> str:
     token = os.environ.get("TELEGRAM_BOT_TOKEN", None)
 

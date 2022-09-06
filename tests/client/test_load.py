@@ -116,11 +116,11 @@ async def test_load_transcribe(mock_client, monkeypatch) -> None:
     # session = client.create()
 
     async with session:
-        methods: Sequence[Method] = ("Machine A", "Machine B")
+        methods: Sequence[Method] = ("Machine A", "Machine B", "Machine C")
 
         responses = [
             await transcript.load(
-                source="https://www.youtube.com/watch?v=ALaTm6VzTBw",
+                source="https://www.youtube.com/watch?v=bhRaND9jiOA",
                 method=method,
                 lang="en-US",
                 session=session,
@@ -128,7 +128,7 @@ async def test_load_transcribe(mock_client, monkeypatch) -> None:
             for method in methods
         ]
 
-        result_a, result_b = await asyncio.gather(
+        result_a, result_b, result_c = await asyncio.gather(
             *[tasks.future(response, session) for response in responses]
         )
 
@@ -137,10 +137,10 @@ async def test_load_transcribe(mock_client, monkeypatch) -> None:
 
     chunk, *_ = event.chunks
     assert chunk.startswith(
-        "The way the work week works is the worst waking up on Monday."  # noqa: E501
+        "One hand two ducks three squawking geese for Limerick oysters five corporate and purposes six pair of done alverzos"  # noqa: E501
     )
     assert chunk.endswith(
-        "having a free day when everyone else is working makes so many things easier."  # noqa: E501
+        "Apathetic sympathetic diabetic old men on roller skates with a marked propensity towards procrastination and sloth"  # noqa: E501
     )
 
     assert result_a.audio.startswith("https://")
@@ -152,14 +152,13 @@ async def test_load_transcribe(mock_client, monkeypatch) -> None:
     # Check Machine B output
     event, *_ = result_b.events
 
-    assert event.time_ms == 140
-    assert event.duration_ms == pytest.approx(145824, rel=500)
-
     chunk, *_ = event.chunks
 
-    assert chunk.startswith("The way the work week works is the worst.")
+    assert chunk.startswith(
+        "one hand, two ducks, three sc gears, folding oysters, five corporate purposes, six pair of ver tweet seven thousand"   # noqa: E501
+    )  # noqa: E501
     assert chunk.endswith(
-        "If those sound intriguing, why not give it a try and see if weekend Wednesday works for you."  # noqa: E501
+        "Sympathetic diabetic old men on roller skate. with a marked propensity towards procrastination and sloth."  # noqa: E501
     )
 
     assert result_b.audio.startswith("https://")
@@ -167,3 +166,21 @@ async def test_load_transcribe(mock_client, monkeypatch) -> None:
 
     assert result_b.video.startswith("https://")
     assert result_b.video.endswith(".mp4")
+
+    # Check Machine C output
+    event, *_ = result_c.events
+
+    chunk, *_ = event.chunks
+
+    assert chunk.startswith(
+        "One hand to Ducks, 3 squawking geese, folding meric oysters 5"
+    )  # noqa: E501
+    assert chunk.endswith(
+        "apathetic, sympathetic, diabetic old men on roller skates with a marked propensity towards procrastination and sloth."  # noqa: E501
+    )
+
+    assert result_c.audio.startswith("https://")
+    assert result_c.audio.endswith(".wav")
+
+    assert result_c.video.startswith("https://")
+    assert result_c.video.endswith(".mp4")
