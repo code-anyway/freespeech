@@ -308,7 +308,7 @@ async def _ingest(
 async def _translate(request: TranslateRequest):
     source_transcript = await _transcript(request.transcript, client.create())
     target_language = request.lang
-    translated_events = language.translate_events(
+    translated_events = await language.translate_events(
         source_transcript.events, source_transcript.lang, target_language
     )
     translated = replace(

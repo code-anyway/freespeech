@@ -173,6 +173,16 @@ def get_telegram_webhook_url() -> str:
     return url
 
 
+@functools.cache
+def get_deep_l_key() -> str:
+    key = os.environ.get("DEEP_L_KEY", None)
+
+    if not key:
+        raise RuntimeError("Need a DEEP_L_KEY key for translation")
+
+    return key
+
+
 def get_transcript_service_url() -> str:
     url = os.environ.get("FREESPEECH_TRANSCRIPT_SERVICE_URL", None)
 
