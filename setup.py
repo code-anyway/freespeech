@@ -42,7 +42,7 @@ setup(
     install_requires=[
         "aiohttp",
         "aiogram",
-        "async_lru",
+        "deepl",
         "azure-ai-language-conversations",
         "azure-storage-blob",
         "click",
