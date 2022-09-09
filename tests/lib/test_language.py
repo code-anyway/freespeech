@@ -53,6 +53,23 @@ def test_translate_deep_l_pauses():
     )
 
 
+def test_translate_with_speech_pause_numbers():
+    source_text = (
+        "Queen Elizabeth the second had an unparalleled reign, "
+        "the effect of which has been felt across the world. #0.98# "
+        "In her record-breaking seven decades on the throne, she witnessed "
+        "the end of the British empire and welcomed radical societal shifts."
+    )
+    result = translate_deep_l(source_text, "en-GB", "ru-RU")
+    assert (
+        result == "Королева Елизавета Вторая имела беспрецедентное правление, "
+        "влияние которого ощущалось во всем мире. #0.98# За рекордные "
+        "семь десятилетий своего пребывания на троне она стала свидетелем"
+        " конца Британской империи и приветствовала радикальные "
+        "изменения в обществе."
+    )
+
+
 def test_language_pairs():
     assert deep_l_supported("en-US", "en-GB")
     assert deep_l_supported("ru-RU", "en-GB")
