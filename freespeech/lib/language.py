@@ -139,7 +139,12 @@ def translate_deep_l(text: str, source: str, target: str) -> str:
     # Change timecodes to XML to change them back later
     text = re.sub(r"#\s*(\d+(\.\d+)?)+\s*#", r"<t>\1</t>", text)
     result = translator.translate_text(
-        tag_handling="xml", text=text, source_lang=source, target_lang=target
+        tag_handling="xml",
+        text=text,
+        source_lang=source,
+        target_lang=target,
+        ignore_tags="t",
+        non_splitting_tags="t",
     )
     return re.sub(r"<t>\s*(\d+(\.\d+)?)+\s*</t>", r"#\1#", result.text)
 
