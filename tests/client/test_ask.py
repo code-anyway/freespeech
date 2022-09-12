@@ -101,9 +101,9 @@ async def test_synthesize(mock_client, monkeypatch) -> None:
         assert False, result.message
 
     with TemporaryDirectory() as tmp_dir:
-        transcript_dubbed = await obj.get(
-            obj.storage_url(result.video), dst_dir=tmp_dir
+        transcript_str = await obj.get(
+            obj.storage_url(str(result.video)), dst_dir=tmp_dir
         )
         assert float(
-            ffmpeg.probe(transcript_dubbed).get("format", {}).get("duration", None)
+            ffmpeg.probe(transcript_str).get("format", {}).get("duration", None)
         ) == pytest.approx(1.36, 0.1)
