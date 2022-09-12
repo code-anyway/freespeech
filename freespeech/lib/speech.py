@@ -619,7 +619,12 @@ async def synthesize_events(
     voices = []
 
     for event in events:
-        padding_ms = event.time_ms - current_time_ms
+        if event.time_ms is None:
+            time_ms = current_time_ms
+        else:
+            time_ms = event.time_ms
+
+        padding_ms = time_ms - current_time_ms
         text = " ".join(event.chunks)
         clip, voice = await synthesize_text(
             text=text,
@@ -635,7 +640,7 @@ async def synthesize_events(
             logger.warning(f"Negative padding ({padding_ms}) in front of: {text}")
 
         clips += [(padding_ms, clip)]
-        current_time_ms = event.time_ms + audio.duration_ms
+        current_time_ms = time_ms + audio.duration_ms
 
         voices += [voice]
 
