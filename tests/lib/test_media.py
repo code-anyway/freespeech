@@ -90,7 +90,6 @@ async def test_keep_events(tmp_path):
         mode="both",
     )
     # assert hash.file(out) == hash.file(VIDEO_CROPPED_POTATO)
-    print(media.probe(out)[0][0].duration_ms)
     assert media.probe(out)[0][0].duration_ms == pytest.approx(14047)
     assert media.probe(out)[1][0].duration_ms == pytest.approx(14047)
 
