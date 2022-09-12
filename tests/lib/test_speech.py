@@ -20,31 +20,6 @@ TEST_OUTPUT_GS = "gs://freespeech-tests/test_speech/output/"
 ABSOLUTE_ERROR_MS = 50
 
 
-def test_wrap_ssml():
-    assert (
-        speech._wrap_in_ssml("", voice="Bill", speech_rate=1.0)
-        == '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
-        'xml:lang="en-US"><voice name="Bill"><prosody rate="1.000000"></prosody>'
-        "</voice></speak>"
-    )
-    # one sentence
-    assert (
-        speech._wrap_in_ssml("One.", voice="Bill", speech_rate=1.0)
-        == '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
-        'xml:lang="en-US"><voice name="Bill"><prosody rate="1.000000"><s>One.</s>'
-        "</prosody></voice></speak>"
-    )
-
-    # two sentences
-    assert (
-        speech._wrap_in_ssml("One. Two.", voice="Bill", speech_rate=1.0)
-        == '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
-        'xml:lang="en-US"><voice name="Bill"><prosody rate="1.000000">'
-        "<s>One. </s><s>Two.</s>"
-        "</prosody></voice></speak>"
-    )
-
-
 def test_text_to_chunks():
     f = speech.text_to_chunks
     assert f("", 16, "Bill", 1.0) == [""]
@@ -74,7 +49,7 @@ async def test_transcribe(tmp_path) -> None:
 
     t_en = await speech.transcribe(AUDIO_EN_GS, "en-US", provider="Deepgram")
 
-    voice = Voice(character="Alan Turing", pitch=0.0, speech_rate=1.0)
+    voice = Voice(character="Alan", pitch=0.0, speech_rate=1.0)
     event = Event(
         time_ms=971, duration_ms=2006, chunks=["one, two three,"], voice=voice
     )
@@ -92,7 +67,7 @@ async def test_synthesize_text(tmp_path) -> None:
     output, voice = await speech.synthesize_text(
         text="One. Two. #2# Three.",
         duration_ms=4_000,
-        voice=Voice(character="Grace Hopper"),
+        voice=Voice(character="Grace"),
         lang="en-US",
         output_dir=tmp_path,
     )
@@ -102,7 +77,7 @@ async def test_synthesize_text(tmp_path) -> None:
     assert abs(audio.duration_ms - 4_000) < eps
     # Although text is short, speech break helps us achieve reasonable speech rate
     assert voice.speech_rate == pytest.approx(0.8551, 1e-2)
-    assert voice.character == "Grace Hopper"
+    assert voice.character == "Grace"
     assert voice.pitch == 0.0
 
     downmixed_local = await media.multi_channel_audio_to_mono(
@@ -118,7 +93,7 @@ async def test_synthesize_text(tmp_path) -> None:
     fast_output, voice = await speech.synthesize_text(
         text="One. Two. #2# Three.",
         duration_ms=None,
-        voice=Voice(character="Grace Hopper", speech_rate=20),
+        voice=Voice(character="Grace", speech_rate=20),
         lang="en-US",
         output_dir=tmp_path,
     )
@@ -126,7 +101,7 @@ async def test_synthesize_text(tmp_path) -> None:
     slow_output, voice = await speech.synthesize_text(
         text="One. Two. #2# Three.",
         duration_ms=None,
-        voice=Voice(character="Grace Hopper", speech_rate=0.3),
+        voice=Voice(character="Grace", speech_rate=0.3),
         lang="en-US",
         output_dir=tmp_path,
     )
@@ -152,10 +127,29 @@ async def test_synthesize_azure_transcribe_google(tmp_path) -> None:
     )
     output_gs = await obj.put(downmixed_local, f"{TEST_OUTPUT_GS}{output.name}")
 
-    print(obj.public_url(output_gs))
     (first, second) = await speech.transcribe(output_gs, "en-US")
     assert first.chunks == ["Testing quite a long sentence."]
     assert second.chunks == [" Hello."]
+
+
+@pytest.mark.asyncio
+async def test_synthesize_google_transcribe_azure(tmp_path) -> None:
+    output, _ = await speech.synthesize_text(
+        text="Testing quite a long sentence. #2# Hello.",
+        duration_ms=5_000,
+        voice=Voice(character="Alonzo"),
+        lang="en-US",
+        output_dir=tmp_path,
+    )
+
+    downmixed_local = await media.multi_channel_audio_to_mono(
+        output, output_dir=tmp_path
+    )
+    output_gs = await obj.put(downmixed_local, f"{TEST_OUTPUT_GS}{output.name}")
+
+    (first, second) = await speech.transcribe(output_gs, lang="en-US", provider="Azure")
+    assert first.chunks == ["Testing quite a long sentence."]
+    assert second.chunks == ["Hello."]
 
 
 @pytest.mark.asyncio
@@ -165,13 +159,13 @@ async def test_synthesize_events(tmp_path) -> None:
             time_ms=1_000,
             duration_ms=2_000,
             chunks=["One hen.", "Two ducks."],
-            voice=Voice(character="Alan Turing"),
+            voice=Voice(character="Alan"),
         ),
         Event(
             time_ms=5_000,
             duration_ms=2_000,
             chunks=["Three squawking geese."],
-            voice=Voice(character="Grace Hopper"),
+            voice=Voice(character="Grace"),
         ),
     ]
 
@@ -210,11 +204,11 @@ async def test_synthesize_events(tmp_path) -> None:
     voice_1, voice_2 = voices
 
     assert voice_1.speech_rate == 0.8625
-    assert voice_1.character == "Alan Turing"
+    assert voice_1.character == "Alan"
     assert voice_1.pitch == 0.0
 
     assert voice_2.speech_rate == 0.7655
-    assert voice_2.character == "Grace Hopper"
+    assert voice_2.character == "Grace"
     assert voice_2.pitch == 0.0
 
     events = [
@@ -222,7 +216,7 @@ async def test_synthesize_events(tmp_path) -> None:
             time_ms=5_000,
             duration_ms=0,
             chunks=[""],
-            voice=Voice(character="Grace Hopper"),
+            voice=Voice(character="Grace"),
         ),
     ]
 
@@ -259,7 +253,7 @@ async def test_synthesize_long_event(tmp_path) -> None:
             "Delegation and the embassies of friendly countries resumed "
             "work in Kyiv."
         ],
-        voice=Voice(character="Alan Turing"),
+        voice=Voice(character="Alan"),
     )
 
     _, voices, _ = await speech.synthesize_events(
@@ -312,7 +306,7 @@ def test_normalize_speech() -> None:
                 time_ms=2700,
                 duration_ms=100,
                 chunks=["four"],
-                voice=Voice(character="Alonzo Church"),
+                voice=Voice(character="Alonzo"),
             )
         ]
         events += [
@@ -320,7 +314,7 @@ def test_normalize_speech() -> None:
                 time_ms=2900,
                 duration_ms=100,
                 chunks=["five"],
-                voice=Voice(character="Alonzo Church"),
+                voice=Voice(character="Alonzo"),
             )
         ]
         normalized = speech.normalize_speech(
@@ -333,7 +327,7 @@ def test_normalize_speech() -> None:
                 time_ms=2700,
                 duration_ms=300,
                 chunks=["four. #0.10# Five"],
-                voice=Voice(character="Alonzo Church"),
+                voice=Voice(character="Alonzo"),
             ),
         ]
 

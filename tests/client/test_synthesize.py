@@ -10,7 +10,7 @@ ANNOUNCERS_TEST_TRANSCRIPT_RU = Transcript(
         Event(
             time_ms=0,
             duration_ms=29000,
-            voice=Voice(character="Alonzo Church"),
+            voice=Voice(character="Alonzo"),
             chunks=[
                 "Одна курица. Две утки. Три кричащих гуся. Четыре "
                 "лимерик устрицы. Пять тучных дельфинов. Шесть пар "

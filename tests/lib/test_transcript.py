@@ -9,12 +9,12 @@ EXPECTED_EVENTS = [
         time_ms=0,
         duration_ms=1000,
         chunks=["Hello, Bill!", "How are you?"],
-        voice=Voice(character="Grace Hopper", pitch=0.0, speech_rate=1.0),
+        voice=Voice(character="Grace", pitch=0.0, speech_rate=1.0),
     ),
     Event(
         time_ms=2000,
         chunks=["It was a huge mistake."],
-        voice=Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.4),
+        voice=Voice(character="Ada", pitch=0.0, speech_rate=1.4),
     ),
 ]
 EXPECTED_TRANSCRIPT = Transcript(
@@ -52,8 +52,8 @@ def test_unparse_time_interval():
         os.environ["TZ"] = "America/Los_Angeles"
         time.tzset()
         assert (
-            up(0, 1000, Voice(character="Grace Hopper"))
-            == "00:00:00.000000/00:00:01.000000 (Grace Hopper)"
+            up(0, 1000, Voice(character="Grace"))
+            == "00:00:00.000000/00:00:01.000000 (Grace)"
         )
     finally:
         # cleaning up the timezone
@@ -76,11 +76,12 @@ def test_parse_event():
     assert parse("00:00:00.000/00:00:00.000 (Alonzo Church)") == (
         0,
         0,
-        "Alonzo Church",
+        "Alonzo",
         None,
     )
-    assert parse("00:00:00.000#0 (Alonzo Church)") == (0, 0, "Alonzo Church", None)
-    assert parse("00:00:00.000#0.0 (Alonzo Church)") == (0, 0, "Alonzo Church", None)
+    assert parse("00:00:00.000#0 (Alonzo Church)") == (0, 0, "Alonzo", None)
+    assert parse("00:00:00.000#0 (Alonzo)") == (0, 0, "Alonzo", None)
+    assert parse("00:00:00.000#0.0 (Alonzo Church)") == (0, 0, "Alonzo", None)
     assert parse("00:00:00.001#0.1") == (1, 100, None, None)
 
 

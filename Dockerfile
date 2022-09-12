@@ -23,5 +23,12 @@ RUN cd /root/freespeech && pip install .
 VOLUME ["/root/.config", "/root/id/"]
 WORKDIR "/root/freespeech"
 
-ENTRYPOINT ["freespeech"]
+RUN mkdir /root/freespeech/tests
+COPY Makefile /root/freespeech
+COPY .flake8 /root/freespeech
+COPY mypy.ini /root/freespeech
+COPY pyproject.toml /root/freespeech
+COPY tests /root/freespeech/tests
+
+RUN pip install -e ".[test]"
 

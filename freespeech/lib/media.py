@@ -91,13 +91,16 @@ def new_file(dir: str | PathLike) -> PathLike:
 
 
 async def multi_channel_audio_to_mono(
-    file: str | PathLike, output_dir: str | PathLike
+    file: str | PathLike,
+    output_dir: str | PathLike,
+    sample_rate: int = 16_000,
 ) -> Path:
     """Convert multi-channel audio to mono by downmixing.
 
     Args:
         file: path to a local file containing audio stream.
         output_dir: directory to store the conversion result.
+        sample_rate: output audio sample rate. (default: 16 kHz)
 
     Return:
         A path to a newly generated audio file.
@@ -115,6 +118,8 @@ async def multi_channel_audio_to_mono(
         ffmpeg.input(file).audio,
         filename=output_file,
         ac=1,  # audio channels = 1
+        acodec="pcm_s16le",
+        ar=sample_rate,
     )
 
     await _run(pipeline)

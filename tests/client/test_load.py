@@ -27,13 +27,13 @@ async def test_load_srt(mock_client, monkeypatch) -> None:
                 time_ms=27110,
                 chunks=['"America has heard the bugle call'],
                 duration_ms=5050,
-                voice=Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.0),
+                voice=Voice(character="Ada", pitch=0.0, speech_rate=1.0),
             )
             assert last == Event(
                 time_ms=6716480,
                 chunks=["And I am not afraid."],
                 duration_ms=1580,
-                voice=Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.0),
+                voice=Voice(character="Ada", pitch=0.0, speech_rate=1.0),
             )
 
 
@@ -57,13 +57,13 @@ async def test_load_ssmd(mock_client, monkeypatch) -> None:
                 time_ms=0,
                 chunks=["Hello, Bill!", "How are you?"],
                 duration_ms=1000,
-                voice=Voice(character="Grace Hopper", pitch=0.0, speech_rate=1.0),
+                voice=Voice(character="Grace", pitch=0.0, speech_rate=1.0),
             )
             assert last == Event(
                 time_ms=2000,
                 chunks=["It was a huge mistake."],
                 duration_ms=None,
-                voice=Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.4),
+                voice=Voice(character="Ada", pitch=0.0, speech_rate=1.4),
             )
 
 
@@ -93,12 +93,12 @@ async def test_load_subtitles(mock_client, monkeypatch) -> None:
         "The way the work week works is the worst. Waking up on monday, you've got."
     )
     assert first.duration_ms == 41166
-    assert first.voice == Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.0)
+    assert first.voice == Voice(character="Ada", pitch=0.0, speech_rate=1.0)
 
     assert last.time_ms == 114946
     assert last.chunks[0].endswith("[soft brooding electronic music fades slowly]")
     assert first.duration_ms == 41166
-    assert first.voice == Voice(character="Ada Lovelace", pitch=0.0, speech_rate=1.0)
+    assert first.voice == Voice(character="Ada", pitch=0.0, speech_rate=1.0)
 
     assert result.audio
     assert result.audio.startswith("https://")
@@ -116,11 +116,11 @@ async def test_load_transcribe(mock_client, monkeypatch) -> None:
     # session = client.create()
 
     async with session:
-        methods: Sequence[Method] = ("Machine A", "Machine B")
+        methods: Sequence[Method] = ("Machine A", "Machine B", "Machine C")
 
         responses = [
             await transcript.load(
-                source="https://www.youtube.com/watch?v=ALaTm6VzTBw",
+                source="https://www.youtube.com/watch?v=bhRaND9jiOA",
                 method=method,
                 lang="en-US",
                 session=session,
@@ -128,20 +128,16 @@ async def test_load_transcribe(mock_client, monkeypatch) -> None:
             for method in methods
         ]
 
-        result_a, result_b = await asyncio.gather(
+        result_a, result_b, result_c = await asyncio.gather(
             *[tasks.future(response, session) for response in responses]
         )
 
     # Check Machine A output
     event, *_ = result_a.events
-
     chunk, *_ = event.chunks
-    assert chunk.startswith(
-        "The way the work week works is the worst waking up on Monday."  # noqa: E501
-    )
-    assert chunk.endswith(
-        "having a free day when everyone else is working makes so many things easier."  # noqa: E501
-    )
+
+    assert "One" in chunk
+    assert "procrastination and sloth" in chunk
 
     assert result_a.audio.startswith("https://")
     assert result_a.audio.endswith(".wav")
@@ -151,19 +147,26 @@ async def test_load_transcribe(mock_client, monkeypatch) -> None:
 
     # Check Machine B output
     event, *_ = result_b.events
-
-    assert event.time_ms == 140
-    assert event.duration_ms == pytest.approx(145824, rel=500)
-
     chunk, *_ = event.chunks
 
-    assert chunk.startswith("The way the work week works is the worst.")
-    assert chunk.endswith(
-        "If those sound intriguing, why not give it a try and see if weekend Wednesday works for you."  # noqa: E501
-    )
+    assert "one" in chunk
+    assert "procrastination and sloth" in chunk
 
     assert result_b.audio.startswith("https://")
     assert result_b.audio.endswith(".wav")
 
     assert result_b.video.startswith("https://")
     assert result_b.video.endswith(".mp4")
+
+    # Check Machine C output
+    event, *_ = result_c.events
+    chunk, *_ = event.chunks
+
+    assert chunk.startswith("One")
+    assert "procrastination and sloth" in chunk
+
+    assert result_c.audio.startswith("https://")
+    assert result_c.audio.endswith(".wav")
+
+    assert result_c.video.startswith("https://")
+    assert result_c.video.endswith(".mp4")
