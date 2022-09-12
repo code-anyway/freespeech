@@ -4,7 +4,6 @@ import ffmpeg
 import pytest
 
 from freespeech.client import chat, client, tasks, transcript
-from freespeech.lib import media
 from freespeech.lib.storage import obj
 from freespeech.types import Error, Transcript
 
