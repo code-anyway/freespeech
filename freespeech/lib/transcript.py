@@ -75,6 +75,11 @@ def parse_time_interval(
     value = match.group(4)
     character_str = match.group(6)
 
+    # Leave only the first name.
+    # Early on we were using full names, like Ada Lovelace
+    if character_str:
+        character_str = character_str.split(" ")[0]
+
     if is_character(character_str):
         character = character_str
     else:

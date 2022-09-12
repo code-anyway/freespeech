@@ -142,6 +142,18 @@ def get_azure_conversations_token() -> str:
 
 
 @functools.cache
+def get_azure_storage_connection_string() -> str:
+    token = os.environ.get("AZURE_STORAGE_CONNECTION_STRING", None)
+
+    if not token:
+        raise RuntimeError(
+            "Environment variable `AZURE_STORAGE_CONNECTION_STRING` is not set"
+        )
+
+    return token
+
+
+@functools.cache
 def get_telegram_bot_token() -> str:
     token = os.environ.get("TELEGRAM_BOT_TOKEN", None)
 
@@ -159,6 +171,16 @@ def get_telegram_webhook_url() -> str:
         raise RuntimeError("For Telegram, TELEGRAM_WEBHOOK_URL should be set.")
 
     return url
+
+
+@functools.cache
+def get_deep_l_key() -> str:
+    key = os.environ.get("DEEP_L_KEY", None)
+
+    if not key:
+        raise RuntimeError("Need a DEEP_L_KEY key for translation")
+
+    return key
 
 
 def get_transcript_service_url() -> str:

@@ -42,7 +42,9 @@ setup(
     install_requires=[
         "aiohttp",
         "aiogram",
+        "deepl",
         "azure-ai-language-conversations",
+        "azure-storage-blob",
         "click",
         "deepgram-sdk",
         "ffmpeg-python",

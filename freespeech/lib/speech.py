@@ -8,7 +8,9 @@ from functools import cache
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Dict, Sequence, Tuple
+from uuid import uuid4
 
+import aiohttp
 import azure.cognitiveservices.speech as azure_tts
 from deepgram import Deepgram
 from google.api_core import exceptions as google_api_exceptions
@@ -51,7 +53,7 @@ MAX_CHUNK_LENGTH = 1000  # Google Speech API Limit
 # https://docs.microsoft.com/en-us/azure/cognitive-services/speech-service/language-support
 # https://cloud.google.com/text-to-speech/docs/voices
 VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
-    "Ada Lovelace": {
+    "Ada": {
         "en-US": ("Google", "en-US-Wavenet-F"),
         "ru-RU": ("Google", "ru-RU-Wavenet-E"),
         "pt-PT": ("Google", "pt-PT-Wavenet-D"),
@@ -60,16 +62,16 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "es-US": ("Google", "es-US-Wavenet-A"),
         "uk-UA": ("Google", "uk-UA-Wavenet-A"),
     },
-    "Grace Hopper": {
+    "Grace": {
         "en-US": ("Google", "en-US-Wavenet-C"),
         "ru-RU": ("Google", "ru-RU-Wavenet-C"),
         "pt-PT": ("Google", "pt-PT-Wavenet-A"),
         "pt-BR": ("Google", "pt-BR-Wavenet-C"),
         "de-DE": ("Google", "de-DE-Wavenet-F"),
-        "uk-UA": ("Google", "uk-UA-Wavenet-A"),
         "es-US": ("Google", "es-US-Wavenet-A"),
+        "uk-UA": ("Google", "uk-UA-Wavenet-A"),
     },
-    "Alan Turing": {
+    "Alan": {
         "en-US": ("Google", "en-US-Wavenet-I"),
         "ru-RU": ("Google", "ru-RU-Wavenet-D"),
         "pt-PT": ("Google", "pt-PT-Wavenet-C"),
@@ -78,7 +80,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "es-US": ("Google", "es-US-Wavenet-B"),
         "uk-UA": ("Azure", "uk-UA-OstapNeural"),
     },
-    "Alonzo Church": {
+    "Alonzo": {
         "en-US": ("Google", "en-US-Wavenet-D"),
         "ru-RU": ("Google", "ru-RU-Wavenet-B"),
         "pt-PT": ("Google", "pt-PT-Wavenet-B"),
@@ -105,6 +107,15 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "es-US": ("Azure", "es-US-PalomaNeural"),
         "uk-UA": ("Azure", "uk-UA-PolinaNeural"),
     },
+    "Greta": {
+        "ru-RU": ("Azure", "ru-RU-SvetlanaNeural"),
+        "en-US": ("Azure", "en-US-AnaNeural"),
+        "pt-PT": ("Azure", "pt-PT-FernandaNeural"),
+        "pt-BR": ("Azure", "pt-BR-GiovannaNeural"),
+        "de-DE": ("Azure", "de-DE-GiselaNeural"),
+        "es-US": ("Azure", "es-US-PalomaNeural"),
+        "uk-UA": ("Azure", "uk-UA-PolinaNeural"),
+    },
 }
 
 GOOGLE_CLOUD_ENCODINGS = {
@@ -116,15 +127,16 @@ GOOGLE_CLOUD_ENCODINGS = {
 SYNTHESIS_ERROR_MS = 200
 
 SPEECH_RATE_MINIMUM = 0.7
-SPEECH_RATE_MAXIMUM = 1.3
+SPEECH_RATE_MAXIMUM = 1.5
 
 # Number of retries when iteratively adjusting speaking rate.
 SYNTHESIS_RETRIES = 10
 
 # Speech-to-text API call timeout.
-# Upper limit is 480 seconds
+# Upper limit is 480 minutes
 # Details: https://cloud.google.com/speech-to-text/docs/async-recognize#speech_transcribe_async_gcs-python  # noqa: E501
 GOOGLE_TRANSCRIBE_TIMEOUT_SEC = 480 * 60
+AZURE_TRANSCRIBE_TIMEOUT_SEC = 60 * 60
 
 
 @cache
@@ -175,7 +187,7 @@ async def transcribe(
         case "Deepgram":
             return await _transcribe_deepgram(uri, lang, model)
         case "Azure":
-            raise NotImplementedError()
+            return await _transcribe_azure(uri, lang, model)
         case never:
             assert_never(never)
 
@@ -286,6 +298,93 @@ async def _transcribe_google(
     return events
 
 
+async def _transcribe_azure(uri: url, lang: Language, model: TranscriptionModel):
+    with TemporaryDirectory() as tmp_dir:
+        file = await obj.get(uri, tmp_dir)
+        # NOTE:
+        # 1. To avoid collisions, we are generating new name every time
+        # 2. To make naming easier, we are re-assigning the uri
+        uri = await obj.put(
+            file, f"az://freespeech-files/{str(uuid4())}.{Path(file).suffix}"
+        )
+
+    key, region = env.get_azure_config()
+    # more info: https://westus.dev.cognitive.microsoft.com/docs/services/speech-to-text-api-v3-0/operations/CreateTranscription  # noqa: E501
+    headers = {
+        "Content-Type": "application/json",
+        "Ocp-Apim-Subscription-Key": key,
+    }
+    body = {
+        "contentUrls": [uri],
+        "properties": {
+            "punctuationMode": "DictatedAndAutomatic",
+            "profanityFilterMode": "None",  # "Masked"
+            "wordLevelTimestampsEnabled": True,
+            "diarizationEnabled": False,
+        },
+        "locale": lang,
+        "displayName": f"Transcription using default model for {lang}",
+    }
+
+    async with aiohttp.ClientSession(
+        f"https://{region}.api.cognitive.microsoft.com", headers=headers
+    ) as session:
+        # Submit transcription job
+        async with session.post(
+            "/speechtotext/v3.0/transcriptions", json=body
+        ) as response:
+            result = await response.json()
+            if not response.ok:
+                raise RuntimeError(result["message"])
+            transcription_id = response.headers["location"].split("/")[-1]
+
+        # Monitor job status and wait for Succeeded
+        time_elapsed_sec = 0.0
+        while time_elapsed_sec < AZURE_TRANSCRIBE_TIMEOUT_SEC:
+            async with session.get(
+                f"/speechtotext/v3.0/transcriptions/{transcription_id}"
+            ) as response:
+                result = await response.json()
+                if not response.ok:
+                    raise RuntimeError(result["message"])
+
+                if result["status"] == "Succeeded":
+                    break
+                elif result["status"] == "Failed":
+                    raise RuntimeError(f"Transcription job {transcription_id} failed!")
+
+            time_elapsed_sec += 5.0
+            await asyncio.sleep(5.0)
+
+        # For successful job, retrieve the actual content URL
+        async with session.get(
+            f"/speechtotext/v3.0/transcriptions/{transcription_id}/files"
+        ) as response:
+            result = await response.json()
+            if not response.ok:
+                raise RuntimeError(result["message"])
+            content_url = result["values"][0]["links"]["contentUrl"]
+
+    async with aiohttp.ClientSession(headers=headers) as session:
+        async with session.get(content_url) as response:
+            result = await response.json()
+
+    def build_events():
+        for phrase in result["recognizedPhrases"]:
+            speaker = phrase.get("speaker", 0)
+            time_ms = int(phrase["offsetInTicks"] / 10000)
+            duration_ms = int(phrase["durationInTicks"] / 10000)
+            text = phrase["nBest"][0]["display"]
+            yield Event(
+                time_ms,
+                chunks=[text],
+                duration_ms=duration_ms,
+                voice=Voice(character=CHARACTERS[speaker]),
+            )
+
+    return list(build_events())
+
+
 def is_valid_ssml(text: str) -> bool:
     try:
         root = ET.fromstring(text)
@@ -295,17 +394,46 @@ def is_valid_ssml(text: str) -> bool:
     return root.tag == "{http://www.w3.org/2001/10/synthesis}speak"
 
 
-def _wrap_in_ssml(text: str, voice: str, speech_rate: float) -> str:
-    text = "".join([f"<s>{sentence}</s>" for sentence in split_sentences(text)])
+def _wrap_in_ssml(
+    text: str, voice: str, speech_rate: float, lang: Language = "en-US"
+) -> str:
+    def _google():
+        decorated_text = "".join(
+            [f"<s>{sentence}</s>" for sentence in split_sentences(text)]
+        )
 
-    result = (
-        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
-        'xml:lang="en-US">'
-        '<voice name="{VOICE}"><prosody rate="{RATE:f}">{TEXT}</prosody></voice>'
-        "</speak>".format(TEXT=text, VOICE=voice, RATE=speech_rate)
-    )
-    assert is_valid_ssml(result), f"text={text} result={result}"
-    return result
+        result = (
+            '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
+            'xml:lang="{LANG}">'
+            '<voice name="{VOICE}"><prosody rate="{RATE:f}">{TEXT}</prosody></voice>'
+            "</speak>".format(
+                TEXT=decorated_text, VOICE=voice, RATE=speech_rate, LANG=lang
+            )
+        )
+        assert is_valid_ssml(result), f"text={decorated_text} result={result}"
+        return result
+
+    def _azure():
+        rate_percent = (speech_rate - 1.0) * 100.0
+        if rate_percent >= 0:
+            rate_str = f"+{rate_percent}%"
+        else:
+            rate_str = f"{rate_percent}%"
+
+        result = (
+            '<speak xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" xmlns:emo="http://www.w3.org/2009/10/emotionml" xml:lang="{LANG}" version="1.0">'  # noqa: E501
+            '<voice name="{VOICE}"><prosody rate="{RATE}"><mstts:express-as style="calm"><mstts:silence type="Sentenceboundary" value="100ms"/>{TEXT}</mstts:express-as></prosody></voice>'  # noqa: E501
+            "</speak>".format(TEXT=text, VOICE=voice, RATE=rate_str, LANG=lang)
+        )
+        assert is_valid_ssml(result), f"text={text} result={result}"
+        return result
+
+    # TODO (astaff, 20220906): Refactor this and remove guessing
+    # the provider from the name of their voice.
+    if voice.endswith("Neural"):  # Assuming all azure voices end with Neural
+        return _azure()
+    else:
+        return _google()
 
 
 def text_to_chunks(
@@ -379,9 +507,11 @@ async def synthesize_text(
 
         if duration_ms is not None:
             if rate < SPEECH_RATE_MINIMUM:
+                logger.warning(f"Below SPEECH_RATE_MINIMUM: text={text} rate={rate}")
                 return await _synthesize_step(SPEECH_RATE_MINIMUM, retries=None)
 
             if rate > SPEECH_RATE_MAXIMUM:
+                logger.warning(f"Above SPEECH_RATE_MAXIMUM: text={text} rate={rate}")
                 return await _synthesize_step(SPEECH_RATE_MAXIMUM, retries=None)
 
         def _google_api_call(ssml_phrase: str) -> bytes:
@@ -490,8 +620,9 @@ async def synthesize_events(
 
     for event in events:
         padding_ms = event.time_ms - current_time_ms
-        clip, voice_info = await synthesize_text(
-            text=" ".join(event.chunks),
+        text = " ".join(event.chunks)
+        clip, voice = await synthesize_text(
+            text=text,
             duration_ms=event.duration_ms,
             voice=event.voice,
             lang=lang,
@@ -500,10 +631,13 @@ async def synthesize_events(
         (audio, *_), _ = media.probe(clip)
         assert isinstance(audio, Audio)
 
+        if padding_ms < 0:
+            logger.warning(f"Negative padding ({padding_ms}) in front of: {text}")
+
         clips += [(padding_ms, clip)]
         current_time_ms = event.time_ms + audio.duration_ms
 
-        voices += [voice_info]
+        voices += [voice]
 
     output_file = await media.concat_and_pad(clips, output_dir)
 
