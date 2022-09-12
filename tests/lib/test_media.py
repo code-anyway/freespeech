@@ -90,8 +90,8 @@ async def test_keep_events(tmp_path):
         mode="both",
     )
     # assert hash.file(out) == hash.file(VIDEO_CROPPED_POTATO)
-    assert media.probe(out)[0][0].duration_ms == pytest.approx(14047)
-    assert media.probe(out)[1][0].duration_ms == pytest.approx(14047)
+    assert media.probe(out)[0][0].duration_ms == pytest.approx(14047, 16)
+    assert media.probe(out)[1][0].duration_ms == pytest.approx(14047, 16)
 
     # just audio
     out = await media.keep_events(
@@ -104,7 +104,7 @@ async def test_keep_events(tmp_path):
         output_dir=tmp_path,
         mode="audio",
     )
-    assert media.probe(out)[0][0].duration_ms == pytest.approx(14000)
+    assert media.probe(out)[0][0].duration_ms == pytest.approx(14000, 16)
 
 
 @pytest.mark.asyncio
