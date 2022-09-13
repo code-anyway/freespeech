@@ -126,3 +126,10 @@ def test_chunk_supports_dots_within_pauses() -> None:
         "The newline is also a space char #2.1# after dot.",
         "This is a second sentence",
     ]
+
+
+def test_break_sentences():
+    sentence = "A b c. D e f."
+    words = [("a", 0, 1), ("b", 2, 4), ("c", 7, 3)]
+
+    assert text.break_sentences(sentence, words, lang="en-US") == [("A b c.", 0, 10), ("D e f.",)]

@@ -1,6 +1,11 @@
+import difflib
 import re
 from itertools import zip_longest
-from typing import Iterator, Sequence
+from typing import Iterator, List, Sequence, Tuple
+
+import spacy
+
+from freespeech.types import Language
 
 
 def is_sentence(s: str) -> bool:
@@ -86,3 +91,41 @@ def chunk_raw(s: str, length: int) -> Sequence[str]:
 def remove_symbols(s: str, symbols: str) -> str:
     t = str.maketrans(s, s, symbols)
     return str.translate(s, t)
+
+
+def break_sentences(
+    text: str, words: List[Tuple[str, int, int]], lang: Language
+) -> Sequence[Tuple[str, int, int]]:
+    match lang:
+        case "en-US":
+            nlp = spacy.load("en_core_web_sm")
+        case _:
+            raise NotImplementedError(f"Language {lang} is not supported.")
+
+    doc = nlp(text)
+
+    senter = nlp.get_pipe("senter")
+    doc = senter(doc)
+    sentences = [span.text for span in doc.sents]
+
+    lemmatizer = nlp.get_pipe("lemmatizer")
+    sentence_tokens = [
+        (token.lemma_.lower(), num)
+        for num, sentence in enumerate(sentences)
+        for token in lemmatizer(nlp(sentence))
+    ]
+
+    matcher = difflib.SequenceMatcher(
+        a=[token for token, _ in sentence_tokens],
+        b=[word.lower() for word, *_ in words],
+        autojunk=False,
+    )
+
+    matches = matcher.get_matching_blocks()
+
+    matched_tokens: list[tuple[str, int]] = sum(
+        [sentence_tokens[i : i + n] for i, _, n in matches], []
+    )
+    matched_words: list[tuple[str, int, int]] = sum(
+        [words[j : j + n] for _, j, n in matches], []
+    )
