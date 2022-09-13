@@ -5,13 +5,18 @@ dictionaries: []
 words:
   - aiohttp
   - astaff
+  - autojunk
   - ffprobe
   - gdocs
   - HEVC
+  - lemmatizer
   - oauthlib
   - pythonic
   - pytube
   - rollup
+  - senter
+  - sents
+  - spacy
   - stdev
   - texttospeech
   - unparse
