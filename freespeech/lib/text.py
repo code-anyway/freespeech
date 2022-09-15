@@ -1,6 +1,6 @@
 import difflib
 import re
-from itertools import zip_longest
+from itertools import groupby, zip_longest
 from typing import Iterator, List, Sequence, Tuple
 
 import spacy
@@ -94,7 +94,7 @@ def remove_symbols(s: str, symbols: str) -> str:
 
 
 def break_sentences(
-    text: str, words: List[Tuple[str, int, int]], lang: Language
+    text: str, words: List[Tuple[str, int | None, int | None]], lang: Language
 ) -> Sequence[Tuple[str, int, int]]:
     match lang:
         case "en-US":
@@ -109,23 +109,40 @@ def break_sentences(
     sentences = [span.text for span in doc.sents]
 
     lemmatizer = nlp.get_pipe("lemmatizer")
-    sentence_tokens = [
+    display_tokens = [
         (token.lemma_.lower(), num)
         for num, sentence in enumerate(sentences)
         for token in lemmatizer(nlp(sentence))
     ]
+    lexical_tokens = [
+        (token.lemma_.lower(), start, duration)
+        for word, start, duration in words
+        for token in lemmatizer(nlp(word))
+    ]
 
     matcher = difflib.SequenceMatcher(
-        a=[token for token, _ in sentence_tokens],
-        b=[word.lower() for word, *_ in words],
+        a=[token for token, *_ in display_tokens],
+        b=[token for token, *_ in lexical_tokens],
         autojunk=False,
     )
+    matches = [
+        (num, (start, duration))
+        for i, j, n in matcher.get_matching_blocks()
+        for (_, num), (_, start, duration) in zip(
+            display_tokens[i : i + n], lexical_tokens[j : j + n]
+        )
+    ]
 
-    matches = matcher.get_matching_blocks()
+    sentence_timings = [
+        (num, [(start, duration) for _, (start, duration) in timings])
+        for num, timings in groupby(matches, key=lambda a: a[0])
+    ]
+    sentence_timings = {
+        num: (start := timings[0][0], timings[-1][0] + timings[-1][1] - start)
+        for num, timings in sentence_timings
+    }
 
-    matched_tokens: list[tuple[str, int]] = sum(
-        [sentence_tokens[i : i + n] for i, _, n in matches], []
-    )
-    matched_words: list[tuple[str, int, int]] = sum(
-        [words[j : j + n] for _, j, n in matches], []
-    )
+    return [
+        (sentence, *sentence_timings.get(num, (None, None)))
+        for num, sentence in enumerate(sentences)
+    ]
