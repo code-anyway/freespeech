@@ -38,13 +38,15 @@ async def test_intent():
         "url": ["https://youtube.com/a", "https://youTUBE.com/b"],
         "language": ["en-US"],
     }
-    
+
     intent, entities = await chat.intent(
         "Transcribe https://docs.google.com/document/d/1O5dYFK--6jWw3GAG8D1Bb3UCKHsu8Ff4cwISO4ezG8g in English using SRT"  # noqa: E501
     )
     assert intent == "transcribe"
     assert entities == {
-        "url": ["https://docs.google.com/document/d/1O5dYFK--6jWw3GAG8D1Bb3UCKHsu8Ff4cwISO4ezG8g"],
+        "url": [
+            "https://docs.google.com/document/d/1O5dYFK--6jWw3GAG8D1Bb3UCKHsu8Ff4cwISO4ezG8g"
+        ],
         "language": ["en-US"],
         "method": ["srt"],
     }

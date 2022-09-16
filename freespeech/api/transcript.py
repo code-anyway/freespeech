@@ -219,12 +219,16 @@ async def _load(
             if request.lang is None:
                 raise ValueError("Language is not set")
 
-            if isinstance(source, str) and source.startswith("https://docs.google.com/document/d/"):
+            if isinstance(source, str) and source.startswith(
+                "https://docs.google.com/document/d/"
+            ):
                 _, text = gdocs.extract(source)
             elif stream is not None:
                 text = stream.read()
             else:
-                raise ValueError(f"Need a binary stream or a gdoc url for {request.method}.")
+                raise ValueError(
+                    f"Need a binary stream or a gdoc url for {request.method}."
+                )
 
             assert isinstance(text, str)
             events = transcript.srt_to_events(text)
