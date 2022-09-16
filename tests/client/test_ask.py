@@ -36,14 +36,14 @@ async def test_transcribe_from_gdoc_srt(mock_client, monkeypatch) -> None:
     session = mock_client()
 
     message = (
-        "Transcribe https://docs.google.com/document/d/1O5dYFK--6jWw3GAG8D1Bb3UCKHsu8Ff4cwISO4ezG8g "
+        "Transcribe https://docs.google.com/document/d/1O5dYFK--6jWw3GAG8D1Bb3UCKHsu8Ff4cwISO4ezG8g "  # noqa: E501
         "in English using SRT"
     )
     response = await chat.ask(message=message, intent=None, state={}, session=session)
 
     assert (
-        response.message
-        == "Transcribing https://docs.google.com/document/d/1O5dYFK--6jWw3GAG8D1Bb3UCKHsu8Ff4cwISO4ezG8g"
+        response.message == "Transcribing "
+        "https://docs.google.com/document/d/1O5dYFK--6jWw3GAG8D1Bb3UCKHsu8Ff4cwISO4ezG8g"  # noqa: E501
         " with SRT in en-US. Watch this space!"
     )
 

@@ -45,7 +45,7 @@ async def test_intent():
     assert intent == "transcribe"
     assert entities == {
         "url": [
-            "https://docs.google.com/document/d/1O5dYFK--6jWw3GAG8D1Bb3UCKHsu8Ff4cwISO4ezG8g"
+            "https://docs.google.com/document/d/1O5dYFK--6jWw3GAG8D1Bb3UCKHsu8Ff4cwISO4ezG8g"  # noqa: E501
         ],
         "language": ["en-US"],
         "method": ["srt"],
