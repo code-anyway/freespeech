@@ -224,7 +224,7 @@ async def _load(
             ):
                 _, text = gdocs.extract(source)
             elif stream is not None:
-                text = stream.read()
+                text = str(stream.read())
             else:
                 raise ValueError(
                     f"Need a binary stream or a gdoc url for {request.method}."
@@ -242,7 +242,7 @@ async def _load(
                 raise ValueError(f"Need a binary stream for {request.method}.")
             if request.lang is None:
                 raise ValueError("Language is not set")
-            text = stream.read()
+            text = str(stream.read())
             assert isinstance(text, str)
             events = transcript.parse_events(text)
             return Transcript(
