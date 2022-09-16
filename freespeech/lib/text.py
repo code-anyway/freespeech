@@ -1,11 +1,11 @@
 import difflib
 import re
 from itertools import groupby, zip_longest
-from typing import Iterator, List, Sequence, Tuple
+from typing import Iterator, Sequence, Tuple
 
 import spacy
 
-from freespeech.types import Language
+from freespeech.types import Event, Language, assert_never
 
 
 def is_sentence(s: str) -> bool:
@@ -93,21 +93,28 @@ def remove_symbols(s: str, symbols: str) -> str:
     return str.translate(s, t)
 
 
-def break_sentences(
-    text: str, words: List[Tuple[str, int | None, int | None]], lang: Language
+def _break_phrase(
+    text: str,
+    words: Sequence[Tuple[str, int | None, int | None]],
+    nlp: spacy.language.Language,
 ) -> Sequence[Tuple[str, int, int]]:
-    match lang:
-        case "en-US":
-            nlp = spacy.load("en_core_web_sm")
-        case _:
-            raise NotImplementedError(f"Language {lang} is not supported.")
+    """Breaks down a single phrase into separate sentences with start time and duration.
 
+    Args:
+        text: Paragraph of text with one ore more sentences.
+        words: Sequence of tuples representing a single word from the phrase,
+            it's start time and duration.
+        nlp: Instance of Spacy language model.
+
+    Returns:
+        Sequence of tuples representing a sentence, it's start time and duration.
+    """
     doc = nlp(text)
-
     senter = nlp.get_pipe("senter")
-    doc = senter(doc)
-    sentences = [span.text for span in doc.sents]
+    sentences = [span.text for span in senter(doc).sents]
 
+    # reduce each word in text and words down to lemmas to avoid
+    # mismatches due to effects of ASR's language model.
     lemmatizer = nlp.get_pipe("lemmatizer")
     display_tokens = [
         (token.lemma_.lower(), num)
@@ -120,6 +127,8 @@ def break_sentences(
         for token in lemmatizer(nlp(word))
     ]
 
+    # Find the longest common sequences between lemmas in text
+    # and lemmatized words.
     matcher = difflib.SequenceMatcher(
         a=[token for token, *_ in display_tokens],
         b=[token for token, *_ in lexical_tokens],
@@ -133,6 +142,8 @@ def break_sentences(
         )
     ]
 
+    # Group matches by sentence number. The first and the last item
+    # in the group will represent the first and last overlaps with the timed words.
     sentence_timings = [
         (num, [(start, duration) for _, (start, duration) in timings])
         for num, timings in groupby(matches, key=lambda a: a[0])
@@ -142,7 +153,48 @@ def break_sentences(
         for num, timings in sentence_timings
     }
 
+    # Return sentences and their timings. If there were no overlaps for a
+    # sentence, we will set start and duration to None.
     return [
         (sentence, *sentence_timings.get(num, (None, None)))
         for num, sentence in enumerate(sentences)
+    ]
+
+
+def break_speech(
+    phrases: Sequence[Tuple[str, Sequence[Tuple[str, int, int]]]], lang: Language
+) -> Sequence[Event]:
+    """Breaks down multiple phrases into separate sentences
+    with start time and duration.
+
+    Args:
+        phrases: A sequence of paragraphs of text, containing one or more sentences
+            and the lexical output of ASR model with word-level timings.
+        lang: Language code.
+
+    Returns:
+        Sequence of tuples representing a sentence, it's start time and duration.
+    """
+
+    match lang:
+        case "en-US":
+            nlp = spacy.load("en_core_web_sm")
+        case "de-DE":
+            nlp = spacy.load("de_core_news_sm")
+        case "pt-PT" | "pt-BR":
+            nlp = spacy.load("pt_core_news_sm")
+        case "es-US":
+            nlp = spacy.load("es_core_news_sm")
+        case "uk-UA":
+            nlp = spacy.load("uk_core_news_sm")
+        case "ru-RU":
+            nlp = spacy.load("ru_core_news_sm")
+        case _:
+            assert_never()
+
+    return [
+        Event(time_ms=start, duration_ms=duration, chunks=[text])
+        for text, start, duration in sum(
+            [_break_phrase(text, words, nlp) for text, words in phrases], []
+        )
     ]
