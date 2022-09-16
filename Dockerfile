@@ -1,4 +1,6 @@
-FROM python:3.10-buster
+# Pinning this to 3.10.6 because of:
+# https://github.com/python/mypy/issues/13627
+FROM python:3.10.6-buster
 
 # Install service-specific packages
 RUN apt-get update -qqy && apt-get install -qqy \
