@@ -31,6 +31,32 @@ async def test_transcribe(mock_client, monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_transcribe_from_gdoc_srt(mock_client, monkeypatch) -> None:
+    monkeypatch.setattr(client, "create", mock_client)
+    session = mock_client()
+
+    message = (
+        "Transcribe https://docs.google.com/document/d/1O5dYFK--6jWw3GAG8D1Bb3UCKHsu8Ff4cwISO4ezG8g "
+        "in English using SRT"
+    )
+    response = await chat.ask(message=message, intent=None, state={}, session=session)
+
+    assert (
+        response.message == "Transcribing https://docs.google.com/document/d/1O5dYFK--6jWw3GAG8D1Bb3UCKHsu8Ff4cwISO4ezG8g"
+        " with SRT in en-US. Watch this space!"
+    )
+
+    if isinstance(response, Error):
+        assert False, response.message
+    result = await tasks.future(response, session)
+    if isinstance(result, Error):
+        assert False, result.message
+
+    assert isinstance(result, Transcript)
+    assert result.events
+
+
+@pytest.mark.asyncio
 async def test_translate(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
     session = mock_client()
