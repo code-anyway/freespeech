@@ -75,6 +75,9 @@ def _build_request(
     method, *_ = entities.get("method", None) or ["Machine B"]
     lang, *_ = entities.get("language", None) or [None]
 
+    if method == "srt":
+        method = "SRT"
+
     state = {"url": url, "method": method, "lang": lang}
     state = {k: v for k, v in state.items() if v}
 
