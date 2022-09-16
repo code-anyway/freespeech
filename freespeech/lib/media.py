@@ -12,6 +12,9 @@ from freespeech.types import Audio, AudioEncoding, Video, VideoEncoding, assert_
 
 logger = logging.getLogger(__name__)
 
+# either an event or lack of an event, with start & end time.
+Span = Tuple[Literal["event", "blank"], int, int]
+
 
 def ffprobe_to_audio_encoding(encoding: str) -> AudioEncoding:
     """Convert ffprobe audio encoding to `AudioEncoding`."""
@@ -267,16 +270,16 @@ def amix_streams(streams: list, weights: Sequence[int]):
 
 
 def mix_events(
-    real_file: str | PathLike,
+    original: str | PathLike,
     synth_file: str | PathLike,
-    spans: list[Tuple[str, int, int]],
+    spans: list[Span],
     weights: Sequence,
 ):
-    """Mixes real_file and synth_file, but only between event spans, otherwise uses
-    real_file.
+    """Mixes original and synth_file, but only between event spans, otherwise uses
+    original.
 
     Args:
-        real_file: path to file /w original sound,
+        original: path to file /w original sound,
         synth_file: path to file /w dub,
         spans: spans with events and blanks,
         weights: real_weight, synth_weight,
@@ -288,23 +291,31 @@ def mix_events(
     # returns a list of streams
     bundle = []
     for t, start, end in spans:
-        real_trim = trim_audio(real_file, start, end)
-        if t == "event":
-            synth_trim = trim_audio(synth_file, start, end)
-            bundle += [
-                amix_streams(
-                    streams=[real_trim, synth_trim],
-                    weights=weights,
-                )
-            ]
-        elif t == "blank":
-            bundle += [real_trim]
+        real_trim = trim_audio(original, start, end)
+        match t:
+            case "event":
+                synth_trim = trim_audio(synth_file, start, end)
+                bundle += [
+                    amix_streams(
+                        streams=[real_trim, synth_trim],
+                        weights=weights,
+                    )
+                ]
+            case "blank":
+                bundle += [real_trim]
+
+    synth_dur = (
+        float(ffmpeg.probe(synth_file).get("format", {}).get("duration", None)) * 1000
+    ) // 1
+    # add on remainder to the end as if it's a blank
+    if spans[-1][2] < synth_dur:
+        bundle += [trim_audio(synth_file, spans[-1][2], synth_dur)]
     return ffmpeg.concat(*bundle, v=0, a=1)
 
 
 async def keep_events(
     file: str | PathLike,
-    spans: list[Tuple[str, int, int]],
+    spans: list[Span],
     output_dir: str | PathLike,
     mode: Literal["video", "audio", "both"],
 ) -> Path:
@@ -319,7 +330,7 @@ async def keep_events(
     Return:
         Path to the concatenated file.
     """
-    pts = "PTS-STARTPTS"
+    pts = "PTS-STARTPTS"  # sets the starting point of each slice to 0
     extension = ".wav" if mode == "audio" else ".mp4"
     event_spans = [span for span in spans if span[0] == "event"]
     with TemporaryDirectory() as temp:

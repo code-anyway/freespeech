@@ -85,7 +85,11 @@ async def test_synthesize(mock_client, monkeypatch) -> None:
 
     assert transcript_dubbed.video != old_transcript.video
 
-    # cropping
+
+@pytest.mark.asyncio
+async def test_synthesize_crop(mock_client, monkeypatch) -> None:
+    monkeypatch.setattr(client, "create", mock_client)
+    session = mock_client()
 
     test_doc = "https://docs.google.com/document/d/1krVxccWUgK_958WS9W_BWG5YwCOqqKCkJRbZWjXhbuE/edit"  # noqa: E501
 

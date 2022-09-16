@@ -114,9 +114,16 @@ async def _synthesize(
                         weights=(input.settings.original_audio_level, 10),
                         output_dir=tmp_dir,
                     )
+                    if input.settings.space_between_events == "Crop":
+                        synth_file = await media_ops.keep_events(
+                            file=synth_file,
+                            spans=spans,
+                            output_dir=tmp_dir,
+                            mode="audio",
+                        )
                 case "Blank":
                     synth_stream = media_ops.mix_events(
-                        real_file=mono_audio,
+                        original=mono_audio,
                         synth_file=synth_file,
                         spans=spans,
                         weights=(input.settings.original_audio_level, 10),
@@ -125,10 +132,6 @@ async def _synthesize(
                         streams=[synth_stream], output_dir=tmp_dir, extension="wav"
                     )
                     # writes only here ^
-            if input.settings.space_between_events == "Crop":
-                synth_file = await media_ops.keep_events(
-                    file=synth_file, spans=spans, output_dir=tmp_dir, mode="audio"
-                )
         with open(synth_file, "rb") as file:
             audio_url = (await _ingest(file, str(synth_file), session)).audio
 

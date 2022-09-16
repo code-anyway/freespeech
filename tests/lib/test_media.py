@@ -61,7 +61,7 @@ async def test_mix(tmp_path):
 async def test_mix_spans(tmp_path):
     weights = (3, 10)
     synth_stream = media.mix_events(
-        real_file=AUDIO_DUBSTEP,
+        original=AUDIO_DUBSTEP,
         synth_file=AUDIO_POTATO,
         spans=[
             ("blank", 0, 5000),
