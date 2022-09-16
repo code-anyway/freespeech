@@ -134,7 +134,7 @@ def test_break_phrases():
         Event(
             time_ms=1190,
             chunks=[
-                "Queen Elizabeth the second had an unparalleled reign, the effect of which has been felt across the world."
+                "Queen Elizabeth the second had an unparalleled reign, the effect of which has been felt across the world."  # noqa: E501
             ],
             duration_ms=7000,
             voice=Voice(character="Ada", pitch=0.0, speech_rate=1.0),
@@ -142,7 +142,7 @@ def test_break_phrases():
         Event(
             time_ms=9200,
             chunks=[
-                "In her record-breaking 7 decades on the throne, she witnessed the end of the British Empire and welcomed radical societal shifts."
+                "In her record-breaking 7 decades on the throne, she witnessed the end of the British Empire and welcomed radical societal shifts."  # noqa: E501
             ],
             duration_ms=8800,
             voice=Voice(character="Ada", pitch=0.0, speech_rate=1.0),
@@ -150,7 +150,7 @@ def test_break_phrases():
         Event(
             time_ms=20230,
             chunks=[
-                "She was the first person in the UK to make a long distance phone call without an operator, the first monarch in the world to send an e-mail, and one of the first to tweet."
+                "She was the first person in the UK to make a long distance phone call without an operator, the first monarch in the world to send an e-mail, and one of the first to tweet."  # noqa: E501
             ],
             duration_ms=9790,
             voice=Voice(character="Ada", pitch=0.0, speech_rate=1.0),
@@ -189,7 +189,7 @@ def test_break_phrases():
 
     phrases = [
         (
-            "Queen Elizabeth the second had an unparalleled reign, the effect of which has been felt across the world.",
+            "Queen Elizabeth the second had an unparalleled reign, the effect of which has been felt across the world.",  # noqa: E501
             [
                 ("queen", 1190.0, 370.0),
                 ("elizabeth", 1570.0, 480.0),
@@ -212,7 +212,7 @@ def test_break_phrases():
             ],
         ),
         (
-            "In her record-breaking 7 decades on the throne, she witnessed the end of the British Empire and welcomed radical societal shifts.",
+            "In her record-breaking 7 decades on the throne, she witnessed the end of the British Empire and welcomed radical societal shifts.",  # noqa: E501
             [
                 ("in", 9200.0, 240.0),
                 ("her", 9450.0, 160.0),
@@ -239,7 +239,7 @@ def test_break_phrases():
             ],
         ),
         (
-            "She was the first person in the UK to make a long distance phone call without an operator, the first monarch in the world to send an e-mail, and one of the first to tweet. The Queen's reign was monumental in absolutely every sense. It was peppered with superlatives. She was the longest reigning British monarch. Her head appeared on more coins than any other living monarch. She was herself like a monument, unchanging.",
+            "She was the first person in the UK to make a long distance phone call without an operator, the first monarch in the world to send an e-mail, and one of the first to tweet. The Queen's reign was monumental in absolutely every sense. It was peppered with superlatives. She was the longest reigning British monarch. Her head appeared on more coins than any other living monarch. She was herself like a monument, unchanging.",  # noqa: E501
             [
                 ("she", 20230.0, 250.0),
                 ("was", 20490.0, 130.0),

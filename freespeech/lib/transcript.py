@@ -103,9 +103,11 @@ def parse_time_interval(
     return start_ms, duration_ms, character, speech_rate
 
 
-def unparse_time_interval(time_ms: int, duration_ms: int | None, voice: Voice) -> str:
+def unparse_time_interval(
+    time_ms: int | None, duration_ms: int | None, voice: Voice
+) -> str:
     """Generates HH:MM:SS.fff/HH:MM:SS.fff (Character) or HH:MM:SS.fff@rr.rr (Character)
-    (if speechrate is set) representation for a time interval and voice.
+    (if speech rate is set) representation for a time interval and voice.
 
     Args:
         time_ms: interval start time in milliseconds.
@@ -117,20 +119,16 @@ def unparse_time_interval(time_ms: int, duration_ms: int | None, voice: Voice) -
        two ISO 8601 formatted timespamps separated by "/" with optional
        voice info added.
     """
-
-    start_ms = time_ms
-    res = f"{ms_to_iso_time(start_ms)}"
-
-    if duration_ms is None:
-        res += f"@{float(voice.speech_rate):.2f}"  # should I round here?
+    if time_ms is not None:
+        res = f"{ms_to_iso_time(time_ms)}"
+        if duration_ms is None:
+            res += f"@{float(voice.speech_rate):.2f}"  # should I round here?
+        else:
+            finish_ms = time_ms + duration_ms
+            res += f"/{ms_to_iso_time(finish_ms)}"
+        return f"{res} ({voice.character})"
     else:
-        finish_ms = time_ms + duration_ms
-        res += f"/{ms_to_iso_time(finish_ms)}"
-
-    if voice:
-        res = f"{res} ({voice.character})"
-
-    return res
+        return f"({voice.character})"
 
 
 def parse_events(text: str) -> Sequence[Event]:
@@ -297,6 +295,10 @@ def srt_to_events(text: str) -> Sequence[Event]:
 def events_to_srt(events: Sequence[Event]) -> str:
     text = ""
     for i, e in enumerate(events):
+        if e.time_ms is None:
+            raise ValueError(
+                f"SRT doesn't support speech events without time stamps: {e.chunks}"
+            )
         start = ms_to_iso_time(e.time_ms)
         start = start.replace(".", ",")[:-3]
         finish = ms_to_iso_time(e.time_ms + (e.duration_ms or 0))

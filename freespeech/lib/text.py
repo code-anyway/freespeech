@@ -95,9 +95,9 @@ def remove_symbols(s: str, symbols: str) -> str:
 
 def _break_phrase(
     text: str,
-    words: Sequence[Tuple[str, int | None, int | None]],
+    words: Sequence[Tuple[str, int, int]],
     nlp: spacy.language.Language,
-) -> Sequence[Tuple[str, int, int]]:
+) -> Sequence[Tuple[str, int | None, int | None]]:
     """Breaks down a single phrase into separate sentences with start time and duration.
 
     Args:
@@ -144,19 +144,20 @@ def _break_phrase(
 
     # Group matches by sentence number. The first and the last item
     # in the group will represent the first and last overlaps with the timed words.
-    sentence_timings = [
-        (num, [(start, duration) for _, (start, duration) in timings])
-        for num, timings in groupby(matches, key=lambda a: a[0])
-    ]
     sentence_timings = {
         num: (start := timings[0][0], timings[-1][0] + timings[-1][1] - start)
-        for num, timings in sentence_timings
+        for num, timings in [
+            (num, [(start, duration) for _, (start, duration) in timings])
+            for num, timings in groupby(matches, key=lambda a: a[0])
+        ]
     }
 
     # Return sentences and their timings. If there were no overlaps for a
     # sentence, we will set start and duration to None.
     return [
-        (sentence, *sentence_timings.get(num, (None, None)))
+        (sentence, *sentence_timings[num])
+        if num in sentence_timings
+        else (sentence, None, None)
         for num, sentence in enumerate(sentences)
     ]
 
@@ -195,6 +196,6 @@ def break_speech(
     return [
         Event(time_ms=start, duration_ms=duration, chunks=[text])
         for text, start, duration in sum(
-            [_break_phrase(text, words, nlp) for text, words in phrases], []
+            (list(_break_phrase(text, words, nlp)) for text, words in phrases), []
         )
     ]

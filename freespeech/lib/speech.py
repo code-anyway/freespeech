@@ -650,6 +650,11 @@ async def synthesize_events(
 
 
 def concat_events(e1: Event, e2: Event, break_sentence: bool) -> Event:
+    if e1.time_ms is None:
+        raise ValueError("e1.time_ms can't be None")
+    if e2.time_ms is None:
+        raise ValueError("e2.time_ms can't be None")
+
     shift_ms = e2.time_ms - e1.time_ms
 
     if e1.duration_ms is None or e2.duration_ms is None:
@@ -704,6 +709,9 @@ def normalize_speech(
         if last_event.duration_ms is None or event.duration_ms is None:
             acc += [last_event, event]
             continue
+
+        assert event.time_ms is not None, f"time_ms can't be None: {event.chunks}"
+        assert last_event.time_ms is not None, f"time_ms can't be None: {event.chunks}"
 
         gap = event.time_ms - last_event.time_ms - last_event.duration_ms
 
