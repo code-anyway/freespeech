@@ -216,11 +216,16 @@ async def _load(
             )
             return _normalize_speech(result, method=TRANSCRIPT_NORMALIZATION)
         case "SRT":
-            if not stream:
-                raise ValueError(f"Need a binary stream for {request.method}.")
             if request.lang is None:
                 raise ValueError("Language is not set")
-            text = stream.read()
+
+            if isinstance(source, str) and source.startswith("https://docs.google.com/document/d/"):
+                _, text = gdocs.extract(source)
+            elif stream is not None:
+                text = stream.read()
+            else:
+                raise ValueError(f"Need a binary stream or a gdoc url for {request.method}.")
+
             assert isinstance(text, str)
             events = transcript.srt_to_events(text)
             return Transcript(
