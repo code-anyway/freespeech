@@ -13,7 +13,7 @@ from freespeech.types import Audio, AudioEncoding, Video, VideoEncoding, assert_
 logger = logging.getLogger(__name__)
 
 # either an event or lack of an event, with start & end time.
-Span = Tuple[Literal["event", "blank"], int, int]
+Span = Tuple[str, int, int]
 
 
 def ffprobe_to_audio_encoding(encoding: str) -> AudioEncoding:
@@ -304,9 +304,10 @@ def mix_events(
             case "blank":
                 bundle += [real_trim]
 
-    synth_dur = (
-        float(ffmpeg.probe(synth_file).get("format", {}).get("duration", None)) * 1000
-    ) // 1
+    synth_dur = int(
+        (float(ffmpeg.probe(synth_file).get("format", {}).get("duration", None)) * 1000)
+        // 1
+    )
     # add on remainder to the end as if it's a blank
     if spans[-1][2] < synth_dur:
         bundle += [trim_audio(synth_file, spans[-1][2], synth_dur)]

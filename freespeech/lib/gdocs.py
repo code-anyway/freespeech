@@ -83,7 +83,6 @@ def drive_client(
 
 def get_credentials(scopes: List[str]) -> service_account.Credentials:
     credentials, _ = google.auth.default(scopes=scopes)
-
     return credentials
 
 
