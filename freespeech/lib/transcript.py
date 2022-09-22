@@ -6,20 +6,25 @@ from typing import Dict, Sequence, Tuple
 
 import pytz
 
+from freespeech.lib import ssmd
 from freespeech.types import (
     BLANK_FILL_METHODS,
     LANGUAGES,
     METHODS,
+    TRANSCRIPT_FORMATS,
     Character,
     Event,
     Settings,
     Source,
     Transcript,
+    TranscriptFormat,
     Voice,
+    assert_never,
     is_blank_fill_method,
     is_character,
     is_language,
     is_method,
+    is_transcript_format,
 )
 
 logger = logging.getLogger(__name__)
@@ -171,16 +176,15 @@ def parse_properties(text: str) -> Dict[str, str]:
 
 
 def parse_transcript(text: str) -> Transcript:
-    match = timecode_parser.search(text)
+    match = re.split(r"\n\n+", text)
 
-    if not match:
+    if len(match) != 2:
         raise ValueError(
-            "Invalid document content: expected at least one timecode in the beginning of a paragraph."  # noqa: E501
+            "Invalid transcript. Expected format: key: value properties separated by new line followed by one or more new lines."  # noqa: E501
         )
 
-    transcript_start = match.start()
-    properties = parse_properties(text[:transcript_start])
-    events = parse_events(text=text[transcript_start:])
+    head, body = match
+    properties = parse_properties(head)
 
     lang = properties.get("language", None)
     if not lang:
@@ -225,6 +229,22 @@ def parse_transcript(text: str) -> Transcript:
     video = properties.get("video", None)
     audio = properties.get("audio", None)
 
+    format = properties.get("format", "SSMD")
+    if not is_transcript_format(format):
+        raise ValueError(
+            f"Invalid transcript format: {format}. Supported values: {TRANSCRIPT_FORMATS}"  # noqa: E501
+        )
+
+    match format:
+        case "SSMD":
+            events = parse_events(body)
+        case "SRT":
+            events = srt_to_events(body)
+        case "SSMD-LITE":
+            events = ssmd.parse(body)
+        case never:
+            assert_never(never)
+
     return Transcript(
         title=None,
         lang=lang,
@@ -236,7 +256,7 @@ def parse_transcript(text: str) -> Transcript:
     )
 
 
-def render_transcript(transcript: Transcript) -> str:
+def render_transcript(transcript: Transcript, format: TranscriptFormat = "SSMD") -> str:
     # putting up properties
     properties = {
         "language": transcript.lang,
@@ -246,24 +266,31 @@ def render_transcript(transcript: Transcript) -> str:
         "video": transcript.video,
         "original_audio_level": transcript.settings.original_audio_level,
         "blanks": transcript.settings.space_between_events,
+        "format": format,
     }
 
     output = "\n".join(f"{key}: {value}" for key, value in properties.items() if value)
 
-    # putting up events
-    for event in transcript.events:
-        output += "\n"
-        output += (
-            unparse_time_interval(
-                event.time_ms,
-                event.duration_ms,
-                event.voice,
-            )
-            + "\n"
-        )
-        output += "\n".join(event.chunks) + "\n"
+    match format:
+        case "SSMD":
+            # putting up events
+            for event in transcript.events:
+                output += "\n\n"
+                output += (
+                    unparse_time_interval(
+                        event.time_ms,
+                        event.duration_ms,
+                        event.voice,
+                    )
+                    + "\n"
+                )
+                output += "\n".join(event.chunks) + "\n"
 
-    return output
+            return output
+        case "SRT":
+            return f"{output}\n\n{events_to_srt(transcript.events)}"
+        case "SSMD-LITE":
+            return f"{output}\n\n{ssmd.render(transcript.events)}"
 
 
 def srt_to_events(text: str) -> Sequence[Event]:

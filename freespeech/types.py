@@ -14,6 +14,9 @@ SPEECH_BACKENDS = ["Machine A", "Machine B", "Machine C"]
 TranscriptBackend = Literal["Google", "Notion", "SRT", "SSMD"]
 TRANSCRIPT_BACKENDS = ["Google", "Notion", "SRT", "SSMD"]
 
+TranscriptFormat = Literal["SRT", "SSMD", "SSMD-LITE"]
+TRANSCRIPT_FORMATS = ["SRT", "SSMD", "SSMD-LITE"]
+
 Language = Literal["en-US", "uk-UA", "ru-RU", "pt-PT", "pt-BR", "es-US", "de-DE"]
 LANGUAGES = ["en-US", "uk-UA", "ru-RU", "pt-PT", "pt-BR", "es-US", "de-DE"]
 
@@ -36,6 +39,10 @@ METHODS = SPEECH_BACKENDS + TRANSCRIPT_BACKENDS + ["Subtitles"]
 
 BlankFillMethod = Literal["Crop", "Blank", "Fill"]
 BLANK_FILL_METHODS = ["Crop", "Blank", "Fill"]
+
+
+def is_transcript_format(val: str) -> TypeGuard[TranscriptFormat]:
+    return val in TRANSCRIPT_FORMATS
 
 
 def is_language(val: str) -> TypeGuard[Language]:

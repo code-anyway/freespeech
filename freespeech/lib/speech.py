@@ -22,6 +22,7 @@ from freespeech import env
 from freespeech.lib import concurrency, media
 from freespeech.lib.storage import obj
 from freespeech.lib.text import (
+    break_speech,
     chunk,
     is_sentence,
     make_sentence,
@@ -370,17 +371,22 @@ async def _transcribe_azure(uri: url, lang: Language, model: TranscriptionModel)
             result = await response.json()
 
     def build_events():
-        for phrase in result["recognizedPhrases"]:
-            speaker = phrase.get("speaker", 0)
-            time_ms = int(phrase["offsetInTicks"] / 10000)
-            duration_ms = int(phrase["durationInTicks"] / 10000)
-            text = phrase["nBest"][0]["display"]
-            yield Event(
-                time_ms,
-                chunks=[text],
-                duration_ms=duration_ms,
-                voice=Voice(character=CHARACTERS[speaker]),
+        phrases = [
+            (
+                phrase["nBest"][0]["display"],
+                [
+                    (
+                        word["word"],
+                        word["offsetInTicks"] / 10000.0,
+                        word["durationInTicks"] / 10000.0,
+                    )
+                    for word in phrase["nBest"][0]["words"]
+                ],
             )
+            for phrase in result["recognizedPhrases"]
+        ]
+
+        return break_speech(phrases, lang=lang)
 
     return list(build_events())
 

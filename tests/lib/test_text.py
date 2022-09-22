@@ -129,7 +129,7 @@ def test_chunk_supports_dots_within_pauses() -> None:
     ]
 
 
-def test_break_phrases():
+def test_break_speech():
     expected = [
         Event(
             time_ms=1190,

@@ -31,6 +31,7 @@ from freespeech.types import (
     SynthesizeRequest,
     Transcript,
     TranscriptBackend,
+    TranscriptFormat,
     TranslateRequest,
     assert_never,
 )
@@ -52,7 +53,15 @@ TRANSCRIPT_NORMALIZATION: speech.Normalization = "break_ends_sentence"
 async def _save(request: SaveRequest) -> SaveResponse:
     match request.method:
         case "Google":
-            return SaveResponse(url=gdocs.create(request.transcript))
+            format: TranscriptFormat = (
+                "SSMD-LITE"
+                if (
+                    request.transcript.source
+                    and request.transcript.source.method == "Machine C"
+                )
+                else "SSMD"
+            )
+            return SaveResponse(url=gdocs.create(request.transcript, format))
         case "Notion":
             if request.location is None:
                 raise ValueError("For Notion `location` should be set to Database ID.")
@@ -195,7 +204,10 @@ async def _load(
                 audio=asset.audio,
                 video=asset.video,
             )
-            return _normalize_speech(result, method=TRANSCRIPT_NORMALIZATION)
+            if request.method != "Machine C":
+                return _normalize_speech(result, method=TRANSCRIPT_NORMALIZATION)
+            else:
+                return result
         case "Subtitles":
             if not isinstance(source, str):
                 raise ValueError(f"Need a url for {request.method}.")

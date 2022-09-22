@@ -9,7 +9,7 @@ import googleapiclient.discovery
 from google.oauth2 import service_account
 
 from freespeech.lib.transcript import parse_transcript, render_transcript
-from freespeech.types import Transcript
+from freespeech.types import Transcript, TranscriptFormat
 
 logger = logging.getLogger(__name__)
 
@@ -151,8 +151,8 @@ def share_with_all(document_id: str):
         ).execute()
 
 
-def create(source: Transcript) -> str:
-    text = render_transcript(source)
+def create(source: Transcript, format: TranscriptFormat = "SSMD") -> str:
+    text = render_transcript(source, format)
     return create_from_text(source.title, text)
 
 

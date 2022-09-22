@@ -190,8 +190,8 @@ def break_speech(
             nlp = spacy.load("uk_core_news_sm")
         case "ru-RU":
             nlp = spacy.load("ru_core_news_sm")
-        case _:
-            assert_never()
+        case never:
+            assert_never(never)
 
     return [
         Event(time_ms=start, duration_ms=duration, chunks=[text])

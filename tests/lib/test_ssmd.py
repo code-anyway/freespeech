@@ -27,31 +27,44 @@ def test_wrap_ssml():
     )
 
 
-def test_parse():
+def test_parse_and_render():
     text = """
-00:00:00/00:00:05 (Alan) Hello #0.0# world!
-00:00:01@1.0 (Greta) Hi!
-@2.0 (Grace) Hmm"""
+00:00:00.00/00:00:01 (Alan) Hello #0.0# world!
+00:00:02 (Ada) There are five pre-conditions for peace.
+00:00:03.00@1.00 (Greta) Hi!
+00:00:04@2.00 (Grace) Hmm"""
 
-    expected = [
+    events = [
         Event(
             time_ms=0,
             chunks=["Hello #0.0# world!"],
-            duration_ms=5000,
+            duration_ms=1000,
             voice=Voice(character="Alan", pitch=0.0, speech_rate=1.0),
         ),
         Event(
-            time_ms=1000,
+            time_ms=2000,
+            chunks=["There are five pre-conditions for peace."],
+            duration_ms=900,
+            voice=Voice(character="Ada", pitch=0.0, speech_rate=1.0),
+        ),
+        Event(
+            time_ms=3000,
             chunks=["Hi!"],
-            duration_ms=None,
+            duration_ms=900,
             voice=Voice(character="Greta", pitch=0.0, speech_rate=1.0),
         ),
         Event(
-            time_ms=None,
+            time_ms=4000,
             chunks=["Hmm"],
             duration_ms=None,
             voice=Voice(character="Grace", pitch=0.0, speech_rate=2.0),
         ),
     ]
 
-    assert ssmd.parse(text) == expected
+    assert ssmd.parse(text) == events
+
+    rendered_text = """00:00:00.00#1.00 (Alan) Hello #0.0# world!
+00:00:02.00#0.90 (Ada) There are five pre-conditions for peace.
+00:00:03.00#0.90 (Greta) Hi!
+00:00:04.00@2.00 (Grace) Hmm"""
+    assert ssmd.render(events) == rendered_text
