@@ -178,12 +178,13 @@ def parse_properties(text: str) -> Dict[str, str]:
 def parse_transcript(text: str) -> Transcript:
     match = re.split(r"\n\n+", text)
 
-    if len(match) != 2:
+    if len(match) < 2:
         raise ValueError(
             "Invalid transcript. Expected format: key: value properties separated by new line followed by one or more new lines."  # noqa: E501
         )
 
-    head, body = match
+    head, *body = match
+    body = "\n".join(body)
     properties = parse_properties(head)
 
     lang = properties.get("language", None)
