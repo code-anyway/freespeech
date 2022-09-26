@@ -15,7 +15,16 @@ TranscriptBackend = Literal["Google", "Notion", "SRT", "SSMD"]
 TRANSCRIPT_BACKENDS = ["Google", "Notion", "SRT", "SSMD"]
 
 Language = Literal[
-    "en-US", "uk-UA", "ru-RU", "pt-PT", "pt-BR", "es-US", "es-MX", "es-ES", "de-DE"
+    "en-US",
+    "uk-UA",
+    "ru-RU",
+    "pt-PT",
+    "pt-BR",
+    "es-US",
+    "es-MX",
+    "es-ES",
+    "de-DE",
+    "fr-FR",
 ]
 LANGUAGES = [
     "en-US",
@@ -27,6 +36,7 @@ LANGUAGES = [
     "es-MX",
     "es-ES",
     "de-DE",
+    "fr-FR",
 ]
 
 Operation = Literal["Transcribe", "Translate", "Synthesize"]
