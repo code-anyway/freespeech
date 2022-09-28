@@ -211,6 +211,9 @@ async def intent(
     if urls:
         entities["url"] = [url for url in urls if url.startswith("http")]
 
+    if "french" in text.lower():
+        entities["language"] = ["fr-FR"]
+
     return command, entities
 
 
