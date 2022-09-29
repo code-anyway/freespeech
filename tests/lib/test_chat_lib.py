@@ -39,6 +39,30 @@ async def test_intent():
         "language": ["en-US"],
     }
 
+    intent, entities = await chat.intent(
+        "Transcribe https://docs.google.com/document/d/1E_E9S5G4vH6MWxo3qB4itXZRcSrFeqHscMysFjen-sY/edit?usp=sharing in English using SRT"  # noqa: E501
+    )
+    assert intent == "transcribe"
+    assert entities == {
+        "url": [
+            "https://docs.google.com/document/d/1E_E9S5G4vH6MWxo3qB4itXZRcSrFeqHscMysFjen-sY/edit?usp=sharing"  # noqa: E501
+        ],
+        "language": ["en-US"],
+        "method": ["srt"],
+    }
+
+    intent, entities = await chat.intent(
+        "Load https://docs.google.com/document/d/1E_E9S5G4vH6MWxo3qB4itXZRcSrFeqHscMysFjen-sY/edit?usp=sharing in English using SRT"  # noqa: E501
+    )
+    assert intent == "transcribe"
+    assert entities == {
+        "url": [
+            "https://docs.google.com/document/d/1E_E9S5G4vH6MWxo3qB4itXZRcSrFeqHscMysFjen-sY/edit?usp=sharing"  # noqa: E501
+        ],
+        "language": ["en-US"],
+        "method": ["srt"],
+    }
+
 
 def test_generate_training_data():
     data = chat.generate_training_data(
