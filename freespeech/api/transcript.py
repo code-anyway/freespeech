@@ -122,7 +122,7 @@ async def _synthesize(
                             mode="audio",
                         )
                 case "Blank":
-                    synth_stream = media_ops.mix_events(
+                    synth_stream = media_ops.mix_spans(
                         original=mono_audio,
                         synth_file=synth_file,
                         spans=spans,

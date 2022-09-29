@@ -18,6 +18,7 @@ AUDIO_RU_GS = "gs://freespeech-tests/test_media/ru-RU-mono.wav"
 AUDIO_POTATO = "tests/lib/data/media/dubstep-audio.mp3"
 AUDIO_DUBSTEP = "tests/lib/data/media/potato-audio.mp3"
 AUDIO_MIX_DUBSTEP_POTATO = "tests/lib/data/media/mix-dubstep-potato.wav"
+AUDIO_MIX_DUBSTEP_POTATO_NOOP = "tests/lib/data/media/mix-dubstep-audio-noop.wav"
 
 
 @pytest.mark.asyncio
@@ -60,7 +61,7 @@ async def test_mix(tmp_path):
 @pytest.mark.asyncio
 async def test_mix_spans(tmp_path):
     weights = (3, 10)
-    synth_stream = media.mix_events(
+    synth_stream = media.mix_spans(
         original=AUDIO_DUBSTEP,
         synth_file=AUDIO_POTATO,
         spans=[
@@ -74,6 +75,19 @@ async def test_mix_spans(tmp_path):
         streams=[synth_stream], output_dir=tmp_path, extension="wav"
     )
     assert hash.file(synth_file) == hash.file(AUDIO_MIX_DUBSTEP_POTATO)
+
+    # still op :(
+    synth_stream = media.mix_spans(
+        original=AUDIO_DUBSTEP,
+        synth_file=AUDIO_POTATO,
+        spans=[],
+        weights=weights,
+    )
+    synth_file = await media.write_streams(
+        streams=[synth_stream], output_dir=tmp_path, extension="wav"
+    )
+
+    assert hash.file(synth_file) == hash.file(AUDIO_MIX_DUBSTEP_POTATO_NOOP)
 
 
 @pytest.mark.asyncio

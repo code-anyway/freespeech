@@ -269,7 +269,7 @@ def amix_streams(streams: list, weights: Sequence[int]):
     )
 
 
-def mix_events(
+def mix_spans(
     original: str | PathLike,
     synth_file: str | PathLike,
     spans: list[Span],
@@ -288,7 +288,10 @@ def mix_events(
     Return:
         A stream with everything mixed and concatenated.
     """
-    # returns a list of streams
+
+    if not spans:  # no-op
+        return ffmpeg.input(original)
+
     bundle = []
     for t, start, end in spans:
         real_trim = trim_audio(original, start, end)
@@ -309,7 +312,7 @@ def mix_events(
         // 1
     )
     # add on remainder to the end as if it's a blank
-    if len(spans) > 0 and spans[-1][2] < synth_dur:
+    if spans[-1][2] < synth_dur:
         bundle += [trim_audio(synth_file, spans[-1][2], synth_dur)]
     return ffmpeg.concat(*bundle, v=0, a=1)
 
