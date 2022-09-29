@@ -211,7 +211,11 @@ async def intent(
     if urls:
         entities["url"] = [url for url in urls if url.startswith("http")]
 
+    # TODO (astaff 20220929): We are doing this to avoid touching NLU deployment
+    # in anticipation of switching to something more trivial and robust.
+    # https://github.com/astaff/freespeech/pull/126#discussion_r983389246
     if "french" in text.lower():
+        logger.warn(f"Overriding NLU response: Found 'french' in '{text}'. 'fr-FR'")
         entities["language"] = ["fr-FR"]
 
     return command, entities
