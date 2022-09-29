@@ -40,12 +40,24 @@ async def test_intent():
     }
 
     intent, entities = await chat.intent(
-        "Transcribe https://docs.google.com/document/d/1O5dYFK--6jWw3GAG8D1Bb3UCKHsu8Ff4cwISO4ezG8g in English using SRT"  # noqa: E501
+        "Transcribe https://docs.google.com/document/d/1E_E9S5G4vH6MWxo3qB4itXZRcSrFeqHscMysFjen-sY/edit?usp=sharing in English using SRT"  # noqa: E501
     )
     assert intent == "transcribe"
     assert entities == {
         "url": [
-            "https://docs.google.com/document/d/1O5dYFK--6jWw3GAG8D1Bb3UCKHsu8Ff4cwISO4ezG8g"  # noqa: E501
+            "https://docs.google.com/document/d/1E_E9S5G4vH6MWxo3qB4itXZRcSrFeqHscMysFjen-sY/edit?usp=sharing"  # noqa: E501
+        ],
+        "language": ["en-US"],
+        "method": ["srt"],
+    }
+
+    intent, entities = await chat.intent(
+        "Load https://docs.google.com/document/d/1E_E9S5G4vH6MWxo3qB4itXZRcSrFeqHscMysFjen-sY/edit?usp=sharing in English using SRT"  # noqa: E501
+    )
+    assert intent == "transcribe"
+    assert entities == {
+        "url": [
+            "https://docs.google.com/document/d/1E_E9S5G4vH6MWxo3qB4itXZRcSrFeqHscMysFjen-sY/edit?usp=sharing"  # noqa: E501
         ],
         "language": ["en-US"],
         "method": ["srt"],
