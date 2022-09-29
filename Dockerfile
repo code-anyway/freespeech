@@ -24,4 +24,3 @@ VOLUME ["/root/.config", "/root/id/"]
 WORKDIR "/root/freespeech"
 
 ENTRYPOINT ["freespeech"]
-

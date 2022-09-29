@@ -1,7 +1,17 @@
+from tempfile import TemporaryDirectory
+
+import ffmpeg
 import pytest
 
 from freespeech.client import chat, client, tasks, transcript
-from freespeech.types import Error, Transcript
+from freespeech.lib import hash, media, speech
+from freespeech.lib.storage import obj
+from freespeech.types import Error, Transcript, Voice
+
+AUDIO_BLANK = "tests/lib/data/ask/audio-blank-blanked.wav"
+AUDIO_BLANK_SYNTHESIZED = "tests/lib/data/ask/audio-blank-synthesized.wav"
+AUDIO_FILL = "tests/lib/data/ask/audio-fill-filled.wav"
+AUDIO_FILL_SYNTHESIZED = "tests/lib/data/ask/audio-fill-synthesized.wav"
 
 
 @pytest.mark.asyncio
@@ -80,3 +90,116 @@ async def test_synthesize(mock_client, monkeypatch) -> None:
     assert isinstance(old_transcript, Transcript)
 
     assert transcript_dubbed.video != old_transcript.video
+
+
+@pytest.mark.asyncio
+async def test_synthesize_crop(mock_client, monkeypatch) -> None:
+    monkeypatch.setattr(client, "create", mock_client)
+    session = mock_client()
+
+    test_doc = "https://docs.google.com/document/d/1HpH-ZADbAM8AzluFWO8ZTOkEoRobAvQ13rrCsK6SU-U/edit?usp=sharing"  # noqa: E501
+
+    test_message = f"Dub {test_doc}"
+
+    task = await chat.ask(message=test_message, intent=None, state={}, session=session)
+    if isinstance(task, Error):
+        assert False, task.message
+    assert task.message == f"Dubbing {test_doc}. Stay put!"
+
+    result = await tasks.future(task, session)
+    if isinstance(result, Error):
+        assert False, result.message
+
+    with TemporaryDirectory() as tmp_dir:
+        transcript_str = await obj.get(
+            obj.storage_url(str(result.video)), dst_dir=tmp_dir
+        )
+        assert float(
+            ffmpeg.probe(transcript_str).get("format", {}).get("duration", None)
+        ) == pytest.approx(11.4, 0.12)
+
+
+@pytest.mark.asyncio
+async def test_synthesize_blank(mock_client, monkeypatch) -> None:
+    async def synthesize_events(*args, **kwargs):
+        return [
+            AUDIO_BLANK_SYNTHESIZED,
+            [
+                Voice(character="Ada", pitch=0.0, speech_rate=1.0),
+                Voice(character="Ada", pitch=0.0, speech_rate=1.0),
+            ],
+            [
+                ("blank", 0, 2000),
+                ("event", 2000, 6329),
+                ("blank", 6329, 15000),
+                ("event", 15000, 20116),
+            ],
+        ]
+
+    monkeypatch.setattr(client, "create", mock_client)
+    monkeypatch.setattr(speech, "synthesize_events", synthesize_events)
+    session = mock_client()
+
+    test_doc = "https://docs.google.com/document/d/1CvjpOs5QEe_mmAc5CEGRVNV68qDjdQipCDb2ge6OIn4/edit?usp=sharing"  # noqa: E501
+
+    test_message = f"Dub {test_doc}"
+
+    task = await chat.ask(message=test_message, intent=None, state={}, session=session)
+    if isinstance(task, Error):
+        assert False, task.message
+    assert task.message == f"Dubbing {test_doc}. Stay put!"
+
+    result = await tasks.future(task, session)
+    if isinstance(result, Error):
+        assert False, result.message
+
+    with TemporaryDirectory() as tmp_dir:
+        transcript_str = await obj.get(
+            obj.storage_url(str(result.video)), dst_dir=tmp_dir
+        )
+        downmixed_audio = await media.multi_channel_audio_to_mono(
+            transcript_str, tmp_dir
+        )
+        assert hash.file(str(downmixed_audio)) == hash.file(AUDIO_BLANK)
+
+
+@pytest.mark.asyncio
+async def test_synthesize_fill(mock_client, monkeypatch) -> None:
+    async def synthesize_events(*args, **kwargs):
+        return [
+            AUDIO_FILL_SYNTHESIZED,
+            [
+                Voice(character="Ada", pitch=0.0, speech_rate=1.0),
+                Voice(character="Ada", pitch=0.0, speech_rate=1.0),
+            ],
+            [
+                ("blank", 0, 2000),
+                ("event", 2000, 9239),
+                ("blank", 9239, 15000),
+                ("event", 15000, 21245),
+            ],
+        ]
+
+    monkeypatch.setattr(client, "create", mock_client)
+    monkeypatch.setattr(speech, "synthesize_events", synthesize_events)
+    session = mock_client()
+
+    test_doc = "https://docs.google.com/document/d/11WOfJZi8pqpj7_BLPy0uq9h1R0f_n-dJ11LPOBvPtQA/edit?usp=sharing"  # noqa: E501
+
+    test_message = f"Dub {test_doc}"
+
+    task = await chat.ask(message=test_message, intent=None, state={}, session=session)
+    if isinstance(task, Error):
+        assert False, task.message
+    assert task.message == f"Dubbing {test_doc}. Stay put!"
+
+    result = await tasks.future(task, session)
+    if isinstance(result, Error):
+        assert False, result.message
+
+    with TemporaryDirectory() as tmp_dir:
+        transcript_str = await obj.get(
+            obj.storage_url(str(result.video)), dst_dir=tmp_dir
+        )
+        downmixed_audio = await media.multi_channel_audio_to_mono(transcript_str, ".")
+        assert hash.file(str(downmixed_audio)) == hash.file(AUDIO_FILL)

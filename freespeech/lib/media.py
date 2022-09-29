@@ -1,15 +1,19 @@
 import logging
 import uuid
-from os import PathLike
+from os import PathLike, system
 from pathlib import Path
-from typing import Dict, Sequence, Tuple
+from tempfile import TemporaryDirectory
+from typing import Dict, Literal, Sequence, Tuple
 
 import ffmpeg
 
 from freespeech.lib import concurrency
-from freespeech.types import Audio, AudioEncoding, Video, VideoEncoding
+from freespeech.types import Audio, AudioEncoding, Video, VideoEncoding, assert_never
 
 logger = logging.getLogger(__name__)
+
+# either an event or lack of an event, with start & end time.
+Span = Tuple[str, int, int]
 
 
 def ffprobe_to_audio_encoding(encoding: str) -> AudioEncoding:
@@ -174,7 +178,9 @@ async def concat(clips: Sequence[str], output_dir: str | PathLike) -> Path:
 
 
 async def mix(
-    files: Sequence[str | PathLike], weights: Sequence[int], output_dir: str | PathLike
+    files: Sequence[str | PathLike],
+    weights: Sequence[int],
+    output_dir: str | PathLike,
 ) -> Path:
     """Mix multiple audio files into a single file.
 
@@ -192,18 +198,176 @@ async def mix(
 
     audio_streams = [ffmpeg.input(file).audio for file in files if file]
 
-    mixed_audio = ffmpeg.filter(
-        audio_streams,
+    mixed_audio = amix_streams(streams=audio_streams, weights=weights)
+
+    return await write_streams(
+        streams=[mixed_audio], output_dir=output_dir, extension="wav"
+    )
+
+
+def trim_audio(file: str | PathLike, start_ms: int, end_ms: int):
+    """Creates an ffmpeg stream from a file, then trims the audio
+
+    Args:
+        file: path to a local file containing audio stream.
+        start_ms: start of cut in ms.
+        end_ms: end of cut in ms.
+
+
+    Return:
+        The trimmed stream
+    """
+    audio_stream = ffmpeg.input(file).audio
+    return audio_stream.filter_(
+        "atrim", start=str(start_ms) + "ms", end=str(end_ms) + "ms"
+    )
+
+
+def trim_video(file: str | PathLike, start_ms: int, end_ms: int):
+    """Creates an ffmpeg stream from a file, then trims the video
+
+    Args:
+        file: path to a local file containing video
+        start_ms: start of cut in ms.
+        end_ms: end of cut in ms.
+
+
+    Return:
+        The trimmed stream
+    """
+    video_stream = ffmpeg.input(file)
+    return video_stream.trim(start=str(start_ms) + "ms", end=str(end_ms) + "ms")
+
+
+async def write_streams(
+    streams: list, output_dir: str | PathLike, extension: str, args={}
+) -> Path:
+    """writes a list of streams to a directory
+
+    Args:
+        streams: list of streams that'll be written to a file in output_dir
+        output_dir: directory in which the file will be created.
+        extension: file extension for the stream.
+        args: optional, dict of args to pass into ffmpeg output.
+
+
+    Return:
+        The path of the file in the directory.
+    """
+    output_file = Path(f"{new_file(output_dir)}.{extension}")
+    pipeline = ffmpeg.output(*streams, **args, filename=output_file)
+    await _run(pipeline)
+
+    return output_file
+
+
+def amix_streams(streams: list, weights: Sequence[int]):
+    return ffmpeg.filter(
+        streams,
         filter_name="amix",
         weights=" ".join(str(weight) for weight in weights),
     )
 
-    output_file = Path(f"{new_file(output_dir)}.wav")
-    pipeline = ffmpeg.output(mixed_audio, filename=output_file)
 
-    await _run(pipeline)
+def mix_spans(
+    original: str | PathLike,
+    synth_file: str | PathLike,
+    spans: list[Span],
+    weights: Sequence,
+):
+    """Mixes original and synth_file, but only between event spans, otherwise uses
+    original.
 
-    return output_file
+    Args:
+        original: path to file /w original sound,
+        synth_file: path to file /w dub,
+        spans: spans with events and blanks,
+        weights: real_weight, synth_weight,
+
+
+    Return:
+        A stream with everything mixed and concatenated.
+    """
+
+    if not spans:  # no-op
+        return ffmpeg.input(original)
+
+    bundle = []
+    for t, start, end in spans:
+        real_trim = trim_audio(original, start, end)
+        match t:
+            case "event":
+                synth_trim = trim_audio(synth_file, start, end)
+                bundle += [
+                    amix_streams(
+                        streams=[real_trim, synth_trim],
+                        weights=weights,
+                    )
+                ]
+            case "blank":
+                bundle += [real_trim]
+
+    synth_dur = int(
+        (float(ffmpeg.probe(synth_file).get("format", {}).get("duration", None)) * 1000)
+        // 1
+    )
+    # add on remainder to the end as if it's a blank
+    if spans[-1][2] < synth_dur:
+        bundle += [trim_audio(synth_file, spans[-1][2], synth_dur)]
+    return ffmpeg.concat(*bundle, v=0, a=1)
+
+
+async def keep_events(
+    file: str | PathLike,
+    spans: list[Span],
+    output_dir: str | PathLike,
+    mode: Literal["video", "audio", "both"],
+) -> Path:
+    """Slices out the events in spans, then concatenates them.
+
+    Args:
+        file: path to the video and/or audio file,
+        spans: spans with events and blanks, only events will be cut out tho,
+        output_dir: directory in which the output file will be generated
+
+
+    Return:
+        Path to the concatenated file.
+    """
+    pts = "PTS-STARTPTS"  # sets the starting point of each slice to 0
+    extension = ".wav" if mode == "audio" else ".mp4"
+    event_spans = [span for span in spans if span[0] == "event"]
+    with TemporaryDirectory() as temp:
+        bundle = []
+        for _, start_ms, end_ms in event_spans:
+            # i haven't slept in 24 hrs
+            match mode:
+                case "video":
+                    trimmed = trim_video(file, start_ms, end_ms).setpts(pts)
+                case "audio":
+                    trimmed = trim_audio(file, start_ms, end_ms).filter_("asetpts", pts)
+                case "both":
+                    v_trim = trim_video(file, start_ms, end_ms).setpts(pts)
+                    a_trim = trim_audio(file, start_ms, end_ms).filter_("asetpts", pts)
+                    trimmed = ffmpeg.concat(v_trim, a_trim, v=1, a=1)
+                case never:
+                    assert_never(never)
+            trimmed_clip = await write_streams(
+                [trimmed],
+                output_dir=temp,
+                extension=extension,
+            )
+            bundle += [f"file '{trimmed_clip}'\n"]
+
+        # caveman mode
+        clip_list = str(new_file(temp)) + ".txt"
+
+        with open(clip_list, "w", encoding="utf-8") as f:
+            f.writelines(bundle)
+        output_file = str(new_file(output_dir)) + extension
+        system(f"ffmpeg -f concat -safe 0 -i {clip_list} {output_file}")
+
+    return Path(output_file)
 
 
 async def dub(
