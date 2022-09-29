@@ -309,7 +309,7 @@ def mix_events(
         // 1
     )
     # add on remainder to the end as if it's a blank
-    if spans[-1][2] < synth_dur:
+    if len(spans) > 0 and spans[-1][2] < synth_dur:
         bundle += [trim_audio(synth_file, spans[-1][2], synth_dur)]
     return ffmpeg.concat(*bundle, v=0, a=1)
 
