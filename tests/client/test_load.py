@@ -57,7 +57,6 @@ async def test_load_srt_from_gdoc(mock_client, monkeypatch) -> None:
             assert False, result.message
 
         first, *_, last = result.events
-        print(result.events)
         assert first == Event(
             time_ms=8484,
             chunks=["Inspired by Astrid Lindgren's", "fairy", "tale."],
