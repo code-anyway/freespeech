@@ -1,8 +1,10 @@
 import logging
 import re
+import uuid
 from dataclasses import replace
 from typing import Sequence
 
+import aiohttp
 import deepl
 from google.cloud import translate as translate_api
 
@@ -73,7 +75,49 @@ _deep_l_target_languages = [
 ]
 
 
-def translate_google(text: str, source: str, target: str) -> str:
+async def translate_azure(text: str, source: str, target: str) -> str:
+    if source == target:
+        return text
+
+    if not text:
+        return text
+
+    # key = env.get_azure_translation_key()
+    endpoint = "https://api.cognitive.microsofttranslator.com"
+
+    key, location = env.get_azure_config()
+
+    path = "/translate"
+    constructed_url = endpoint + path
+
+    params = {"api-version": "3.0", "from": source, "to": [target]}
+
+    headers = {
+        "Ocp-Apim-Subscription-Key": key,
+        "Ocp-Apim-Subscription-Region": location,
+        "Content-type": "application/json",
+        "X-ClientTraceId": str(uuid.uuid4()),
+    }
+
+    # You can pass more than one object in body.
+    body = [{"text": text}]
+
+    async with aiohttp.ClientSession() as client:
+        async with client.post(
+            constructed_url, params=params, headers=headers, json=body
+        ) as response:
+            result = await response.json()
+
+            if response.ok:
+                print(result)
+                return result[0]["translations"][0]["text"]
+            else:
+                raise RuntimeError(
+                    f"Error making call to Azure Translation: {str(result)}"
+                )
+
+
+async def translate_google(text: str, source: str, target: str) -> str:
     if source == target:
         return text
 
@@ -114,7 +158,7 @@ def deep_l_supported(source: str, target: str) -> bool:
     )
 
 
-def translate_deep_l(text: str, source: str, target: str) -> str:
+async def translate_deep_l(text: str, source: str, target: str) -> str:
     """
     Translate text with deepL https://www.deepl.com/en/translator
     Args:
@@ -149,7 +193,7 @@ def translate_deep_l(text: str, source: str, target: str) -> str:
     return re.sub(r"<t>\s*(\d+(\.\d+)?)+\s*</t>", r"#\1#", result.text)
 
 
-def translate_events(
+async def translate_events(
     events: Sequence[Event], source: str, target: str
 ) -> Sequence[Event]:
 
@@ -161,11 +205,16 @@ def translate_events(
             f"Translating chunk with google (fallback), "
             f"language pair {source} to {target}"
         )
-        translate_func = translate_google
+        if target != "ta-IN":
+            translate_func = translate_google
+        else:
+            translate_func = translate_azure
     return [
         replace(
             event,
-            chunks=[translate_func(text, source, target) for text in event.chunks],
+            chunks=[
+                await translate_func(text, source, target) for text in event.chunks
+            ],
         )
         for event in events
     ]

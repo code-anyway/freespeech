@@ -130,6 +130,15 @@ def get_azure_config() -> tuple[str, str]:
 
 
 @functools.cache
+def get_azure_translation_key() -> str:
+    azure_translation_key = os.environ.get("AZURE_TRANSLATION_KEY", None)
+
+    if not azure_translation_key:
+        raise RuntimeError("AZURE_TRANSLATION_KEY is not set.")
+    return azure_translation_key
+
+
+@functools.cache
 def get_azure_conversations_token() -> str:
     token = os.environ.get("AZURE_CONVERSATIONS_TOKEN", None)
 
