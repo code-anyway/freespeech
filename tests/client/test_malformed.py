@@ -1,7 +1,7 @@
 import pytest
 from pydantic.json import pydantic_encoder
 
-from freespeech.client import client
+from freespeech.client import client, errors
 
 
 @pytest.mark.asyncio
@@ -12,5 +12,5 @@ async def test_malformed(mock_client, monkeypatch) -> None:
     async with session.post(
         "/api/transcript/save", json=pydantic_encoder({"hello"})
     ) as resp:
-        if resp.ok and resp.status != 299:
+        if errors.ok(resp):
             assert False

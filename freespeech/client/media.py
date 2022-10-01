@@ -5,6 +5,7 @@ import aiohttp
 from pydantic.json import pydantic_encoder
 
 from freespeech.client.client import save_stream_to_blob
+from freespeech.client.errors import ok
 from freespeech.client.tasks import Task
 from freespeech.types import Error, IngestRequest, IngestResponse
 
@@ -33,7 +34,7 @@ async def ingest(
         async with session.post("/api/media/ingest", data=writer) as resp:
             result = await resp.json()
 
-            if resp.ok and resp.status != 299:
+            if ok(resp):
                 return Task[IngestResponse](**result)
             else:
                 return Error(**result)

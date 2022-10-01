@@ -5,6 +5,7 @@ import aiohttp
 from pydantic.json import pydantic_encoder
 
 from freespeech.client.client import save_stream_to_blob
+from freespeech.client.errors import ok
 from freespeech.client.tasks import Task
 from freespeech.types import (
     Error,
@@ -90,7 +91,7 @@ async def load(
         async with session.post("/api/transcript/load", data=writer) as resp:
             result = await resp.json()
 
-            if resp.ok and resp.status != 299:
+            if ok(resp):
                 return Task[Transcript](**result)
             else:
                 return Error(**result)
@@ -107,7 +108,7 @@ async def synthesize(
         "/api/transcript/synthesize", json=pydantic_encoder(request)
     ) as resp:
         result = await resp.json()
-        if resp.ok and resp.status != 299:
+        if ok(resp):
             return Task[Transcript](**result)
         else:
             return Error(**result)
@@ -122,7 +123,7 @@ async def translate(
         "/api/transcript/translate", json=pydantic_encoder(request)
     ) as resp:
         result = await resp.json()
-        if resp.ok and resp.status != 299:
+        if ok(resp):
             return Task[Transcript](**result)
         else:
             return Error(**result)
@@ -140,7 +141,7 @@ async def save(
         "/api/transcript/save", json=pydantic_encoder(request)
     ) as resp:
         result = await resp.json()
-        if resp.ok and resp.status != 299:
+        if ok(resp):
             return Task[SaveResponse](**result)
         else:
             return Error(**result)

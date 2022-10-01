@@ -155,6 +155,5 @@ async def _build_request(
             raise NotImplementedError("Stream upload via multipart not supported now")
     else:
         params = await web_request.json()
-    print(params)
     assert params is not None
     return request_type(**params)
