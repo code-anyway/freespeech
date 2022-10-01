@@ -95,7 +95,7 @@ async def _synthesize(
     input = await _transcript(request.transcript, session)
 
     with TemporaryDirectory() as tmp_dir:
-        synth_file, _ = await speech.synthesize_events(
+        synth_file, _, spans = await speech.synthesize_events(
             events=input.events,
             lang=input.lang,
             output_dir=tmp_dir,
@@ -106,18 +106,45 @@ async def _synthesize(
             mono_audio = await media_ops.multi_channel_audio_to_mono(
                 audio_file, output_dir=tmp_dir
             )
-            synth_file = await media_ops.mix(
-                files=(mono_audio, synth_file),
-                weights=(input.settings.original_audio_level, 10),
-                output_dir=tmp_dir,
-            )
-
+            match input.settings.space_between_events:
+                case "Fill" | "Crop":
+                    # has side effects :(
+                    synth_file = await media_ops.mix(
+                        files=(mono_audio, synth_file),
+                        weights=(input.settings.original_audio_level, 10),
+                        output_dir=tmp_dir,
+                    )
+                    if input.settings.space_between_events == "Crop":
+                        synth_file = await media_ops.keep_events(
+                            file=synth_file,
+                            spans=spans,
+                            output_dir=tmp_dir,
+                            mode="audio",
+                        )
+                case "Blank":
+                    synth_stream = media_ops.mix_spans(
+                        original=mono_audio,
+                        synth_file=synth_file,
+                        spans=spans,
+                        weights=(input.settings.original_audio_level, 10),
+                    )
+                    synth_file = await media_ops.write_streams(
+                        streams=[synth_stream], output_dir=tmp_dir, extension="wav"
+                    )
+                    # writes only here ^
         with open(synth_file, "rb") as file:
             audio_url = (await _ingest(file, str(synth_file), session)).audio
 
         video_url = None
         if input.video:
             video_file = await obj.get(obj.storage_url(input.video), dst_dir=tmp_dir)
+
+            if input.settings.space_between_events == "Crop":
+                video_file = str(
+                    await media_ops.keep_events(
+                        file=video_file, spans=spans, output_dir=tmp_dir, mode="both"
+                    )
+                )
 
             dub_file = await media_ops.dub(
                 video=video_file, audio=synth_file, output_dir=tmp_dir
@@ -216,11 +243,20 @@ async def _load(
             )
             return _normalize_speech(result, method=TRANSCRIPT_NORMALIZATION)
         case "SRT":
-            if not stream:
-                raise ValueError(f"Need a binary stream for {request.method}.")
             if request.lang is None:
                 raise ValueError("Language is not set")
-            text = stream.read()
+
+            if isinstance(source, str) and source.startswith(
+                "https://docs.google.com/document/d/"
+            ):
+                _, text = gdocs.extract(source)
+            elif stream is not None:
+                text = str(stream.read())
+            else:
+                raise ValueError(
+                    f"Need a binary stream or a gdoc url for {request.method}."
+                )
+
             assert isinstance(text, str)
             events = transcript.srt_to_events(text)
             return Transcript(
@@ -233,7 +269,7 @@ async def _load(
                 raise ValueError(f"Need a binary stream for {request.method}.")
             if request.lang is None:
                 raise ValueError("Language is not set")
-            text = stream.read()
+            text = str(stream.read())
             assert isinstance(text, str)
             events = transcript.parse_events(text)
             return Transcript(

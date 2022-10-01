@@ -5,12 +5,20 @@ from freespeech.lib.storage import obj
 
 VIDEO_RU = "tests/lib/data/media/ru-RU.mp4"
 VIDEO_EN = "tests/lib/data/media/en-US.mp4"
+VIDEO_POTATO = "tests/lib/data/media/potato-video.mp4"
+VIDEO_CROPPED_POTATO = "tests/lib/data/media/cropped-potato-video.mp4"
+AUDIO_CROPPED_POTATO = "tests/lib/data/media/cropped-potato-audio.wav"
+
 AUDIO_RU = "tests/lib/data/media/ru-RU-mono.wav"
 AUDIO_EN = "tests/lib/data/media/en-US-mono.wav"
 AUDIO_MIX_RU_EN = "tests/lib/data/media/mix-ru-RU-1-en-US-10.wav"
 AUDIO_DUB_EN_RU = "tests/lib/data/media/dub-en-US-ru-RU.mp4"
 
 AUDIO_RU_GS = "gs://freespeech-tests/test_media/ru-RU-mono.wav"
+AUDIO_POTATO = "tests/lib/data/media/dubstep-audio.mp3"
+AUDIO_DUBSTEP = "tests/lib/data/media/potato-audio.mp3"
+AUDIO_MIX_DUBSTEP_POTATO = "tests/lib/data/media/mix-dubstep-potato.wav"
+AUDIO_MIX_DUBSTEP_POTATO_NOOP = "tests/lib/data/media/mix-dubstep-audio-noop.wav"
 
 
 @pytest.mark.asyncio
@@ -48,6 +56,69 @@ async def test_mix(tmp_path):
     weights = (1, 10)
     output = await media.mix(files=files, weights=weights, output_dir=tmp_path)
     assert hash.file(output) == hash.file(AUDIO_MIX_RU_EN)
+
+
+@pytest.mark.asyncio
+async def test_mix_spans(tmp_path):
+    weights = (3, 10)
+    synth_stream = media.mix_spans(
+        original=AUDIO_DUBSTEP,
+        synth_file=AUDIO_POTATO,
+        spans=[
+            ("blank", 0, 5000),
+            ("event", 5000, 10000),
+            ("blank", 10000, 20000),
+        ],
+        weights=weights,
+    )
+    synth_file = await media.write_streams(
+        streams=[synth_stream], output_dir=tmp_path, extension="wav"
+    )
+    assert hash.file(synth_file) == hash.file(AUDIO_MIX_DUBSTEP_POTATO)
+
+    # still op :(
+    synth_stream = media.mix_spans(
+        original=AUDIO_DUBSTEP,
+        synth_file=AUDIO_POTATO,
+        spans=[],
+        weights=weights,
+    )
+    synth_file = await media.write_streams(
+        streams=[synth_stream], output_dir=tmp_path, extension="wav"
+    )
+
+    assert hash.file(synth_file) == hash.file(AUDIO_MIX_DUBSTEP_POTATO_NOOP)
+
+
+@pytest.mark.asyncio
+async def test_keep_events(tmp_path):
+    # both
+    out = await media.keep_events(
+        file=VIDEO_POTATO,
+        spans=[
+            ("event", 1000, 10000),
+            ("blank", 10000, 15000),
+            ("event", 15000, 20000),
+        ],
+        output_dir=tmp_path,
+        mode="both",
+    )
+    # assert hash.file(out) == hash.file(VIDEO_CROPPED_POTATO)
+    assert media.probe(out)[0][0].duration_ms == pytest.approx(14047, 16)
+    assert media.probe(out)[1][0].duration_ms == pytest.approx(14047, 16)
+
+    # just audio
+    out = await media.keep_events(
+        file=VIDEO_POTATO,
+        spans=[
+            ("event", 1000, 10000),
+            ("blank", 10000, 15000),
+            ("event", 15000, 20000),
+        ],
+        output_dir=tmp_path,
+        mode="audio",
+    )
+    assert media.probe(out)[0][0].duration_ms == pytest.approx(14000, 16)
 
 
 @pytest.mark.asyncio

@@ -38,6 +38,40 @@ async def test_load_srt(mock_client, monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_load_srt_from_gdoc(mock_client, monkeypatch) -> None:
+    monkeypatch.setattr(client, "create", mock_client)
+    session = mock_client()
+    # session = client.create()
+
+    async with session:
+        task = await transcript.load(
+            source="https://docs.google.com"
+            "/document/d/1E_E9S5G4vH6MWxo3qB4itXZRcSrFeqHscMysFjen-sY"
+            "/edit?usp=sharing",
+            method="SRT",
+            lang="en-US",
+            session=session,
+        )
+        result = await tasks.future(task, session)
+        if isinstance(result, Error):
+            assert False, result.message
+
+        first, *_, last = result.events
+        assert first == Event(
+            time_ms=8484,
+            chunks=["Inspired by Astrid Lindgren's", "fairy", "tale."],
+            duration_ms=5205,
+            voice=Voice(character="Ada", pitch=0.0, speech_rate=1.0),
+        )
+        assert last == Event(
+            time_ms=15383,
+            chunks=["Karlsson and The Kid"],
+            duration_ms=4373,
+            voice=Voice(character="Ada", pitch=0.0, speech_rate=1.0),
+        )
+
+
+@pytest.mark.asyncio
 async def test_load_ssmd(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
     session = mock_client()

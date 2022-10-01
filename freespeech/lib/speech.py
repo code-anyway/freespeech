@@ -58,54 +58,72 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "ru-RU": ("Google", "ru-RU-Wavenet-E"),
         "pt-PT": ("Google", "pt-PT-Wavenet-D"),
         "pt-BR": ("Google", "pt-BR-Wavenet-A"),
-        "de-DE": ("Google", "de-DE-Wavenet-C"),
+        "de-DE": ("Azure", "de-DE-KatjaNeural"),
         "es-US": ("Google", "es-US-Wavenet-A"),
         "uk-UA": ("Google", "uk-UA-Wavenet-A"),
+        "es-MX": ("Azure", "es-MX-LarissaNeural"),
+        "es-ES": ("Google", "es-ES-Wavenet-D"),
+        "fr-FR": ("Azure", "fr-FR-YvetteNeural"),
     },
     "Grace": {
         "en-US": ("Google", "en-US-Wavenet-C"),
         "ru-RU": ("Google", "ru-RU-Wavenet-C"),
         "pt-PT": ("Google", "pt-PT-Wavenet-A"),
         "pt-BR": ("Google", "pt-BR-Wavenet-C"),
-        "de-DE": ("Google", "de-DE-Wavenet-F"),
+        "de-DE": ("Azure", "de-DE-TanjaNeural"),
         "es-US": ("Google", "es-US-Wavenet-A"),
         "uk-UA": ("Google", "uk-UA-Wavenet-A"),
+        "es-MX": ("Azure", "es-MX-RenataNeural"),
+        "es-ES": ("Google", "es-ES-Wavenet-C"),
+        "fr-FR": ("Azure", "fr-FR-JacquelineNeural"),
     },
     "Alan": {
         "en-US": ("Google", "en-US-Wavenet-I"),
         "ru-RU": ("Google", "ru-RU-Wavenet-D"),
         "pt-PT": ("Google", "pt-PT-Wavenet-C"),
         "pt-BR": ("Google", "pt-BR-Wavenet-B"),
-        "de-DE": ("Google", "de-DE-Wavenet-B"),
+        "de-DE": ("Azure", "de-DE-ConradNeural"),
         "es-US": ("Google", "es-US-Wavenet-B"),
         "uk-UA": ("Azure", "uk-UA-OstapNeural"),
+        "es-MX": ("Azure", "es-MX-GerardoNeural"),
+        "es-ES": ("Google", "es-ES-Wavenet-B"),
+        "fr-FR": ("Azure", "fr-FR-HenriNeural"),
     },
     "Alonzo": {
         "en-US": ("Google", "en-US-Wavenet-D"),
         "ru-RU": ("Google", "ru-RU-Wavenet-B"),
         "pt-PT": ("Google", "pt-PT-Wavenet-B"),
         "pt-BR": ("Google", "pt-BR-Wavenet-B"),
-        "de-DE": ("Google", "de-DE-Wavenet-D"),
+        "de-DE": ("Azure", "de-DE-KasperNeural"),
         "es-US": ("Google", "es-US-Wavenet-C"),
         "uk-UA": ("Azure", "uk-UA-OstapNeural"),
+        "es-MX": ("Azure", "es-MX-CecilioNeural"),
+        "es-ES": ("Google", "es-ES-Standard-B"),
+        "fr-FR": ("Azure", "fr-FR-YvesNeural"),
     },
     "Bill": {
         "en-US": ("Azure", "en-US-ChristopherNeural"),
         "ru-RU": ("Azure", "ru-RU-DmitryNeural"),
         "pt-PT": ("Azure", "pt-PT-DuarteNeural"),
         "pt-BR": ("Azure", "pt-BR-JulioNeural"),
-        "de-DE": ("Azure", "de-DE-ConradNeural"),
+        "de-DE": ("Azure", "de-DE-ChristophNeural"),
         "es-US": ("Azure", "es-US-AlonsoNeural"),
         "uk-UA": ("Azure", "uk-UA-OstapNeural"),
+        "es-MX": ("Azure", "es-MX-JorgeNeural"),
+        "es-ES": ("Azure", "es-ES-AlvaroNeural"),
+        "fr-FR": ("Azure", "fr-FR-ClaudeNeural"),
     },
     "Melinda": {
         "ru-RU": ("Azure", "ru-RU-DariyaNeural"),
         "en-US": ("Azure", "en-US-JennyNeural"),
         "pt-PT": ("Azure", "pt-PT-RaquelNeural"),
         "pt-BR": ("Azure", "pt-BR-FranciscaNeural"),
-        "de-DE": ("Azure", "de-DE-KlarissaNeural"),
+        "de-DE": ("Azure", "de-DE-ElkeNeural"),
         "es-US": ("Azure", "es-US-PalomaNeural"),
         "uk-UA": ("Azure", "uk-UA-PolinaNeural"),
+        "es-MX": ("Azure", "es-MX-CarlotaNeural"),
+        "es-ES": ("Azure", "es-ES-ElviraNeural"),
+        "fr-FR": ("Azure", "fr-FR-DeniseNeural"),
     },
     "Greta": {
         "ru-RU": ("Azure", "ru-RU-SvetlanaNeural"),
@@ -115,6 +133,9 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "de-DE": ("Azure", "de-DE-GiselaNeural"),
         "es-US": ("Azure", "es-US-PalomaNeural"),
         "uk-UA": ("Azure", "uk-UA-PolinaNeural"),
+        "es-MX": ("Azure", "es-MX-NuriaNeural"),
+        "es-ES": ("Azure", "es-ES-ElviraNeural"),
+        "fr-FR": ("Azure", "fr-FR-EloiseNeural"),
     },
 }
 
@@ -612,14 +633,16 @@ async def synthesize_events(
     events: Sequence[Event],
     lang: Language,
     output_dir: Path | str,
-) -> Tuple[Path, Sequence[Voice]]:
+) -> Tuple[Path, Sequence[Voice], list[media.Span]]:
     output_dir = Path(output_dir)
     current_time_ms = 0
     clips = []
     voices = []
+    spans = []
 
     for event in events:
         padding_ms = event.time_ms - current_time_ms
+        spans += [("blank", current_time_ms, event.time_ms)]
         text = " ".join(event.chunks)
         clip, voice = await synthesize_text(
             text=text,
@@ -636,12 +659,13 @@ async def synthesize_events(
 
         clips += [(padding_ms, clip)]
         current_time_ms = event.time_ms + audio.duration_ms
+        spans += [("event", event.time_ms, current_time_ms)]
 
         voices += [voice]
 
     output_file = await media.concat_and_pad(clips, output_dir)
 
-    return output_file, voices
+    return output_file, voices, spans
 
 
 def concat_events(e1: Event, e2: Event, break_sentence: bool) -> Event:

@@ -169,13 +169,20 @@ async def test_synthesize_events(tmp_path) -> None:
         ),
     ]
 
-    output, voices = await speech.synthesize_events(
+    output, voices, spans = await speech.synthesize_events(
         events=events, lang="en-US", output_dir=tmp_path
     )
     (audio, *_), _ = media.probe(output)
 
     eps = 100
     assert abs(audio.duration_ms - 7000) < eps
+    # is this deterministic?
+    assert spans == [
+        ("blank", 0, 1000),
+        ("event", 1000, 2975),
+        ("blank", 2975, 5000),
+        ("event", 5000, 7027),
+    ]
 
     downmixed_local = await media.multi_channel_audio_to_mono(
         output, output_dir=tmp_path
@@ -213,9 +220,10 @@ async def test_synthesize_events(tmp_path) -> None:
         ),
     ]
 
-    output, voices = await speech.synthesize_events(
+    output, voices, spans = await speech.synthesize_events(
         events=events, lang="en-US", output_dir=tmp_path
     )
+    assert spans == [("blank", 0, 5000), ("event", 5000, 5000)]
     (audio, *_), _ = media.probe(output)
 
 
@@ -248,7 +256,7 @@ async def test_synthesize_long_event(tmp_path) -> None:
         voice=Voice(character="Alan"),
     )
 
-    _, voices = await speech.synthesize_events(
+    _, voices, _ = await speech.synthesize_events(
         events=[event_en_us],
         lang="en-US",
         output_dir=tmp_path,
@@ -367,7 +375,7 @@ async def test_synthesize_azure(tmp_path) -> None:
         voice=Voice("Bill"),
     )
 
-    _, voices = await speech.synthesize_events(
+    _, voices, _ = await speech.synthesize_events(
         events=[event_en_us],
         lang="en-US",
         output_dir=tmp_path,
