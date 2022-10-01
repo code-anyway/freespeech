@@ -7,7 +7,7 @@ import pytest_asyncio
 from aiohttp import ClientResponseError, web
 from aiohttp.pytest_plugin import AiohttpClient
 
-from freespeech.api.errors import bad_request
+from freespeech.api.errors import input_error
 from freespeech.api.middleware import error_handler_middleware
 from freespeech.client.errors import _raise_if_error
 from freespeech.types import Error
@@ -100,10 +100,10 @@ async def test_downstream_http_error(client):
         assert e.message == "Not Found"
 
 
-def test_bad_request_formatting():
+def test_input_error_formatting():
     e = Error(message="Test error", details="This is extra details")
-    http_error = bad_request(e)
-    assert http_error.status == 400
+    http_error = input_error(e)
+    assert http_error.status == 299
     assert (
         http_error.text
         == '{"message": "Test error", "details": "This is extra details"}'

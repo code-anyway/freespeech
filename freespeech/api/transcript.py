@@ -362,7 +362,7 @@ async def translate(web_request: web.Request) -> web.Response:
         response = await _translate(request=TranslateRequest(**params))
         return web.json_response(pydantic_encoder(response))
     except (ValidationError, ValueError) as e:
-        raise errors.bad_request(Error(message=str(e)))
+        raise errors.input_error(Error(message=str(e)))
 
 
 @routes.post("/transcript/synthesize")
@@ -375,7 +375,7 @@ async def synthesize(web_request: web.Request) -> web.Response:
         )
         return web.json_response(pydantic_encoder(response))
     except (ValidationError, ValueError) as e:
-        raise errors.bad_request(Error(message=str(e)))
+        raise errors.input_error(Error(message=str(e)))
 
 
 @routes.post("/transcript/save")
@@ -386,7 +386,7 @@ async def save(web_request: web.Request) -> web.Response:
         response = await _save(request=SaveRequest(**params))
         return web.json_response(pydantic_encoder(response))
     except (ValidationError, ValueError) as e:
-        raise errors.bad_request(Error(message=str(e)))
+        raise errors.input_error(Error(message=str(e)))
 
 
 @routes.post("/transcript/load")
@@ -413,6 +413,6 @@ async def load(web_request: web.Request) -> web.Response:
             )
 
     except (ValidationError, ValueError) as e:
-        raise errors.bad_request(Error(message=str(e)))
+        raise errors.input_error(Error(message=str(e)))
 
     return web.json_response(pydantic_encoder(response))

@@ -99,9 +99,11 @@ async def _handler(
     try:
         request = await _build_request(request_type, web_request)
     except NotImplementedError as e:
-        raise errors.bad_request(Error(message=str(e)))
+        raise errors.input_error(Error(message=str(e)))
     except ValidationError as e:
-        raise errors.bad_request(Error(message=str(e)))
+        raise errors.input_error(Error(message=str(e)))
+    except TypeError as e:
+        raise errors.input_error(Error(message=str(e)))
 
     task = await schedule_fn(
         web_request.method,
