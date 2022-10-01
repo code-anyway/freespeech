@@ -4,6 +4,7 @@ import logging
 import aiohttp
 from aiohttp import ClientResponseError, web
 
+from freespeech.api import errors
 from freespeech.lib.storage import doc
 
 logger = logging.getLogger(__name__)
@@ -38,8 +39,11 @@ async def error_handler_middleware(request, handler):
     try:
         resp = await handler(request)
         return resp
-    except (AttributeError, NameError, ValueError, PermissionError, RuntimeError) as e:
+    except (AttributeError, NameError, ValueError, PermissionError) as e:
         logger.warning(f"User input error: {e}", exc_info=e)
+        raise errors.input_error(e)
+    except (RuntimeError) as e:
+        logger.warning(f"Runtime Error, maybe due to user input: {e}", exc_info=e)
         raise web.HTTPBadRequest(text=str(e)) from e
     except ClientResponseError as e:
         logger.warning(f"Downstream api call error: {e}", exc_info=e)
