@@ -1,0 +1,8 @@
+#!/usr/bin/env python3
+import os
+import sys
+
+ret = os.system("make quality")
+if ret != 0:
+    print("[pre-commit hook]: An attempted commit didn't pass the style quality check. Run 'make style' to autoformat the files.")
+    sys.exit(1)
