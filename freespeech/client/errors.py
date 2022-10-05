@@ -1,3 +1,5 @@
+import json
+
 from aiohttp import ClientResponse, ClientResponseError
 
 
@@ -9,13 +11,23 @@ async def _raise_if_error(resp) -> None:
     """
     if ok(resp):
         return
-    error_message = await resp.text()
-    raise ClientResponseError(
-        status=resp.status,
-        request_info=resp.request_info,
-        message=error_message,
-        history=resp.history,
-    )
+
+    t = await resp.text()
+    try:
+        info = json.loads(t)
+        raise ClientResponseError(
+            status=resp.status,
+            request_info=resp.request_info,
+            message=info.get("message", t),
+            history=resp.history,
+        )
+    except json.decoder.JSONDecodeError:
+        raise ClientResponseError(
+            status=resp.status,
+            request_info=resp.request_info,
+            message=t,
+            history=resp.history,
+        )
 
 
 def ok(resp: ClientResponse):

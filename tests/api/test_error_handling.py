@@ -35,6 +35,10 @@ async def webapp(aiohttp_server, aiohttp_client):
     async def make_unhandled_exception(request):
         raise TypeError("Just an unhandled error - should be 500")
 
+    @routes.get("/runtime_error")
+    async def make_runtime_error(request):
+        raise RuntimeError("Runtime error - should be 400")
+
     @routes.get("/downstream_client_error")
     async def make_downstream_client_error(request):
         async with aiohttp.ClientSession() as session:
@@ -61,13 +65,13 @@ async def test_success(client):
 
 
 @pytest.mark.asyncio
-async def test_handled_exception_should_be_4XX(client):
+async def test_handled_exception_should_be_299(client):
     resp = await client.get("/handled_exception")
     try:
         await _raise_if_error(resp)
         assert False, "Should have raised an exception"
     except ClientResponseError as e:
-        assert e.status == 400
+        assert e.status == 299
         assert e.message == "Handled exception. Some user message."
 
     result = await client.get("permission_error")
@@ -75,8 +79,19 @@ async def test_handled_exception_should_be_4XX(client):
         await _raise_if_error(result)
         assert False, "Should have raised an exception"
     except ClientResponseError as e:
-        assert e.status == 400
+        assert e.status == 299
         assert e.message == "Permissions not enough"
+
+
+@pytest.mark.asyncio
+async def test_retryable_exception_should_be_4XX(client):
+    resp = await client.get("/runtime_error")
+    try:
+        await _raise_if_error(resp)
+        assert False, "Should have raised an exception"
+    except ClientResponseError as e:
+        assert e.status == 400
+        assert e.message == "Runtime error - should be 400"
 
 
 @pytest.mark.asyncio
@@ -102,9 +117,6 @@ async def test_downstream_http_error(client):
 
 def test_input_error_formatting():
     e = Error(message="Test error", details="This is extra details")
-    http_error = input_error(e)
-    assert http_error.status == 299
-    assert (
-        http_error.text
-        == '{"message": "Test error", "details": "This is extra details"}'
-    )
+    ie = input_error(e)
+    assert ie.status == 299
+    assert ie.text == '{"message": "Test error", "details": "This is extra details"}'
