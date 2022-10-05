@@ -24,6 +24,8 @@ cd freespeech
 1. Copy `.env` file into `/`
 2. `mkdir id` and copy credentials (Google, etc) to `id/`
 
+### Setup Git hooks
+Run `bin/copy_hooks.sh`
 
 ### Common tasks
 
