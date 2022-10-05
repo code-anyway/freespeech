@@ -18,7 +18,7 @@ async def _raise_if_error(resp) -> None:
         raise ClientResponseError(
             status=resp.status,
             request_info=resp.request_info,
-            message=info["message"],
+            message=info.get("message", t),
             history=resp.history,
         )
     except json.decoder.JSONDecodeError:
