@@ -1,4 +1,5 @@
 import difflib
+import functools
 import re
 from itertools import groupby, zip_longest
 from typing import Iterator, Sequence, Tuple
@@ -93,6 +94,41 @@ def remove_symbols(s: str, symbols: str) -> str:
     return str.translate(s, t)
 
 
+@functools.cache
+def _nlp(lang: Language):
+    match lang:
+        case "en-US":
+            nlp = spacy.load("en_core_web_sm")
+        case "de-DE":
+            nlp = spacy.load("de_core_news_sm")
+        case "pt-PT" | "pt-BR":
+            nlp = spacy.load("pt_core_news_sm")
+        case "es-US":
+            nlp = spacy.load("es_core_news_sm")
+        case "uk-UA":
+            nlp = spacy.load("uk_core_news_sm")
+        case "ru-RU":
+            nlp = spacy.load("ru_core_news_sm")
+        case never:
+            assert_never(never)
+
+    return nlp
+
+
+def words(text: str, lang: Language) -> Sequence[str]:
+    """Returns words from text.
+
+    Args:
+        text: Paragraph of text with one or more sentences.
+
+    Returns:
+        Sequence of words as strings.
+    """
+    nlp = _nlp(lang=lang)
+    doc = nlp(text)
+    return [token.text for token in doc if token.pos_ not in {"PUNCT", "SYM", "X"}]
+
+
 def _break_phrase(
     text: str,
     words: Sequence[Tuple[str, int, int]],
@@ -101,7 +137,7 @@ def _break_phrase(
     """Breaks down a single phrase into separate sentences with start time and duration.
 
     Args:
-        text: Paragraph of text with one ore more sentences.
+        text: Paragraph of text with one or more sentences.
         words: Sequence of tuples representing a single word from the phrase,
             it's start time and duration.
         nlp: Instance of Spacy language model.
@@ -176,23 +212,7 @@ def break_speech(
     Returns:
         Sequence of tuples representing a sentence, it's start time and duration.
     """
-
-    match lang:
-        case "en-US":
-            nlp = spacy.load("en_core_web_sm")
-        case "de-DE":
-            nlp = spacy.load("de_core_news_sm")
-        case "pt-PT" | "pt-BR":
-            nlp = spacy.load("pt_core_news_sm")
-        case "es-US":
-            nlp = spacy.load("es_core_news_sm")
-        case "uk-UA":
-            nlp = spacy.load("uk_core_news_sm")
-        case "ru-RU":
-            nlp = spacy.load("ru_core_news_sm")
-        case never:
-            assert_never(never)
-
+    nlp = _nlp(lang)
     return [
         Event(time_ms=start, duration_ms=duration, chunks=[text])
         for text, start, duration in sum(

@@ -449,3 +449,14 @@ async def test_azure_speech_quality():
         assert audio.num_channels == 1
         assert audio.sample_rate_hz == 44100
         assert audio.encoding == "LINEAR16"
+
+
+def test_wpm():
+    assert speech.wpm("Hello world!", 60_000, lang="en-US") == 2
+    assert speech.wpm("Hello world!", 120_000, lang="en-US") == 1
+
+
+def test_extract_pauses():
+    assert speech.extract_pauses("Hello #0.5# world!") == ("Hello  world!", 500)
+    assert speech.extract_pauses("Hello #0.5# world! #0.5#") == ("Hello  world! ", 1000)
+    assert speech.extract_pauses("Hello world!") == ("Hello world!", 0)

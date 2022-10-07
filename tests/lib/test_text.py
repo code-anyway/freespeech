@@ -320,3 +320,8 @@ def test_break_speech():
     ]
 
     assert text.break_speech(phrases=phrases, lang="en-US") == expected
+
+
+def test_words():
+    text.words("Hello world !", lang="en-US") == ["Hello", "world"]
+    text.words("", lang="en-US") == []

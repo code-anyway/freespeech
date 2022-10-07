@@ -64,7 +64,7 @@ def parse(s: str) -> Sequence[Event]:
             event,
             duration_ms=event.duration_ms
             if event.duration_ms is not None or next_event is None
-            else next_event.time_ms - event.time_ms - 100,
+            else next_event.time_ms - event.time_ms,
         )
         for event, next_event in zip(events, events[1:] + [None])
     ]

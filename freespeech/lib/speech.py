@@ -28,6 +28,7 @@ from freespeech.lib.text import (
     make_sentence,
     remove_symbols,
     split_sentences,
+    words,
 )
 from freespeech.types import (
     CHARACTERS,
@@ -737,3 +738,32 @@ def normalize_speech(
                     assert_never(never)
 
     return acc
+
+
+def wpm(text: str, duration_ms: int, lang: Language) -> int:
+    """Given text and duration, returns words per minute."""
+
+    n_words = len(words(text, lang=lang))
+    return round((n_words / duration_ms) * 60_000)
+
+
+def extract_pauses(text: str) -> tuple[str, int]:
+    """For given text, extract speech breaks and return clean text and sum of pauses.
+
+    Args:
+        text: input text that can possibly contain speech breaks (i.e. #0.5#, #1.1#).
+
+    Returns:
+        A tuple containing clean text and sum of pauses in milliseconds.
+    """
+
+    breaks = re.compile(r"#(\d+(\.\d+)?)#")
+    total_breaks = sum([float(value) for value, *_ in breaks.findall(text)])
+    clean_text = breaks.sub("", text)
+
+    return (clean_text, round(total_breaks * 1000))
+
+
+# def event_metrics(event: Event, lang: Language) -> tuple[str, int, int]:
+#     """For given event, extract plain text, total pauses and word per minute."""
+
