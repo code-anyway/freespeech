@@ -31,8 +31,8 @@ def test_parse_and_render():
     text = """
 00:00:00.00/00:00:01 (Alan) Hello #0.0# world!
 00:00:02 (Ada) There are five pre-conditions for peace.
-00:00:03.00@1.00 (Greta) Hi!
-00:00:04@2.00 (Grace) Hmm"""
+00:00:03.00 (Greta@1.2) Hi!
+00:00:04 (Grace@2.00) Hmm"""
 
     events = [
         Event(
@@ -51,7 +51,7 @@ def test_parse_and_render():
             time_ms=3000,
             chunks=["Hi!"],
             duration_ms=1000,
-            voice=Voice(character="Greta", pitch=0.0, speech_rate=1.0),
+            voice=Voice(character="Greta", pitch=0.0, speech_rate=1.2),
         ),
         Event(
             time_ms=4000,
@@ -63,8 +63,8 @@ def test_parse_and_render():
 
     assert ssmd.parse(text) == events
 
-    rendered_text = """00:00:00.00#1.00 (Alan) Hello #0.0# world!
-00:00:02.00#1.00 (Ada) There are five pre-conditions for peace.
-00:00:03.00#1.00 (Greta) Hi!
-00:00:04.00@2.00 (Grace) Hmm"""
+    rendered_text = """00:00:00.00#1.00 (Alan@1.0) Hello #0.0# world!
+00:00:02.00 (Ada@1.0) There are five pre-conditions for peace.
+00:00:03.00 (Greta@1.2) Hi!
+00:00:04.00 (Grace@2.0) Hmm"""
     assert ssmd.render(events) == rendered_text
