@@ -125,8 +125,15 @@ def words(text: str, lang: Language) -> Sequence[str]:
         Sequence of words as strings.
     """
     nlp = _nlp(lang=lang)
-    doc = nlp(text)
-    return [token.text for token in doc if token.pos_ not in {"PUNCT", "SYM", "X"}]
+
+    _words = [
+        "".join(
+            token.text for token in nlp(word) if token.pos_ not in {"PUNCT", "SYM", "X"}
+        )
+        for word in text.split(" ")
+    ]
+
+    return [w for w in _words if w]
 
 
 def _break_phrase(

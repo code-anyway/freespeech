@@ -325,3 +325,4 @@ def test_break_speech():
 def test_words():
     text.words("Hello world !", lang="en-US") == ["Hello", "world"]
     text.words("", lang="en-US") == []
+    text.words("I'm happy !", lang="en-US") == ["I'm", "happy"]
