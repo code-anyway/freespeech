@@ -3,8 +3,10 @@ import logging
 
 import aiohttp
 from aiohttp import ClientResponseError, web
+from aiohttp.web_exceptions import HTTPError
 
 from freespeech.api import errors
+from freespeech.api.errors import HTTPInputError
 from freespeech.lib.storage import doc
 from freespeech.types import Error
 
@@ -21,16 +23,37 @@ async def persist_results(request, handler):
 
     The value of `X-Freespeech-Task-ID` header is the primary key and is set by
     task scheduler."""
-    resp = await handler(request)
 
-    result = resp.text
     task_id = request.headers.get("X-Freespeech-Task-ID", None)
-    if task_id is not None:
-        client = doc.google_firestore_client()
+    # This means we've been called outside of Cloud Tasks context, so passthrough
+    if task_id is None:
+        return await handler(request)
+
+    client = doc.google_firestore_client()
+    try:
+        resp = await handler(request)
+
+        result = resp.text
         record = {"status": resp.status, "result": json.loads(result)}
         await doc.put(client, "results", task_id, record)
 
-    return resp
+        return resp
+    except Exception as e:
+        status = 500
+        message = str(e)
+        if isinstance(e, HTTPError):
+            status = e.status
+        if isinstance(e, HTTPInputError):
+            # Since by HTTP means it is a Success (2xx), we handle it separately.
+            status = e.status
+            message = e.text
+        if isinstance(e, ClientResponseError) and e.status:
+            status = e.status
+
+        record = {"status": status, "result": message}
+        await doc.put(client, "results", task_id, record)
+
+        raise e
 
 
 @web.middleware
