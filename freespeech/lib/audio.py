@@ -1,6 +1,7 @@
+from pathlib import Path
+
 import librosa
 import soundfile as sf
-from pathlib import Path
 
 
 def strip(file: Path | str) -> Path | str:
@@ -21,6 +22,6 @@ def strip(file: Path | str) -> Path | str:
     _, (start, end) = librosa.effects.trim(signal)
 
     with open(file, "wb") as fd:
-        sf.write(fd, signal[start:end], rate, subtype='PCM_16')
+        sf.write(fd, signal[start:end], rate, subtype="PCM_16")
 
     return file

@@ -91,7 +91,7 @@ def test_align():
             time_ms=3000,
             chunks=["Bye!"],
             duration_ms=1000,
-        )
+        ),
     ]
 
     aligned_events = ssmd.align(events)
@@ -115,10 +115,13 @@ def test_align():
             time_ms=3000,
             chunks=["Bye!"],
             duration_ms=1000,
-        )
+        ),
     ]
 
-    assert ssmd.render(aligned_events) == """00:00:00.00 (Ada@1.0) Hello!
+    assert (
+        ssmd.render(aligned_events)
+        == """00:00:00.00 (Ada@1.0) Hello!
 00:00:01.00 (Ada@1.0) Goodbye! #0.5#
 00:00:02.00 (Ada@1.0) Hi!
 00:00:03.00#1.00 (Ada@1.0) Bye!"""
+    )
