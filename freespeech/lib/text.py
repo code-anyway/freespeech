@@ -23,6 +23,8 @@ def make_sentence(s: str):
     return f"{s}."
 
 
+# TODO (astaff, 20221009): remove in favor of sentences() that uses
+# linguistic features to determine sentence boundaries.
 def split_sentences(s: str) -> Sequence[str]:
     """Split into sentences broken down by the punctuation followed by space.
 
@@ -38,6 +40,21 @@ def split_sentences(s: str) -> Sequence[str]:
     return [
         a + b for a, b in zip_longest(split[0::2], split[1::2], fillvalue="") if a + b
     ]
+
+
+def sentences(s: str, lang: Language) -> Sequence[str]:
+    """Split string sentences.
+
+    Args:
+        s: string to split
+    Returns:
+        Sequence of strings representing sentences.
+    """
+    nlp = _nlp(lang)
+    doc = nlp(s)
+    senter = nlp.get_pipe("senter")
+    sentences = [span.text for span in senter(doc).sents]
+    return sentences
 
 
 def chunk(text: str, max_chars: int, sentence_overhead: int = 0) -> Sequence[str]:
@@ -139,7 +156,7 @@ def words(text: str, lang: Language) -> Sequence[str]:
 def _break_phrase(
     text: str,
     words: Sequence[Tuple[str, int, int]],
-    nlp: spacy.language.Language,
+    lang: Language,
 ) -> Sequence[Tuple[str, int | None, int | None]]:
     """Breaks down a single phrase into separate sentences with start time and duration.
 
@@ -152,16 +169,15 @@ def _break_phrase(
     Returns:
         Sequence of tuples representing a sentence, it's start time and duration.
     """
-    doc = nlp(text)
-    senter = nlp.get_pipe("senter")
-    sentences = [span.text for span in senter(doc).sents]
+    nlp = _nlp(lang)
 
     # reduce each word in text and words down to lemmas to avoid
     # mismatches due to effects of ASR's language model.
     lemmatizer = nlp.get_pipe("lemmatizer")
+    _sentences = sentences(text, lang)
     display_tokens = [
         (token.lemma_.lower(), num)
-        for num, sentence in enumerate(sentences)
+        for num, sentence in enumerate(_sentences)
         for token in lemmatizer(nlp(sentence))
     ]
     lexical_tokens = [
@@ -201,7 +217,7 @@ def _break_phrase(
         (sentence, *sentence_timings[num])
         if num in sentence_timings
         else (sentence, None, None)
-        for num, sentence in enumerate(sentences)
+        for num, sentence in enumerate(_sentences)
     ]
 
 
@@ -219,10 +235,9 @@ def break_speech(
     Returns:
         Sequence of tuples representing a sentence, it's start time and duration.
     """
-    nlp = _nlp(lang)
     return [
         Event(time_ms=start, duration_ms=duration, chunks=[text])
         for text, start, duration in sum(
-            (list(_break_phrase(text, words, nlp)) for text, words in phrases), []
+            (list(_break_phrase(text, words, lang=lang)) for text, words in phrases), []
         )
     ]
