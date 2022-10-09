@@ -1,6 +1,6 @@
 import re
 from dataclasses import replace
-from typing import Sequence
+from typing import List, Sequence
 
 from freespeech.lib import text, transcript
 from freespeech.types import Event, Voice
@@ -69,6 +69,35 @@ def parse(s: str) -> Sequence[Event]:
         )
         for event, next_event in zip(events, events[1:] + [events[-1]])
     ]
+
+
+def align(events: List[Event]) -> Sequence[Event]:
+    """Transforms a sequence of events adjusting durations so that the end of each event
+    matches the beginning of a next one. Adds speech pauses in the end.
+
+    Args:
+        events: events to be adjusted.
+
+    Returns:
+        Sequence of events where for each event time_ms + duration_ms
+        equals time_ms of the next one.
+    """
+
+    return [
+        replace(
+            event,
+            duration_ms=(new_duration_ms := next_event.time_ms - event.time_ms),
+            chunks=[
+                " ".join(event.chunks)
+                + (
+                    ""
+                    if (pause_ms := new_duration_ms - event.duration_ms) <= 0
+                    else f" #{pause_ms / 1000:.1f}#"
+                )
+            ],
+        )
+        for event, next_event in zip(events[:-1], events[1:])
+    ] + [events[-1]]
 
 
 def render(events: Sequence[Event]) -> str:

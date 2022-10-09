@@ -766,4 +766,3 @@ def extract_pauses(text: str) -> tuple[str, int]:
 
 # def event_metrics(event: Event, lang: Language) -> tuple[str, int, int]:
 #     """For given event, extract plain text, total pauses and word per minute."""
-

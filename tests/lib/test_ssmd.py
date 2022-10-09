@@ -68,3 +68,57 @@ def test_parse_and_render():
 00:00:03.00 (Greta@1.2) Hi!
 00:00:04.00 (Grace@2.0) Hmm"""
     assert ssmd.render(events) == rendered_text
+
+
+def test_align():
+    events = [
+        Event(
+            time_ms=0,
+            chunks=["Hello!"],
+            duration_ms=1000,
+        ),
+        Event(
+            time_ms=1000,
+            chunks=["Goodbye!"],
+            duration_ms=500,
+        ),
+        Event(
+            time_ms=2000,
+            chunks=["Hi!"],
+            duration_ms=1500,
+        ),
+        Event(
+            time_ms=3000,
+            chunks=["Bye!"],
+            duration_ms=1000,
+        )
+    ]
+
+    aligned_events = ssmd.align(events)
+    assert aligned_events == [
+        Event(
+            time_ms=0,
+            chunks=["Hello!"],
+            duration_ms=1000,
+        ),
+        Event(
+            time_ms=1000,
+            chunks=["Goodbye! #0.5#"],
+            duration_ms=1000,
+        ),
+        Event(
+            time_ms=2000,
+            chunks=["Hi!"],
+            duration_ms=1000,
+        ),
+        Event(
+            time_ms=3000,
+            chunks=["Bye!"],
+            duration_ms=1000,
+        )
+    ]
+
+    assert ssmd.render(aligned_events) == """00:00:00.00 (Ada@1.0) Hello!
+00:00:01.00 (Ada@1.0) Goodbye! #0.5#
+00:00:02.00 (Ada@1.0) Hi!
+00:00:03.00#1.00 (Ada@1.0) Bye!"""
