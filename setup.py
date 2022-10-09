@@ -50,6 +50,7 @@ setup(
         "ffmpeg-python",
         # TODO (astaff): update/remove after https://github.com/pytube/pytube/pull/1282
         # is merged/released,
+        "librosa",
         "pytube @ git+https://github.com/brilliant-ember/pytube.git@a3c96b92a517d7e2978a45112cbf11993271c010#egg=pytube-12.0.1",  # noqa E501
         "google-cloud-texttospeech",
         "google-cloud-translate",
@@ -66,6 +67,7 @@ setup(
         "hypothesis",
         "pydantic",
         "requests",
+        "soundfile",
         "types-requests",
         "spacy",
         *[
