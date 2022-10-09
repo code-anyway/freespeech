@@ -15,4 +15,4 @@ async def test_strip(tmp_path):
     )
     ((audio_info, *_), *_) = media.probe(file)
     ((stripped_audio_info, *_), *_) = media.probe(audio.strip(file))
-    assert audio_info.duration_ms - stripped_audio_info.duration_ms == 733
+    assert audio_info.duration_ms - stripped_audio_info.duration_ms == 803
