@@ -220,6 +220,25 @@ async def test_synthesize_events(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_synthesize(tmp_path) -> None:
+    event = Event(
+        time_ms=0,
+        chunks=["Hello world. How are you doing?"],
+        duration_ms=1000,
+    )
+    file, _ = await speech.synthesize(event=event, lang="en-US", output_dir=tmp_path)
+    assert media.audio_duration(file) == 1001
+
+    event = Event(
+        time_ms=0,
+        chunks=["Hello world. How are you doing?"],
+        duration_ms=10000,
+    )
+    file, _ = await speech.synthesize(event=event, lang="en-US", output_dir=tmp_path)
+    assert media.audio_duration(file) == 10001
+
+
+@pytest.mark.asyncio
 async def test_synthesize_long_event(tmp_path) -> None:
     event_en_us = Event(
         time_ms=205649,
@@ -364,7 +383,7 @@ async def test_synthesize_azure(tmp_path) -> None:
         time_ms=0,
         duration_ms=5000,
         chunks=["Hello this is Bill speaking #1# Nice to meet you."],
-        voice=Voice("Bill"),
+        voice=Voice(character="Bill"),
     )
 
     _, voices = await speech.synthesize_events(

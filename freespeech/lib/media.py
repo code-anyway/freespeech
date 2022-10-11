@@ -85,6 +85,11 @@ def probe(file: str | PathLike) -> Tuple[Sequence[Audio], Sequence[Video]]:
     )
 
 
+def audio_duration(file: str | Path) -> int:
+    (audio, *_), *_ = probe(file)
+    return audio.duration_ms
+
+
 def new_file(dir: str | PathLike) -> PathLike:
     return Path(dir) / str(uuid.uuid4())
 

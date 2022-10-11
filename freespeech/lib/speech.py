@@ -19,7 +19,7 @@ from google.cloud import texttospeech as google_tts
 from google.cloud.speech_v1.types.cloud_speech import LongRunningRecognizeResponse
 
 from freespeech import env
-from freespeech.lib import concurrency, media
+from freespeech.lib import audio, concurrency, media
 from freespeech.lib.storage import obj
 from freespeech.lib.text import (
     break_speech,
@@ -27,6 +27,7 @@ from freespeech.lib.text import (
     is_sentence,
     make_sentence,
     remove_symbols,
+    sentences,
     split_sentences,
     words,
 )
@@ -56,7 +57,7 @@ MAX_CHUNK_LENGTH = 1000  # Google Speech API Limit
 # https://cloud.google.com/text-to-speech/docs/voices
 VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
     "Ada": {
-        "en-US": ("Google", "en-US-Wavenet-F"),
+        "en-US": ("Azure", "en-US-SaraNeural"),
         "ru-RU": ("Google", "ru-RU-Wavenet-E"),
         "pt-PT": ("Google", "pt-PT-Wavenet-D"),
         "pt-BR": ("Google", "pt-BR-Wavenet-A"),
@@ -65,7 +66,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "uk-UA": ("Google", "uk-UA-Wavenet-A"),
     },
     "Grace": {
-        "en-US": ("Google", "en-US-Wavenet-C"),
+        "en-US": ("Azure", "en-US-MichelleNeural"),
         "ru-RU": ("Google", "ru-RU-Wavenet-C"),
         "pt-PT": ("Google", "pt-PT-Wavenet-A"),
         "pt-BR": ("Google", "pt-BR-Wavenet-C"),
@@ -74,7 +75,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "uk-UA": ("Google", "uk-UA-Wavenet-A"),
     },
     "Alan": {
-        "en-US": ("Google", "en-US-Wavenet-I"),
+        "en-US": ("Azure", "en-US-BrandonNeural"),
         "ru-RU": ("Google", "ru-RU-Wavenet-D"),
         "pt-PT": ("Google", "pt-PT-Wavenet-C"),
         "pt-BR": ("Google", "pt-BR-Wavenet-B"),
@@ -83,7 +84,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "uk-UA": ("Azure", "uk-UA-OstapNeural"),
     },
     "Alonzo": {
-        "en-US": ("Google", "en-US-Wavenet-D"),
+        "en-US": ("Azure", "en-US-GuyNeural"),
         "ru-RU": ("Google", "ru-RU-Wavenet-B"),
         "pt-PT": ("Google", "pt-PT-Wavenet-B"),
         "pt-BR": ("Google", "pt-BR-Wavenet-B"),
@@ -615,6 +616,60 @@ async def synthesize_text(
     )
 
 
+async def synthesize(
+    event: Event, lang: Language, output_dir: Path | str
+) -> Tuple[Path, Voice]:
+    phrase = " ".join(event.chunks).replace("...", ".")
+    _sentences = sentences(phrase, lang=lang)
+
+    async def _synthesize(rate: float) -> Sequence[Path]:
+        clips = []
+        for sentence in _sentences:
+            clip, _ = await synthesize_text(
+                text=sentence,
+                duration_ms=None,
+                voice=replace(event.voice, speech_rate=rate),
+                lang=lang,
+                output_dir=output_dir,
+            )
+            sentence_without_pauses, _ = extract_pauses(sentence)
+
+            # Only pause and nothing else. Keep it. Don't trim.
+            if not sentence_without_pauses.strip() == ".":
+                clip = Path(audio.strip(clip))
+            clips += [clip]
+        return clips
+
+    rate = event.voice.speech_rate
+    padding_ms = 0
+
+    clips = await _synthesize(rate=rate)
+
+    if event.duration_ms is None:
+        padding_ms = 100  # extract into const
+    else:
+        total_duration_ms = sum(media.audio_duration(str(clip)) for clip in clips)
+        padding_ms = (event.duration_ms - total_duration_ms) // len(clips)
+        if padding_ms < 50:
+            target_duration_ms = event.duration_ms - 50 * len(clips)
+            if target_duration_ms < 0:
+                raise RuntimeError(
+                    f"Unable to fit text {event.chunks} into {event.duration_ms} ms"
+                )
+
+            # Adjust rate and do the second pass
+            rate *= total_duration_ms / target_duration_ms
+            clips = await _synthesize(rate=rate)
+            total_duration_ms = sum(media.audio_duration(str(clip)) for clip in clips)
+            padding_ms = (event.duration_ms - total_duration_ms) // len(clips)
+
+    output_file = await media.concat_and_pad(
+        [(padding_ms, clip) for clip in clips], output_dir
+    )
+
+    return output_file, replace(event.voice, speech_rate=rate)
+
+
 async def synthesize_events(
     events: Sequence[Event],
     lang: Language,
@@ -633,10 +688,8 @@ async def synthesize_events(
 
         padding_ms = time_ms - current_time_ms
         text = " ".join(event.chunks)
-        clip, voice = await synthesize_text(
-            text=text,
-            duration_ms=event.duration_ms,
-            voice=event.voice,
+        clip, voice = await synthesize(
+            event=event,
             lang=lang,
             output_dir=output_dir,
         )

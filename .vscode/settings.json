@@ -96,4 +96,5 @@
         "freespeech",
         "timecode"
     ],
+    "python.analysis.typeCheckingMode": "basic",
 }

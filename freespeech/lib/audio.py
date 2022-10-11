@@ -1,4 +1,5 @@
 from pathlib import Path
+from uuid import uuid4
 
 import librosa
 import soundfile as sf
@@ -24,4 +25,12 @@ def strip(file: Path | str) -> Path | str:
     with open(file, "wb") as fd:
         sf.write(fd, signal[start:end], rate, subtype="PCM_16")
 
+    return file
+
+
+def silence(duration_ms: int, output_dir: str) -> Path:
+    sample_rate = 44100
+    signal = [0.0] * round((duration_ms / 1000.0) * sample_rate)
+    file = Path(output_dir) / f"{uuid4()}.wav"
+    sf.write(file, signal, sample_rate, subtype="PCM_16")
     return file
