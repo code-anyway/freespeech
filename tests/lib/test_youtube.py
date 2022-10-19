@@ -34,6 +34,7 @@ def test_broken_download(tmp_path):
         "9a9c1ed4484fa7242543b7bc34fe2bf60b6b0ae0f30a9fc4cccd5b6767f3b337",
     )
     VIDEO_HASH = (
+        "cb1c94121b5c87cf9dbb819ad49145c9fb83e0042fcf1c39e6fbcdd3f72c85be",
         "6c7caedf0541d16c3d382fec41355b1226dd1d9121b81cf2e8bbc85aa904a3b6",
         "4caf22ef5eef77cdef4337abd60d36d7476502f6b37893bc0ecc53878d7989bc",
         "f96cb054fd52199437c57250d323108ba5f0753d2043de5e982fa486e65d8146",
@@ -76,6 +77,7 @@ def test_download_local(tmp_path):
         == "7b0dfb36784281f06c09011d631289f34aed8ba1cf0411b49d60c1d2594f7fe9"
     )
     assert hash.file(video_file) in (
+        "0c2d95a0804c5223d714076f81afa929c65d04e833a7726d017f0405cac70ff0",
         "ebc0b0ecf95a540a47696626e60e4ce4bd47582fd6b866ce72e762e531b03297",
         "1a3f37fff7e3115f0cf5aad47d270b73af656ca52a54fb179d378360d6ce4656",
     )

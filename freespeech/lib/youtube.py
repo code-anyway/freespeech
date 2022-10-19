@@ -191,17 +191,15 @@ def download(
         output_filename=audio_filename,
         max_retries=max_retries,
     )
-    video = yt.streams.get_highest_resolution()
-    video_streams = list(yt.streams.filter(resolution="720p", mime_type="video/mp4"))
 
-    if not video_streams:
+    for resolution in ("1080p", "720p", "360p"):
         video_streams = list(
-            yt.streams.filter(resolution="360p", mime_type="video/mp4")
+            yt.streams.filter(resolution=resolution, mime_type="video/mp4")
         )
-        logger.warning(f"No 720p strams available for {url}")
-        logger.warning(f"360p streams available: {video_streams}")
-
-    logger.info(f"Downloading {audio} and {video}")
+        if video_streams:
+            break
+        else:
+            logger.warning(f"Resolution {resolution} is not available for {url}")
 
     for stream in video_streams:
         try:
