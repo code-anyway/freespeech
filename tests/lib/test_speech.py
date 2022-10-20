@@ -281,7 +281,7 @@ def test_normalize_speech() -> None:
         )
         assert normalized == [
             Event(
-                time_ms=100, duration_ms=2500, chunks=["one. #0.10# Two. #1.20# Three"]
+                time_ms=100, duration_ms=2500, chunks=["One. #0.10# Two. #1.20# Three"]
             ),
         ]
 
@@ -289,7 +289,7 @@ def test_normalize_speech() -> None:
             events, gap_ms=1000, length=100, method=method
         )
         assert normalized == [
-            Event(time_ms=100, duration_ms=800, chunks=["one. #0.10# Two."]),
+            Event(time_ms=100, duration_ms=800, chunks=["One. #0.10# Two."]),
             Event(time_ms=2100, duration_ms=500, chunks=["three"]),
         ]
 
@@ -297,7 +297,7 @@ def test_normalize_speech() -> None:
             events, gap_ms=2000, length=5, method=method
         )
         assert normalized == [
-            Event(time_ms=100, duration_ms=800, chunks=["one. #0.10# Two."]),
+            Event(time_ms=100, duration_ms=800, chunks=["One. #0.10# Two."]),
             Event(time_ms=2100, duration_ms=500, chunks=["three"]),
         ]
 
@@ -321,12 +321,12 @@ def test_normalize_speech() -> None:
             events, gap_ms=2000, length=5, method=method
         )
         assert normalized == [
-            Event(time_ms=100, duration_ms=800, chunks=["one. #0.10# Two."]),
+            Event(time_ms=100, duration_ms=800, chunks=["One. #0.10# Two."]),
             Event(time_ms=2100, duration_ms=500, chunks=["three"]),
             Event(
                 time_ms=2700,
                 duration_ms=300,
-                chunks=["four. #0.10# Five"],
+                chunks=["Four. #0.10# Five"],
                 voice=Voice(character="Alonzo"),
             ),
         ]
@@ -344,10 +344,10 @@ def test_normalize_speech() -> None:
             events=events, gap_ms=2000, length=6, method=method
         )
         assert normalized == [
-            Event(time_ms=100, duration_ms=800, chunks=["one. #0.10# Two."]),
+            Event(time_ms=100, duration_ms=800, chunks=["One. #0.10# Two."]),
             Event(time_ms=2_100, duration_ms=None, chunks=["three"]),
             Event(time_ms=2_500, duration_ms=None, chunks=["four"]),
-            Event(time_ms=2_900, duration_ms=2000, chunks=["five. #1.20# Six."]),
+            Event(time_ms=2_900, duration_ms=2000, chunks=["Five. #1.20# Six."]),
         ]
 
     test_pipeline("break_ends_sentence")
@@ -457,3 +457,21 @@ async def test_azure_speech_quality():
         assert audio.num_channels == 1
         assert audio.sample_rate_hz == 44100
         assert audio.encoding == "LINEAR16"
+
+
+def test_concat_events() -> None:
+    e1 = Event(time_ms=0, chunks=["Hello"], duration_ms=1000)
+    e2_short_break = Event(time_ms=1000, chunks=["world"], duration_ms=1000)
+    e2_long_break = Event(time_ms=1050, chunks=["world"], duration_ms=1000)
+
+    assert speech.concat_events(e1, e2_short_break, break_sentence=False) == Event(
+        time_ms=0, duration_ms=2000, chunks=["Hello world"]
+    )
+
+    assert speech.concat_events(e1, e2_long_break, break_sentence=False) == Event(
+        time_ms=0, duration_ms=2050, chunks=["Hello #0.05# world"]
+    )
+
+    assert speech.concat_events(e1, e2_long_break, break_sentence=True) == Event(
+        time_ms=0, duration_ms=2050, chunks=["Hello. #0.05# World"]
+    )
