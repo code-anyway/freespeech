@@ -10,6 +10,19 @@ def is_sentence(s: str) -> bool:
     return s.endswith(".") or s.endswith("!") or s.endswith("?")
 
 
+def capitalize_sentence(s: str):
+    """Capitalizes only the first letter of the string."""
+    if s.isspace():
+        return s
+
+    if not s:
+        return s
+
+    _s = s.lstrip()
+
+    return s[0 : len(s) - len(_s)] + _s[0].upper() + _s[1:]
+
+
 def make_sentence(s: str):
     if is_sentence(s):
         return s

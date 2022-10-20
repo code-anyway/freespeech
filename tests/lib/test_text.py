@@ -126,3 +126,13 @@ def test_chunk_supports_dots_within_pauses() -> None:
         "The newline is also a space char #2.1# after dot.",
         "This is a second sentence",
     ]
+
+
+def test_capitalize_sentence() -> None:
+    assert text.capitalize_sentence("") == ""
+    assert text.capitalize_sentence("a") == "A"
+    assert text.capitalize_sentence(" a a A") == " A a A"
+    assert text.capitalize_sentence("\tA") == "\tA"
+    assert text.capitalize_sentence(" ") == " "
+    assert text.capitalize_sentence("\t") == "\t"
+    assert text.capitalize_sentence("aA") == "AA"
