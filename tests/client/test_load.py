@@ -183,7 +183,7 @@ async def test_load_transcribe(mock_client, monkeypatch) -> None:
     event, *_ = result_b.events
     chunk, *_ = event.chunks
 
-    assert "one" in chunk
+    assert "One" in chunk
     assert "procrastination and sloth" in chunk
 
     assert result_b.audio.startswith("https://")
