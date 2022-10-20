@@ -22,6 +22,7 @@ from freespeech import env
 from freespeech.lib import concurrency, media
 from freespeech.lib.storage import obj
 from freespeech.lib.text import (
+    capitalize_sentence,
     chunk,
     is_sentence,
     make_sentence,
@@ -143,6 +144,9 @@ GOOGLE_CLOUD_ENCODINGS = {
     "LINEAR16": speech_api.RecognitionConfig.AudioEncoding.LINEAR16,
     "WEBM_OPUS": speech_api.RecognitionConfig.AudioEncoding.WEBM_OPUS,
 }
+
+# Any speech break less than this value will be ignored.
+MINIMUM_SPEECH_BREAK_MS = 50
 
 # When synthesizing speech to match duration, this is the maximum delta.
 SYNTHESIS_ERROR_MS = 200
@@ -678,17 +682,16 @@ def concat_events(e1: Event, e2: Event, break_sentence: bool) -> Event:
             e2: {e2}"""
         )
 
-    gap_sec = (shift_ms - e1.duration_ms) / 1000.0
+    gap_ms = shift_ms - e1.duration_ms
 
-    if break_sentence:
-        first = make_sentence(" ".join(e1.chunks))
-        second = " ".join(e2.chunks).capitalize()
-    else:
-        first = " ".join(e1.chunks)
-        second = " ".join(e2.chunks)
+    first = " ".join(e1.chunks)
+    second = " ".join(e2.chunks)
 
-    if gap_sec > 0.01:
-        chunk = f"{first} #{gap_sec:.2f}# {second}"
+    if gap_ms >= MINIMUM_SPEECH_BREAK_MS:
+        if break_sentence:
+            first = capitalize_sentence(make_sentence(first))
+            second = capitalize_sentence(second)
+        chunk = f"{first} #{gap_ms / 1000.0:.2f}# {second}"
     else:
         chunk = f"{first} {second}"
 

@@ -457,3 +457,21 @@ async def test_azure_speech_quality():
         assert audio.num_channels == 1
         assert audio.sample_rate_hz == 44100
         assert audio.encoding == "LINEAR16"
+
+
+def test_concat_events() -> None:
+    e1 = Event(time_ms=0, chunks=["Hello"], duration_ms=1000)
+    e2_short_break = Event(time_ms=1000, chunks=["world"], duration_ms=1000)
+    e2_long_break = Event(time_ms=1050, chunks=["world"], duration_ms=1000)
+
+    assert speech.concat_events(e1, e2_short_break, break_sentence=False) == Event(
+        time_ms=0, duration_ms=2000, chunks=["Hello world"]
+    )
+
+    assert speech.concat_events(e1, e2_long_break, break_sentence=False) == Event(
+        time_ms=0, duration_ms=2050, chunks=["Hello #0.05# world"]
+    )
+
+    assert speech.concat_events(e1, e2_long_break, break_sentence=True) == Event(
+        time_ms=0, duration_ms=2050, chunks=["Hello. #0.05# World"]
+    )
