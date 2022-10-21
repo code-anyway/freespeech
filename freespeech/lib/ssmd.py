@@ -6,7 +6,7 @@ from freespeech.lib import text, transcript
 from freespeech.types import Event, Voice
 
 timecode_parser = re.compile(
-    r"(^\s*(([\d\:\.]+)?\s*(([/#])\s*([\d\:\.]+))?\s*(\((.+?)(@(\d+(\.\d+)?))?\)))\s*(.+)$)+",
+    r"(^\s*(([\d\:\.]+)?\s*(([/#])\s*([\d\:\.]+))?\s*(\((.+?)(@(\d+(\.\d+)?))?\)))\s*(.+)$)+",  # noqa: E501
     flags=re.M,
 )
 
@@ -118,7 +118,7 @@ def render(events: Sequence[Event]) -> str:
                 time += f"#{event.duration_ms/1000.0:.2f}"
 
         lines += [
-            f"{time} ({event.voice.character}@{event.voice.speech_rate:.1f}) {event_text}"
+            f"{time} ({event.voice.character}@{event.voice.speech_rate:.1f}) {event_text}"  # noqa: E501
         ]
 
     return "\n".join(lines)
