@@ -33,6 +33,7 @@ from freespeech.lib.text import (
     remove_symbols,
     sentences,
     split_sentences,
+    split_sentences_nlp,
 )
 from freespeech.types import (
     CHARACTERS,
@@ -482,6 +483,68 @@ def is_valid_ssml(text: str) -> bool:
     return root.tag == "{http://www.w3.org/2001/10/synthesis}speak"
 
 
+def _gdoc_emojis_to_ssml_emotion_tags(text: str, lang: Language) -> str:
+    """Wrap every sentence of the input text containing a supported emoji
+    before the full stop into a corresponding ssml emotion tag. Ignore any
+    emojis in the middle or in the begining of the sentences. Omit all the
+    emojis in the output string.
+    """
+    ssml_emotions = {
+        "@:crying-face:": "sad",
+        "@:star-struck:": "excited",
+        "@:relieved-face:": "calm",
+        "@:enraged-face:": "angry",
+    }
+
+    # A helper function for re::sub which collects emojis
+    # and returns their replacement for the original sentence.
+    def _repl(m, acc):
+        acc.append(m.group(0))
+        if m.group(0).endswith("."):
+            return "."
+        else:
+            return " "
+
+    sentences = split_sentences_nlp(text, lang)
+    text_with_emotion_tags = ""
+
+    for sentence in sentences:
+        encountered_gdoc_emojis = []
+
+        # Populate the encountered_gdoc_emojis while removing
+        # all the emojis in the sentence.
+        sentence = re.sub(
+            r"\s*\@\:[a-z,-]+\:\s*\.*",
+            lambda m: _repl(m, encountered_gdoc_emojis),
+            sentence,
+        )
+
+        # In the case the original sentence contained only
+        # emojis without any words, skip it.
+        sentence = sentence.strip()
+        if sentence == ".":
+            continue
+
+        # Wrap the sentence into an emotion tag only if the original
+        # sentence contained a supported emoji before a full stop.
+        if encountered_gdoc_emojis and encountered_gdoc_emojis[-1].endswith("."):
+            gdoc_emoji = encountered_gdoc_emojis[-1][:-1].strip()
+            if is_supported_gdoc_emoji(gdoc_emoji):
+                sentence = (
+                    f'<mstts:express-as style="{ssml_emotions[gdoc_emoji]}">'
+                    + sentence
+                    + "</mstts:express-as>"
+                )
+                text_with_emotion_tags += sentence
+                continue
+
+        # Wrap the sentence into the default "calm" tag.
+        sentence = f'<mstts:express-as style="calm">{sentence}</mstts:express-as>'
+        text_with_emotion_tags += sentence
+
+    return text_with_emotion_tags
+
+
 def _wrap_in_ssml(
     text: str, voice: str, speech_rate: float, lang: Language = "en-US"
 ) -> str:
@@ -510,8 +573,13 @@ def _wrap_in_ssml(
 
         result = (
             '<speak xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" xmlns:emo="http://www.w3.org/2009/10/emotionml" xml:lang="{LANG}" version="1.0">'  # noqa: E501
-            '<voice name="{VOICE}"><prosody rate="{RATE}"><mstts:express-as style="calm"><mstts:silence type="Sentenceboundary" value="100ms"/>{TEXT}</mstts:express-as></prosody></voice>'  # noqa: E501
-            "</speak>".format(TEXT=text, VOICE=voice, RATE=rate_str, LANG=lang)
+            '<voice name="{VOICE}"><prosody rate="{RATE}"><mstts:silence type="Sentenceboundary" value="100ms"/>{TEXT}</prosody></voice>'  # noqa: E501
+            "</speak>".format(
+                TEXT=_gdoc_emojis_to_ssml_emotion_tags(text, lang),
+                VOICE=voice,
+                RATE=rate_str,
+                LANG=lang,
+            )
         )
         assert is_valid_ssml(result), f"text={text} result={result}"
         return result
