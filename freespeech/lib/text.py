@@ -7,6 +7,7 @@ import spacy
 
 from freespeech.types import Language, assert_never
 
+<<<<<<< HEAD
 
 @functools.cache
 def _nlp(lang: Language):
@@ -32,6 +33,8 @@ def _nlp(lang: Language):
 
     return nlp
 
+=======
+>>>>>>> Steal nlp sentences split from other branch
 
 def is_sentence(s: str) -> bool:
     # TODO astaff: consider using text processing libraries like spacy
@@ -75,6 +78,20 @@ def split_sentences(s: str) -> Sequence[str]:
     return [
         a + b for a, b in zip_longest(split[0::2], split[1::2], fillvalue="") if a + b
     ]
+
+
+def split_sentences_nlp(s: str, lang: Language) -> Sequence[str]:
+    """Split string into sentences using nlp.
+    Args:
+        s: string to split
+    Returns:
+        Sequence of strings representing sentences.
+    """
+    nlp = _nlp(lang)
+    doc = nlp(s)
+    senter = nlp.get_pipe("senter")
+    sentences = [span.text for span in senter(doc).sents]
+    return sentences
 
 
 def chunk(text: str, max_chars: int, sentence_overhead: int = 0) -> Sequence[str]:
@@ -131,6 +148,7 @@ def remove_symbols(s: str, symbols: str) -> str:
     return str.translate(s, t)
 
 
+<<<<<<< HEAD
 def sentences(s: str, lang: Language) -> Sequence[str]:
     """Break string sentences.
     Args:
@@ -155,3 +173,24 @@ def lemmas(s: str, lang: Language) -> Sequence[str]:
     nlp = _nlp(lang)
     lemmatizer = nlp.get_pipe("lemmatizer")
     return [token.lemma_ for token in lemmatizer(nlp(s))]
+=======
+@functools.cache
+def _nlp(lang: Language):
+    match lang:
+        case "en-US":
+            nlp = spacy.load("en_core_web_sm")
+        case "de-DE":
+            nlp = spacy.load("de_core_news_sm")
+        case "pt-PT" | "pt-BR":
+            nlp = spacy.load("pt_core_news_sm")
+        case "es-US":
+            nlp = spacy.load("es_core_news_sm")
+        case "uk-UA":
+            nlp = spacy.load("uk_core_news_sm")
+        case "ru-RU":
+            nlp = spacy.load("ru_core_news_sm")
+        case never:
+            assert_never(never)
+
+    return nlp
+>>>>>>> Steal nlp sentences split from other branch
