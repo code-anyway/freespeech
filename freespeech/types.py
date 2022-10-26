@@ -91,6 +91,16 @@ METHODS = SPEECH_BACKENDS + TRANSCRIPT_FORMATS
 BlankFillMethod = Literal["Crop", "Blank", "Fill"]
 BLANK_FILL_METHODS = ["Crop", "Blank", "Fill"]
 
+SupportedGdocEmoji = Literal[
+    "@:crying-face:", "@:star-struck:", "@:relieved-face:", "@:enraged-face:"
+]
+SUPPORTED_GDOC_EMOJIS = [
+    "@:crying-face:",
+    "@:star-struck:",
+    "@:relieved-face:",
+    "@:enraged-face:",
+]
+
 
 def is_language(val: str) -> TypeGuard[Language]:
     return val in LANGUAGES
@@ -110,6 +120,10 @@ def is_method(val: str) -> TypeGuard[Method]:
 
 def is_blank_fill_method(val: str) -> TypeGuard[BlankFillMethod]:
     return val in BLANK_FILL_METHODS
+
+
+def is_supported_gdoc_emoji(val: str) -> TypeGuard[SupportedGdocEmoji]:
+    return val in SUPPORTED_GDOC_EMOJIS
 
 
 @dataclass(frozen=True)
