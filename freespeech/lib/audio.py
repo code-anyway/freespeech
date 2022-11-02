@@ -29,7 +29,6 @@ def strip(file: Path | str) -> Path | str:
 
 
 def silence(duration_ms: int, output_dir: str) -> Path:
-    assert False
     sample_rate = 44100
     signal = [0.0] * round((duration_ms / 1000.0) * sample_rate)
     file = Path(output_dir) / f"{uuid4()}.wav"
