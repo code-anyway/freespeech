@@ -116,7 +116,7 @@ class Event:
         voice (Voice): Voice settings.
     """
 
-    time_ms: int | None
+    time_ms: int
     chunks: List[str]
     duration_ms: int | None = None
     voice: Voice = Voice()

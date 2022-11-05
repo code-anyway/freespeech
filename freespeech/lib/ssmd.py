@@ -1,9 +1,10 @@
 import re
 from dataclasses import replace
-from typing import List, Sequence
+from functools import reduce
+from typing import Sequence
 
 from freespeech.lib import text, transcript
-from freespeech.types import Event, Voice
+from freespeech.types import Event, Voice, is_character
 
 timecode_parser = re.compile(
     r"(^\s*(([\d\:\.]+)?\s*(([/#])\s*([\d\:\.]+))?\s*(\((.+?)(@(\d+(\.\d+)?))?\)))\s*(.+)$)+",  # noqa: E501
@@ -11,7 +12,7 @@ timecode_parser = re.compile(
 )
 
 
-def parse(s: str) -> Sequence[Event]:
+def parse_block(s: str) -> list[Event]:
     """ "Parses SSMD body and extracts speech events.
 
     Args:
@@ -31,8 +32,11 @@ def parse(s: str) -> Sequence[Event]:
         parameter = match[5]
         speech_rate_str = match[-3]
 
-        time_ms = transcript.to_milliseconds(time) if time else None
-        character = character_str.split(" ")[0] if character_str else None
+        time_ms = transcript.to_milliseconds(time)
+        character = character_str.split(" ")[0]
+        if not is_character(character):
+            character = "Ada"
+
         duration_ms = None
 
         speech_rate = float(speech_rate_str) if speech_rate_str else 1.0
@@ -71,7 +75,12 @@ def parse(s: str) -> Sequence[Event]:
     ]
 
 
-def align(events: List[Event]) -> Sequence[Event]:
+def parse(s: str) -> list[list[Event]]:
+    blocks = [block for block in s.split("\n\n") if block]
+    return [parse_block(block) for block in blocks]
+
+
+def align(events: list[Event], threshold_ms: int) -> list[list[Event]]:
     """Transforms a sequence of events adjusting durations so that the end of each event
     matches the beginning of a next one. Adds speech pauses in the end.
 
@@ -83,24 +92,42 @@ def align(events: List[Event]) -> Sequence[Event]:
         equals time_ms of the next one.
     """
 
-    return [
-        replace(
-            event,
-            duration_ms=(new_duration_ms := next_event.time_ms - event.time_ms),
-            chunks=[
-                " ".join(event.chunks)
-                + (
-                    ""
-                    if (pause_ms := new_duration_ms - event.duration_ms) <= 0
-                    else f" #{pause_ms / 1000:.1f}#"
-                )
-            ],
-        )
-        for event, next_event in zip(events[:-1], events[1:])
-    ] + [events[-1]]
+    def reducer(acc, event):
+        if not acc:
+            return [[event]]
+
+        current = acc[-1]
+        last = current[-1]
+        duration_ms = event.time_ms - last.time_ms
+
+        if last.duration_ms is None:
+            return acc[:-1] + [current] + [[event]]
+
+        if duration_ms - last.duration_ms < threshold_ms:
+            return acc[:-1] + [current[:-1] + [replace(
+                last,
+                duration_ms=duration_ms,
+                chunks=[
+                    " ".join(last.chunks)
+                    + (
+                        ""
+                        if (pause_ms := duration_ms - last.duration_ms) <= 0
+                        else f" #{pause_ms / 1000:.1f}#"
+                    )
+                ],
+            ), event]]
+        else:
+            return acc[:-1] + [current[:-1] + [replace(
+                last,
+                duration_ms=last.duration_ms + threshold_ms,
+                chunks=[
+                    " ".join(last.chunks) + f" #{threshold_ms / 1000:.1f}#"
+                ])]] + [[event]]
+
+    return reduce(reducer, events, [])
 
 
-def render(events: Sequence[Event]) -> str:
+def render_block(events: Sequence[Event]) -> str:
     lines: list[str] = []
 
     for event, next_event in zip(events, list(events[1:]) + [events[-1]]):
@@ -122,3 +149,7 @@ def render(events: Sequence[Event]) -> str:
         ]
 
     return "\n".join(lines)
+
+
+def render(events: list[list[Event]]) -> str:
+    return "\n\n".join([render_block(block) for block in events])

@@ -457,6 +457,35 @@ def text_to_chunks(
     )
 
 
+def _azure_api_call(ssml_phrase: str) -> bytes:
+    with tempfile.NamedTemporaryFile() as output_file:
+        azure_key, azure_region = env.get_azure_config()
+        speech_config = azure_tts.SpeechConfig(
+            subscription=azure_key, region=azure_region
+        )
+        speech_config.set_speech_synthesis_output_format(
+            azure_tts.SpeechSynthesisOutputFormat.Riff44100Hz16BitMonoPcm
+        )
+        audio_config = azure_tts.audio.AudioOutputConfig(
+            filename=output_file.name
+        )
+        speech_synthesizer = azure_tts.SpeechSynthesizer(
+            speech_config=speech_config, audio_config=audio_config
+        )
+        result = speech_synthesizer.speak_ssml(ssml_phrase)
+        if result.reason != azure_tts.ResultReason.SynthesizingAudioCompleted:
+            logger.error(
+                f"Error synthesizing voice with Azure provider."
+                f" {result.reason}, {result.cancellation_details}"
+            )
+            raise RuntimeError(
+                f"Error synthesizing voice with Azure. {result.reason}"
+            )
+
+        with open(output_file.name, "rb") as result_stream:
+            return result_stream.read()
+
+
 async def synthesize_text(
     text: str,
     duration_ms: int | None,
@@ -535,34 +564,6 @@ async def synthesize_text(
                 ),
             )
             return result.audio_content
-
-        def _azure_api_call(ssml_phrase: str) -> bytes:
-            with tempfile.NamedTemporaryFile() as output_file:
-                azure_key, azure_region = env.get_azure_config()
-                speech_config = azure_tts.SpeechConfig(
-                    subscription=azure_key, region=azure_region
-                )
-                speech_config.set_speech_synthesis_output_format(
-                    azure_tts.SpeechSynthesisOutputFormat.Riff44100Hz16BitMonoPcm
-                )
-                audio_config = azure_tts.audio.AudioOutputConfig(
-                    filename=output_file.name
-                )
-                speech_synthesizer = azure_tts.SpeechSynthesizer(
-                    speech_config=speech_config, audio_config=audio_config
-                )
-                result = speech_synthesizer.speak_ssml(ssml_phrase)
-                if result.reason != azure_tts.ResultReason.SynthesizingAudioCompleted:
-                    logger.error(
-                        f"Error synthesizing voice with Azure provider."
-                        f" {result.reason}, {result.cancellation_details}"
-                    )
-                    raise RuntimeError(
-                        f"Error synthesizing voice with Azure. {result.reason}"
-                    )
-
-                with open(output_file.name, "rb") as result_stream:
-                    return result_stream.read()
 
         match provider:
             case "Azure":
