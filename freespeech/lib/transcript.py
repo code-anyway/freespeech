@@ -291,7 +291,7 @@ def render_transcript(transcript: Transcript, format: TranscriptFormat = "SSMD")
         case "SRT":
             return f"{output}\n\n{events_to_srt(transcript.events)}"
         case "SSMD-LITE":
-            return f"{output}\n\n{ssmd.render(transcript.events)}"
+            return f"{output}\n\n{ssmd.render(list(transcript.events))}"
 
 
 def srt_to_events(text: str) -> Sequence[Event]:
