@@ -11,8 +11,20 @@ TranscriptionModel = Literal["default", "latest_long", "general", "azure_granula
 SpeechToTextBackend = Literal["Machine A", "Machine B", "Machine C", "Machine D"]
 SPEECH_BACKENDS = ["Machine A", "Machine B", "Machine C", "Machine D"]
 
-TranscriptBackend = Literal["Google", "Notion", "SRT", "SSMD"]
-TRANSCRIPT_BACKENDS = ["Google", "Notion", "SRT", "SSMD"]
+TranscriptPlatform = Literal["Google", "Notion"]
+TRANSCRIPT_PLATFORMS = ["Google", "Notion"]
+
+
+def is_transcript_platform(val: str) -> TypeGuard[TranscriptPlatform]:
+    return val in TRANSCRIPT_PLATFORMS
+
+
+MediaPlatform = Literal["YouTube", "Stream"]
+MEDIA_PLATFORMS = ["YouTube", "Stream"]
+
+
+TranscriptFormat = Literal["SRT", "SSMD", "SSMD-NEXT"]
+TRANSCRIPT_FORMATS = ["SRT", "SSMD", "SSMD-NEXT"]
 
 Language = Literal[
     "en-US",
@@ -61,8 +73,8 @@ CHARACTERS: List[Character] = [
     "Greta",
 ]
 
-Method = Literal[SpeechToTextBackend, TranscriptBackend, "Subtitles"]
-METHODS = SPEECH_BACKENDS + TRANSCRIPT_BACKENDS + ["Subtitles"]
+Method = Literal[SpeechToTextBackend, "Subtitles"]
+METHODS = SPEECH_BACKENDS + ["Subtitles"]
 
 BlankFillMethod = Literal["Crop", "Blank", "Fill"]
 BLANK_FILL_METHODS = ["Crop", "Blank", "Fill"]
@@ -200,7 +212,7 @@ class Media(Generic[MediaType]):
 
 @dataclass(frozen=True)
 class Settings:
-    original_audio_level: int = 2
+    original_audio_level: int = 1
     space_between_events: BlankFillMethod = "Blank"
 
 
@@ -292,6 +304,7 @@ class IngestRequest:
 class IngestResponse:
     audio: str | None
     video: str | None
+    meta: Meta | None
 
 
 @dataclass(frozen=True)
@@ -313,7 +326,7 @@ class SaveRequest:
 
     Attributes:
         transcript (Transcript): Target transcript to save.
-        method (str):
+        storage (str):
 
             - `"SRT"` — SRT to Google Docs.
             - `"SSMD"` — freespeech's speech synthesis markdown to Google Docs.
@@ -327,7 +340,8 @@ class SaveRequest:
     """
 
     transcript: Transcript
-    method: Method
+    platform: TranscriptPlatform
+    format: TranscriptFormat
     location: str | None
 
 
