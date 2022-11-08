@@ -309,7 +309,7 @@ async def _transcribe(
             model = "default"
         case "Machine D":
             provider = "Azure"
-            model = "azure_granular"
+            model = "default_granular"
         case never:
             assert_never(never)
 
