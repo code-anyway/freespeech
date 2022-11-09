@@ -6,7 +6,7 @@ url = str
 AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC"]
 VideoEncoding = Literal["H264", "HEVC", "AV1"]
 ServiceProvider = Literal["Google", "Deepgram", "Azure"]
-TranscriptionModel = Literal["default", "latest_long", "general", "azure_granular"]
+TranscriptionModel = Literal["default", "latest_long", "general", "default_granular"]
 
 SpeechToTextBackend = Literal[
     "Machine A", "Machine B", "Machine C", "Machine D", "Subtitles"

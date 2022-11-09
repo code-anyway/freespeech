@@ -259,7 +259,7 @@ async def _transcribe_media(
                     model = "default"
                 case "Machine D":
                     provider = "Azure"
-                    model = "azure_granular"
+                    model = "default_granular"
                 case never:
                     assert_never(never)
             events = await speech.transcribe(
