@@ -7,7 +7,6 @@ import spacy
 
 from freespeech.types import Language, assert_never
 
-<<<<<<< HEAD
 
 @functools.cache
 def _nlp(lang: Language):
@@ -33,8 +32,6 @@ def _nlp(lang: Language):
 
     return nlp
 
-=======
->>>>>>> Steal nlp sentences split from other branch
 
 def is_sentence(s: str) -> bool:
     # TODO astaff: consider using text processing libraries like spacy
@@ -148,7 +145,6 @@ def remove_symbols(s: str, symbols: str) -> str:
     return str.translate(s, t)
 
 
-<<<<<<< HEAD
 def sentences(s: str, lang: Language) -> Sequence[str]:
     """Break string sentences.
     Args:
@@ -173,24 +169,3 @@ def lemmas(s: str, lang: Language) -> Sequence[str]:
     nlp = _nlp(lang)
     lemmatizer = nlp.get_pipe("lemmatizer")
     return [token.lemma_ for token in lemmatizer(nlp(s))]
-=======
-@functools.cache
-def _nlp(lang: Language):
-    match lang:
-        case "en-US":
-            nlp = spacy.load("en_core_web_sm")
-        case "de-DE":
-            nlp = spacy.load("de_core_news_sm")
-        case "pt-PT" | "pt-BR":
-            nlp = spacy.load("pt_core_news_sm")
-        case "es-US":
-            nlp = spacy.load("es_core_news_sm")
-        case "uk-UA":
-            nlp = spacy.load("uk_core_news_sm")
-        case "ru-RU":
-            nlp = spacy.load("ru_core_news_sm")
-        case never:
-            assert_never(never)
-
-    return nlp
->>>>>>> Steal nlp sentences split from other branch

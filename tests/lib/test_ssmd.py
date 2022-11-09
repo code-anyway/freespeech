@@ -208,21 +208,3 @@ def test_no_gaps_with_long_pauses():
 00:00:03.00 (Ada@1.0) Hi! #0.5#
 00:00:05.00#1.00 (Ada@1.0) Bye!"""
     )
-def test_gdoc_emojis_to_ssml_emotion_tags():
-    text_in = (
-        "Wrap every sentence of the input text containing an allowed emoji "
-        "before the full stop into a @:relieved-face: corresponding "
-        "ssml emotion tag @:crying-face:  . Ignore emojis in the middle or "
-        "in the begining of the sentences@:star-struck:. Remove all "
-        "the emojis from the input text@:lol:. @:crying-face:@:crying-face:."
-    )
-    text_out = (
-        '<mstts:express-as style="sad">Wrap every sentence of the input text '
-        "containing an allowed emoji before the full stop into a corresponding "
-        "ssml emotion tag.</mstts:express-as>"
-        '<mstts:express-as style="excited">Ignore emojis in the middle or in '
-        "the begining of the sentences.</mstts:express-as>"
-        '<mstts:express-as style="calm">Remove all the emojis '
-        "from the input text.</mstts:express-as>"
-    )
-    assert speech._gdoc_emojis_to_ssml_emotion_tags(text_in, "en-US") == text_out

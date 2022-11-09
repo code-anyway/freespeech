@@ -33,7 +33,6 @@ from freespeech.lib.text import (
     remove_symbols,
     sentences,
     split_sentences,
-    split_sentences_nlp,
 )
 from freespeech.types import (
     CHARACTERS,
@@ -483,12 +482,31 @@ def is_valid_ssml(text: str) -> bool:
     return root.tag == "{http://www.w3.org/2001/10/synthesis}speak"
 
 
-def _gdoc_emojis_to_ssml_emotion_tags(text: str, lang: Language) -> str:
-    """Wrap every sentence of the input text containing a supported emoji
-    before the full stop into a corresponding ssml emotion tag. Ignore any
-    emojis in the middle or in the begining of the sentences. Omit all the
-    emojis in the output string.
+def _collect_and_remove_gdoc_emojis(text: str, collection: list[str] | None) -> str:
+    """Remove gdoc emojis from the given string while collecting
+    fragments with encountered emojis to the given list.
+    If the collection argument is None, the collection step will be skipped.
     """
+
+    def _repl(m, acc):
+        if acc:
+            acc.append(m.group(0))
+
+        if m.group(0).endswith("."):
+            return "."
+        else:
+            return " "
+
+    text = re.sub(
+        r"\s*\@\:[a-z,-]+\:\s*\.*",
+        lambda m: _repl(m, collection),
+        text,
+    )
+
+    return text
+
+
+def _gdoc_emojis_to_ssml_emotion_tags(text: str, lang: Language) -> str:
     ssml_emotions = {
         "@:crying-face:": "sad",
         "@:star-struck:": "excited",
@@ -496,51 +514,73 @@ def _gdoc_emojis_to_ssml_emotion_tags(text: str, lang: Language) -> str:
         "@:enraged-face:": "angry",
     }
 
-    # A helper function for re::sub which collects emojis
-    # and returns their replacement for the original sentence.
-    def _repl(m, acc):
-        acc.append(m.group(0))
-        if m.group(0).endswith("."):
-            return "."
-        else:
-            return " "
+    def _wrap_into_emotion_tag(text: str, emotion: str):
+        return f'<mstts:express-as style="{emotion}">' + text + "</mstts:express-as>"
 
-    sentences = split_sentences_nlp(text, lang)
+    pattern = r"(\@\:[a-z-]+\:\s*[.!?,;:]*)"
+    split_by_emojis = re.split(pattern, text)
+
     text_with_emotion_tags = ""
+    # Iterate over pairs: substring and it's subsequent emoji fragment
+    for i in range(0, len(split_by_emojis) - 1, 2):
+        # Emoji fragment is dirty - it contains
+        # subsequent spaces and punctuation marks
+        emoji_fagment_dirty = split_by_emojis[i + 1]
+        substr = split_by_emojis[i].strip()
 
-    for sentence in sentences:
-        encountered_gdoc_emojis = []
-
-        # Populate the encountered_gdoc_emojis while removing
-        # all the emojis in the sentence.
-        sentence = re.sub(
-            r"\s*\@\:[a-z,-]+\:\s*\.*",
-            lambda m: _repl(m, encountered_gdoc_emojis),
-            sentence,
-        )
-
-        # In the case the original sentence contained only
-        # emojis without any words, skip it.
-        sentence = sentence.strip()
-        if sentence == ".":
+        if substr == "":
             continue
 
-        # Wrap the sentence into an emotion tag only if the original
-        # sentence contained a supported emoji before a full stop.
-        if encountered_gdoc_emojis and encountered_gdoc_emojis[-1].endswith("."):
-            gdoc_emoji = encountered_gdoc_emojis[-1][:-1].strip()
-            if is_supported_gdoc_emoji(gdoc_emoji):
-                sentence = (
-                    f'<mstts:express-as style="{ssml_emotions[gdoc_emoji]}">'
-                    + sentence
-                    + "</mstts:express-as>"
-                )
-                text_with_emotion_tags += sentence
-                continue
+        # Retrieve a clean emoji and punctuation marks
+        split_idx = emoji_fagment_dirty.find(":", 2)
+        gdoc_emoji = emoji_fagment_dirty[: split_idx + 1]
+        punctuation_tail = emoji_fagment_dirty[split_idx + 1 :].strip()
 
-        # Wrap the sentence into the default "calm" tag.
-        sentence = f'<mstts:express-as style="calm">{sentence}</mstts:express-as>'
-        text_with_emotion_tags += sentence
+        # Azure seems to be sensitive when it comes to emotion tags
+        # and punctuation. It refuses to tone a sentence into any emotions,
+        # if parts of the sentence are wrapped into their own emotion tags.
+        # Azure only tones a sentence when it is wrapped into a single
+        # emotion tag as a whole. The following part should handle cases
+        # of inconvenient emoji positioning in a sentence relative
+        # to surrounding punctuation.
+        # TODO: improve this part - for now it's a crude fix.
+        if not re.fullmatch(r"[.?!]+", punctuation_tail) and not substr.endswith(
+            (".", "!", "?")
+        ):
+            punctuation_tail = "."
+
+        if not is_supported_gdoc_emoji(gdoc_emoji):
+            text_with_emotion_tags += _wrap_into_emotion_tag(
+                substr + punctuation_tail, "calm"
+            )
+            continue
+
+        _sentences = sentences(substr, lang)
+
+        # An encountered emoji affects only the last
+        # sentence of the preceding substring
+        affected_substr = _sentences[-1]
+        affected_substr = _wrap_into_emotion_tag(
+            affected_substr + punctuation_tail, ssml_emotions[gdoc_emoji]
+        )
+
+        # If the preceding substring contained other sentences,
+        # wrap them into a default emotion
+        if len(_sentences) > 1:
+            unaffected_substr = " ".join(s.strip() for s in _sentences[:-1])
+            unaffected_substr = _wrap_into_emotion_tag(
+                unaffected_substr, "calm"  # emotion used as default
+            )
+            text_with_emotion_tags += unaffected_substr
+
+        text_with_emotion_tags += affected_substr
+
+    # Don't forget the last element of the
+    # split array which is always non-emoji
+    if split_by_emojis[-1].strip() != "":
+        text_with_emotion_tags += _wrap_into_emotion_tag(
+            split_by_emojis[-1].strip(), "calm"
+        )
 
     return text_with_emotion_tags
 
@@ -550,7 +590,10 @@ def _wrap_in_ssml(
 ) -> str:
     def _google():
         decorated_text = "".join(
-            [f"<s>{sentence}</s>" for sentence in split_sentences(text)]
+            [
+                f"<s>{_collect_and_remove_gdoc_emojis(sentence, collection=None)}</s>"
+                for sentence in split_sentences(text)
+            ]
         )
 
         result = (
