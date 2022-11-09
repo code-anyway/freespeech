@@ -1,10 +1,12 @@
 import asyncio
+import difflib
 import logging
 import re
 import tempfile
 import xml.etree.ElementTree as ET
 from dataclasses import replace
 from functools import cache
+from itertools import groupby
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Dict, Sequence, Tuple
@@ -25,8 +27,10 @@ from freespeech.lib.text import (
     capitalize_sentence,
     chunk,
     is_sentence,
+    lemmas,
     make_sentence,
     remove_symbols,
+    sentences,
     split_sentences,
 )
 from freespeech.types import (
@@ -186,8 +190,8 @@ def supported_azure_voices() -> Dict[str, Sequence[str]]:
 async def transcribe(
     uri: str,
     lang: Language,
-    model: TranscriptionModel = "latest_long",
-    provider: ServiceProvider = "Google",
+    model: TranscriptionModel,
+    provider: ServiceProvider,
 ) -> Sequence[Event]:
     """Transcribe audio.
 
@@ -400,12 +404,34 @@ async def _transcribe_azure(uri: url, lang: Language, model: TranscriptionModel)
             time_ms = int(phrase["offsetInTicks"] / 10000)
             duration_ms = int(phrase["durationInTicks"] / 10000)
             text = phrase["nBest"][0]["display"]
-            yield Event(
-                time_ms,
-                chunks=[text],
-                duration_ms=duration_ms,
-                voice=Voice(character=CHARACTERS[speaker]),
-            )
+
+            if model != "azure_granular":
+                yield Event(
+                    time_ms=time_ms,
+                    chunks=[text],
+                    duration_ms=duration_ms,
+                    voice=Voice(character=CHARACTERS[speaker]),
+                )
+
+            words = [
+                (
+                    word["word"],
+                    word["offsetInTicks"] / 10000.0,
+                    word["durationInTicks"] / 10000.0,
+                )
+                for word in phrase["nBest"][0]["words"]
+            ]
+
+            if model == "azure_granular":
+                for sentence, time_ms, duration_ms in break_phrase(
+                    text=text, words=words, lang=lang
+                ):
+                    yield Event(
+                        time_ms=time_ms,
+                        chunks=[sentence],
+                        duration_ms=duration_ms,
+                        voice=Voice(character=CHARACTERS[speaker]),
+                    )
 
     return list(build_events())
 
@@ -745,3 +771,62 @@ def normalize_speech(
                     assert_never(never)
 
     return acc
+
+
+def break_phrase(
+    text: str,
+    words: Sequence[Tuple[str, int, int]],
+    lang: Language,
+) -> Sequence[Tuple[str, int, int]]:
+    """Breaks down a single phrase into separate sentences with start time and duration.
+    Args:
+        text: Paragraph of text with one or more sentences.
+        words: Sequence of tuples representing a single word from the phrase,
+            its start time and duration.
+        lang: Language code for language-aware sentence parsing.
+    Returns:
+        Sequence of tuples representing a sentence, its start time and duration.
+    """
+    # reduce each word in text and words down to lemmas to avoid
+    # mismatches due to effects of ASR's language model.
+    _sentences = sentences(text, lang)
+    display_tokens = [
+        (lemma.lower(), num)
+        for num, sentence in enumerate(_sentences)
+        for lemma in lemmas(sentence, lang)
+    ]
+    lexical_tokens = [
+        (lemma.lower(), start, duration)
+        for word, start, duration in words
+        for lemma in lemmas(word, lang)
+    ]
+
+    # Find the longest common sequences between lemmas in text
+    # and lemmatized words.
+    matcher = difflib.SequenceMatcher(
+        a=[token for token, *_ in display_tokens],
+        b=[token for token, *_ in lexical_tokens],
+        autojunk=False,
+    )
+    matches = [
+        (num, (int(start), int(duration)))
+        for i, j, n in matcher.get_matching_blocks()
+        for (_, num), (_, start, duration) in zip(
+            display_tokens[i : i + n], lexical_tokens[j : j + n]
+        )
+    ]
+
+    # Group matches by sentence number. The first and the last item
+    # in the group will represent the first and last overlaps with the timed words.
+    sentence_timings = {
+        num: (start := timings[0][0], timings[-1][0] + timings[-1][1] - start)
+        for num, timings in [
+            (num, [(start, duration) for _, (start, duration) in timings])
+            for num, timings in groupby(matches, key=lambda a: a[0])
+        ]
+    }
+
+    # Return sentences and their timings.
+    return [
+        (sentence, *sentence_timings[num]) for num, sentence in enumerate(_sentences)
+    ]

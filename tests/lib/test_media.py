@@ -130,7 +130,7 @@ async def test_dub(tmp_path) -> None:
     output_mono = await media.multi_channel_audio_to_mono(output, tmp_path)
     uri = await obj.put(output_mono, AUDIO_RU_GS)
 
-    t_ru = await speech.transcribe(uri, "ru-RU")
+    t_ru = await speech.transcribe(uri, "ru-RU", provider="Google", model="latest_long")
     event, *tail = t_ru
     assert not tail, "Expected only one event sequence."
     assert event.time_ms == 0

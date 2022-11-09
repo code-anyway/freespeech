@@ -6,10 +6,10 @@ url = str
 AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC"]
 VideoEncoding = Literal["H264", "HEVC", "AV1"]
 ServiceProvider = Literal["Google", "Deepgram", "Azure"]
-TranscriptionModel = Literal["default", "latest_long", "general"]
+TranscriptionModel = Literal["default", "latest_long", "general", "azure_granular"]
 
-SpeechToTextBackend = Literal["Machine A", "Machine B", "Machine C"]
-SPEECH_BACKENDS = ["Machine A", "Machine B", "Machine C"]
+SpeechToTextBackend = Literal["Machine A", "Machine B", "Machine C", "Machine D"]
+SPEECH_BACKENDS = ["Machine A", "Machine B", "Machine C", "Machine D"]
 
 TranscriptBackend = Literal["Google", "Notion", "SRT", "SSMD"]
 TRANSCRIPT_BACKENDS = ["Google", "Notion", "SRT", "SSMD"]
@@ -51,7 +51,15 @@ Character = Literal[
     "Melinda",  # Melinda Gates
     "Greta",  # Greta Thunberg
 ]
-CHARACTERS = ["Alan", "Grace", "Ada", "Alonzo", "Bill", "Melinda", "Greta"]
+CHARACTERS: List[Character] = [
+    "Alan",
+    "Grace",
+    "Ada",
+    "Alonzo",
+    "Bill",
+    "Melinda",
+    "Greta",
+]
 
 Method = Literal[SpeechToTextBackend, TranscriptBackend, "Subtitles"]
 METHODS = SPEECH_BACKENDS + TRANSCRIPT_BACKENDS + ["Subtitles"]

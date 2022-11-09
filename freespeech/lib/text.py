@@ -1,6 +1,36 @@
+import functools
 import re
 from itertools import zip_longest
 from typing import Iterator, Sequence
+
+import spacy
+
+from freespeech.types import Language, assert_never
+
+
+@functools.cache
+def _nlp(lang: Language):
+    match lang:
+        case "en-US":
+            nlp = spacy.load("en_core_web_sm")
+        case "de-DE":
+            nlp = spacy.load("de_core_news_sm")
+        case "fr-FR":
+            nlp = spacy.load("fr_core_news_sm")
+        case "pt-PT" | "pt-BR":
+            nlp = spacy.load("pt_core_news_sm")
+        case "es-US" | "es-MX" | "es-ES":
+            nlp = spacy.load("es_core_news_sm")
+        case "uk-UA":
+            nlp = spacy.load("uk_core_news_sm")
+        case "ru-RU":
+            nlp = spacy.load("ru_core_news_sm")
+        case never:
+            # (astaff, 20221109): when adding a new language make sure
+            # to install the spacy model for it in setup.py.
+            assert_never(never)
+
+    return nlp
 
 
 def is_sentence(s: str) -> bool:
@@ -99,3 +129,29 @@ def chunk_raw(s: str, length: int) -> Sequence[str]:
 def remove_symbols(s: str, symbols: str) -> str:
     t = str.maketrans(s, s, symbols)
     return str.translate(s, t)
+
+
+def sentences(s: str, lang: Language) -> Sequence[str]:
+    """Break string sentences.
+    Args:
+        paragraph: input paragraph.
+    Returns:
+        Sequence of strings representing sentences.
+    """
+    nlp = _nlp(lang)
+    doc = nlp(s)
+    senter = nlp.get_pipe("senter")
+    sentences = [span.text for span in senter(doc).sents]
+    return sentences
+
+
+def lemmas(s: str, lang: Language) -> Sequence[str]:
+    """Break string into lemmas.
+    Args:
+        paragraph: input paragraph.
+    Returns:
+        Sequence of strings representing lemmas.
+    """
+    nlp = _nlp(lang)
+    lemmatizer = nlp.get_pipe("lemmatizer")
+    return [token.lemma_ for token in lemmatizer(nlp(s))]

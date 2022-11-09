@@ -41,6 +41,32 @@ async def test_transcribe(mock_client, monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_transcribe_machine_d(mock_client, monkeypatch) -> None:
+    monkeypatch.setattr(client, "create", mock_client)
+    session = mock_client()
+
+    message = (
+        "Transcribe https://www.youtube.com/watch?v=N9B59PHIFbA "
+        "in English using Machine D"
+    )
+    response = await chat.ask(message=message, intent=None, state={}, session=session)
+
+    assert (
+        response.message == "Transcribing https://www.youtube.com/watch?v=N9B59PHIFbA"
+        " with Machine D in en-US. Watch this space!"
+    )
+
+    if isinstance(response, Error):
+        assert False, response.message
+    result = await tasks.future(response, session)
+    if isinstance(result, Error):
+        assert False, result.message
+
+    assert isinstance(result, Transcript)
+    assert len(result.events) == 12
+
+
+@pytest.mark.asyncio
 async def test_transcribe_from_gdoc_srt(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
     session = mock_client()

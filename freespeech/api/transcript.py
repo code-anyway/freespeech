@@ -31,6 +31,7 @@ from freespeech.types import (
     SynthesizeRequest,
     Transcript,
     TranscriptBackend,
+    TranscriptionModel,
     TranslateRequest,
     assert_never,
 )
@@ -83,7 +84,7 @@ async def _save(request: SaveRequest) -> SaveResponse:
                     title=request.transcript.title, text=plain_text
                 )
             )
-        case "Machine A" | "Machine B" | "Machine C":
+        case "Machine A" | "Machine B" | "Machine C" | "Machine D":
             raise ValueError(f"Unsupported method: {request.method}")
         case never:
             assert_never(never)
@@ -197,7 +198,7 @@ async def _load(
             if not isinstance(source, str):
                 raise ValueError(f"Need a url for {request.method}.")
             return await notion.load(source)
-        case "Machine A" | "Machine B" | "Machine C":
+        case "Machine A" | "Machine B" | "Machine C" | "Machine D":
             asset = await _ingest(
                 source if isinstance(source, str) else BytesIO(source.read()),
                 filename=None,
@@ -222,7 +223,13 @@ async def _load(
                 audio=asset.audio,
                 video=asset.video,
             )
-            return _normalize_speech(result, method=TRANSCRIPT_NORMALIZATION)
+
+            # Machine D assumes sentence-level timestamps
+            # we want to preserve them in the output.
+            if request.method != "Machine D":
+                return _normalize_speech(result, method=TRANSCRIPT_NORMALIZATION)
+            else:
+                return result
         case "Subtitles":
             if not isinstance(source, str):
                 raise ValueError(f"Need a url for {request.method}.")
@@ -288,13 +295,21 @@ async def _transcribe(
     session: aiohttp.ClientSession,
 ) -> Sequence[Event]:
     provider: ServiceProvider
+    model: TranscriptionModel
+
     match backend:
         case "Machine A":
             provider = "Google"
+            model = "latest_long"
         case "Machine B":
             provider = "Deepgram"
+            model = "default"
         case "Machine C":
             provider = "Azure"
+            model = "default"
+        case "Machine D":
+            provider = "Azure"
+            model = "azure_granular"
         case never:
             assert_never(never)
 
@@ -312,6 +327,7 @@ async def _transcribe(
         uri=obj.storage_url(result.audio),
         lang=lang,
         provider=provider,
+        model=model,
     )
 
     return events
