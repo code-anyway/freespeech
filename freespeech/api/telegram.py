@@ -172,7 +172,8 @@ async def _handle_message(message: tg_types.Message):
                 case "Transcribe" | "Translate":
                     response = await transcript.save(
                         transcript_ready,
-                        method="Google",
+                        platform="Google",
+                        format="SSMD",
                         location=None,
                         session=session,
                     )

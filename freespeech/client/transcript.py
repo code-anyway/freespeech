@@ -16,6 +16,8 @@ from freespeech.types import (
     SaveResponse,
     SynthesizeRequest,
     Transcript,
+    TranscriptFormat,
+    TranscriptPlatform,
     TranslateRequest,
 )
 
@@ -132,11 +134,14 @@ async def translate(
 async def save(
     transcript: Transcript,
     *,
-    method: Method,
+    platform: TranscriptPlatform,
+    format: TranscriptFormat,
     location: str | None,
     session: aiohttp.ClientSession,
 ) -> Task[SaveResponse] | Error:
-    request = SaveRequest(transcript=transcript, location=location, method=method)
+    request = SaveRequest(
+        transcript=transcript, platform=platform, format=format, location=location
+    )
     async with session.post(
         "/api/transcript/save", json=pydantic_encoder(request)
     ) as resp:
