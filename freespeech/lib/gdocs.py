@@ -8,8 +8,8 @@ import google.auth
 import googleapiclient.discovery
 from google.oauth2 import service_account
 
-from freespeech.lib.transcript import parse_transcript, render_transcript
-from freespeech.types import Transcript
+from freespeech.lib.transcript import events_to_srt, parse_transcript, render_transcript
+from freespeech.types import Transcript, TranscriptFormat
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +121,7 @@ def extract(url: str) -> Tuple[str, str]:
                 raise e
 
 
-def load(url: str) -> Transcript:
+def load(url: str, format: TranscriptFormat) -> Transcript:
     """Loads transcript from Google Docs document.
 
     Args:
@@ -131,7 +131,7 @@ def load(url: str) -> Transcript:
         Instance of Transcript initialized from the document.
     """
     title, text = extract(url)
-    transcript = parse_transcript(text)
+    transcript = parse_transcript(text, format=format)
     return replace(transcript, title=title)
 
 
@@ -150,9 +150,16 @@ def share_with_all(document_id: str):
         ).execute()
 
 
-def create(source: Transcript) -> str:
-    text = render_transcript(source)
-    return create_from_text(source.title, text)
+def create(source: Transcript, format: TranscriptFormat) -> str:
+    match format:
+        case "SSMD":
+            return create_from_text(title=source.title, text=render_transcript(source))
+        case "SSMD-NEXT":
+            raise NotImplementedError("SSMD-NEXT format is not supported yet")
+        case "SRT":
+            return create_from_text(
+                title=source.title, text=events_to_srt(source.events)
+            )
 
 
 def create_from_text(title: str | None, text: str) -> str:

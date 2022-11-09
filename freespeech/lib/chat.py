@@ -136,6 +136,8 @@ def parse_intent(
                 return "Machine C"
             case "machine d":
                 return "Machine D"
+            case "srt":
+                return "SRT"
             case _:
                 return method
 

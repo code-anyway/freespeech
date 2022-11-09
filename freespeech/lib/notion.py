@@ -13,6 +13,7 @@ from freespeech.types import (
     Settings,
     Source,
     Transcript,
+    TranscriptFormat,
     assert_never,
     is_method,
     url,
@@ -340,7 +341,7 @@ async def update_page_properties(page_id: str, properties: Dict) -> Dict:
 
 
 async def create(
-    transcript: Transcript, *, database_id: str
+    transcript: Transcript, *, format: TranscriptFormat, database_id: str
 ) -> Tuple[str, str, Transcript]:
     """Creates transcript page in Notion database.
 
@@ -354,17 +355,21 @@ async def create(
         transcript page.
     """
 
-    properties, blocks = render_transcript(transcript)
-
-    result = await create_page(
-        database_id=database_id, properties=properties, blocks=blocks
-    )
-
-    return (
-        result["id"],
-        result["url"],
-        parse_transcript(properties=result["properties"], blocks=blocks),
-    )
+    match format:
+        case "SSMD":
+            properties, blocks = render_transcript(transcript)
+            result = await create_page(
+                database_id=database_id, properties=properties, blocks=blocks
+            )
+            return (
+                result["id"],
+                result["url"],
+                parse_transcript(properties=result["properties"], blocks=blocks),
+            )
+        case "SSMD-NEXT":
+            raise NotImplementedError("SSMD-NEXT format in Notion is not supported yet")
+        case "SRT":
+            raise NotImplementedError("SRT format in Notion is not supported yet")
 
 
 def render_event(event: Event) -> List[Dict]:

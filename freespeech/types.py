@@ -8,11 +8,35 @@ VideoEncoding = Literal["H264", "HEVC", "AV1"]
 ServiceProvider = Literal["Google", "Deepgram", "Azure"]
 TranscriptionModel = Literal["default", "latest_long", "general", "azure_granular"]
 
-SpeechToTextBackend = Literal["Machine A", "Machine B", "Machine C", "Machine D"]
-SPEECH_BACKENDS = ["Machine A", "Machine B", "Machine C", "Machine D"]
+SpeechToTextBackend = Literal[
+    "Machine A", "Machine B", "Machine C", "Machine D", "Subtitles"
+]
+SPEECH_BACKENDS = ["Machine A", "Machine B", "Machine C", "Machine D", "Subtitles"]
 
-TranscriptBackend = Literal["Google", "Notion", "SRT", "SSMD"]
-TRANSCRIPT_BACKENDS = ["Google", "Notion", "SRT", "SSMD"]
+
+def is_speech_to_text_backend(val: str) -> TypeGuard[SpeechToTextBackend]:
+    return val in SPEECH_BACKENDS
+
+
+TranscriptPlatform = Literal["Google", "Notion", "GCS"]
+TRANSCRIPT_PLATFORMS = ["Google", "Notion", "GCS"]
+
+
+def is_transcript_platform(val: str) -> TypeGuard[TranscriptPlatform]:
+    return val in TRANSCRIPT_PLATFORMS
+
+
+MediaPlatform = Literal["YouTube", "GCS"]
+MEDIA_PLATFORMS = ["YouTube", "GCS"]
+
+
+TranscriptFormat = Literal["SRT", "SSMD", "SSMD-NEXT"]
+TRANSCRIPT_FORMATS = ["SRT", "SSMD", "SSMD-NEXT"]
+
+
+def is_transcript_format(val: str) -> TypeGuard[TranscriptFormat]:
+    return val in TRANSCRIPT_FORMATS
+
 
 Language = Literal[
     "en-US",
@@ -61,8 +85,8 @@ CHARACTERS: List[Character] = [
     "Greta",
 ]
 
-Method = Literal[SpeechToTextBackend, TranscriptBackend, "Subtitles"]
-METHODS = SPEECH_BACKENDS + TRANSCRIPT_BACKENDS + ["Subtitles"]
+Method = Literal[SpeechToTextBackend, TranscriptFormat]
+METHODS = SPEECH_BACKENDS + TRANSCRIPT_FORMATS
 
 BlankFillMethod = Literal["Crop", "Blank", "Fill"]
 BLANK_FILL_METHODS = ["Crop", "Blank", "Fill"]
@@ -200,7 +224,7 @@ class Media(Generic[MediaType]):
 
 @dataclass(frozen=True)
 class Settings:
-    original_audio_level: int = 2
+    original_audio_level: int = 1
     space_between_events: BlankFillMethod = "Blank"
 
 
@@ -278,7 +302,7 @@ class TranslateRequest:
 
 @dataclass(frozen=True)
 class LoadRequest:
-    source: str | None
+    source: str
     method: Method
     lang: Language | None
 
@@ -313,7 +337,7 @@ class SaveRequest:
 
     Attributes:
         transcript (Transcript): Target transcript to save.
-        method (str):
+        storage (str):
 
             - `"SRT"` — SRT to Google Docs.
             - `"SSMD"` — freespeech's speech synthesis markdown to Google Docs.
@@ -327,7 +351,8 @@ class SaveRequest:
     """
 
     transcript: Transcript
-    method: Method
+    platform: TranscriptPlatform
+    format: TranscriptFormat
     location: str | None
 
 

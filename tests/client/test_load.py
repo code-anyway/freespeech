@@ -8,36 +8,6 @@ from freespeech.types import Error, Event, Method, Voice
 
 
 @pytest.mark.asyncio
-async def test_load_srt(mock_client, monkeypatch) -> None:
-    monkeypatch.setattr(client, "create", mock_client)
-    session = mock_client()
-    # session = client.create()
-
-    async with session:
-        with open("tests/lib/data/transcript/fmj.srt", "rb") as stream:
-            task = await transcript.load(
-                source=stream, method="SRT", lang="en-US", session=session
-            )
-            result = await tasks.future(task, session)
-            if isinstance(result, Error):
-                assert False, result.message
-
-            first, *_, last = result.events
-            assert first == Event(
-                time_ms=27110,
-                chunks=['"America has heard the bugle call'],
-                duration_ms=5050,
-                voice=Voice(character="Ada", pitch=0.0, speech_rate=1.0),
-            )
-            assert last == Event(
-                time_ms=6716480,
-                chunks=["And I am not afraid."],
-                duration_ms=1580,
-                voice=Voice(character="Ada", pitch=0.0, speech_rate=1.0),
-            )
-
-
-@pytest.mark.asyncio
 async def test_load_srt_from_gdoc(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
     session = mock_client()
@@ -45,9 +15,7 @@ async def test_load_srt_from_gdoc(mock_client, monkeypatch) -> None:
 
     async with session:
         task = await transcript.load(
-            source="https://docs.google.com"
-            "/document/d/1E_E9S5G4vH6MWxo3qB4itXZRcSrFeqHscMysFjen-sY"
-            "/edit?usp=sharing",
+            source="https://docs.google.com/document/d/1-pexQIJLV_RFnPnjoMG76giKzPmItMnbf17N_nNCIKs/edit",  # noqa: E501
             method="SRT",
             lang="en-US",
             session=session,
@@ -69,36 +37,6 @@ async def test_load_srt_from_gdoc(mock_client, monkeypatch) -> None:
             duration_ms=4373,
             voice=Voice(character="Ada", pitch=0.0, speech_rate=1.0),
         )
-
-
-@pytest.mark.asyncio
-async def test_load_ssmd(mock_client, monkeypatch) -> None:
-    monkeypatch.setattr(client, "create", mock_client)
-    session = mock_client()
-    # session = client.create()
-
-    async with session:
-        with open("tests/lib/data/transcript/test.ssmd", "rb") as stream:
-            task = await transcript.load(
-                source=stream, method="SSMD", lang="en-US", session=session
-            )
-            result = await tasks.future(task, session)
-            if isinstance(result, Error):
-                assert False, result.message
-
-            first, *_, last = result.events
-            assert first == Event(
-                time_ms=0,
-                chunks=["Hello, Bill!", "How are you?"],
-                duration_ms=1000,
-                voice=Voice(character="Grace", pitch=0.0, speech_rate=1.0),
-            )
-            assert last == Event(
-                time_ms=2000,
-                chunks=["It was a huge mistake."],
-                duration_ms=None,
-                voice=Voice(character="Ada", pitch=0.0, speech_rate=1.4),
-            )
 
 
 @pytest.mark.asyncio

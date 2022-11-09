@@ -137,7 +137,7 @@ async def test_synthesize(mock_client, monkeypatch) -> None:
     assert transcript_dubbed.video
 
     load_response = await transcript.load(
-        source=test_doc, method="Google", lang=None, session=session
+        source=test_doc, method="SSMD", lang=None, session=session
     )
     old_transcript = await tasks.future(load_response, session)
     assert isinstance(old_transcript, Transcript)

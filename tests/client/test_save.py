@@ -17,7 +17,10 @@ async def test_save(mock_client, monkeypatch) -> None:
     async with session:
         with open("tests/lib/data/transcript/karlsson.srt", "rb") as stream:
             task = await transcript.load(
-                source=stream, method="SRT", lang="en-US", session=session
+                source=stream,
+                method="SRT",
+                lang="en-US",
+                session=session,
             )
             from_srt = await tasks.future(task, session)
             from_srt = replace(from_srt, title="test_save")
@@ -26,7 +29,11 @@ async def test_save(mock_client, monkeypatch) -> None:
             assert False, from_srt.message
 
         response = await transcript.save(
-            from_srt, method="SRT", location=None, session=session
+            transcript=from_srt,
+            platform="Google",
+            format="SRT",
+            location=None,
+            session=session,
         )
         if isinstance(response, Error):
             assert False, response.message
@@ -36,7 +43,11 @@ async def test_save(mock_client, monkeypatch) -> None:
         assert result.url.startswith("https://docs.google.com/document/d/")
 
         response = await transcript.save(
-            from_srt, method="Google", location=None, session=session
+            transcript=from_srt,
+            platform="Google",
+            format="SSMD",
+            location=None,
+            session=session,
         )
         if isinstance(response, Error):
             assert False, response.message
@@ -44,10 +55,10 @@ async def test_save(mock_client, monkeypatch) -> None:
         if isinstance(result, Error):
             assert False, result.message
         assert result.url.startswith("https://docs.google.com/document/d/")
-
         response = await transcript.save(
-            from_srt,
-            method="Notion",
+            transcript=from_srt,
+            platform="Notion",
+            format="SSMD",
             location=NOTION_TRANSCRIPT_DATABASE_ID,
             session=session,
         )

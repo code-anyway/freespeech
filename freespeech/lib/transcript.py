@@ -15,7 +15,9 @@ from freespeech.types import (
     Settings,
     Source,
     Transcript,
+    TranscriptFormat,
     Voice,
+    assert_never,
     is_blank_fill_method,
     is_character,
     is_language,
@@ -172,17 +174,25 @@ def parse_properties(text: str) -> Dict[str, str]:
     }
 
 
-def parse_transcript(text: str) -> Transcript:
-    match = timecode_parser.search(text)
-
-    if not match:
+def parse_transcript(text: str, format: TranscriptFormat) -> Transcript:
+    parts = text.split("\n\n", maxsplit=1)
+    if not len(parts) == 2:
         raise ValueError(
-            "Invalid document content: expected at least one timecode in the beginning of a paragraph."  # noqa: E501
+            "Expecting two parts: manifest and body separated by two newlines"
         )
 
-    transcript_start = match.start()
-    properties = parse_properties(text[:transcript_start])
-    events = parse_events(text=text[transcript_start:])
+    properties = parse_properties(parts[0])
+    body = parts[1]
+
+    match format:
+        case "SRT":
+            events = srt_to_events(body)
+        case "SSMD":
+            events = parse_events(text=body)
+        case "SSMD-NEXT":
+            raise NotImplementedError("SSMD-NEXT is not supported yet")
+        case x:
+            assert_never(x)
 
     lang = properties.get("language", None)
     if not lang:
@@ -251,6 +261,7 @@ def render_transcript(transcript: Transcript) -> str:
     }
 
     output = "\n".join(f"{key}: {value}" for key, value in properties.items() if value)
+    output += "\n"
 
     # putting up events
     for event in transcript.events:

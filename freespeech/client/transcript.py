@@ -16,6 +16,8 @@ from freespeech.types import (
     SaveResponse,
     SynthesizeRequest,
     Transcript,
+    TranscriptFormat,
+    TranscriptPlatform,
     TranslateRequest,
 )
 
@@ -48,10 +50,6 @@ async def load(
             - `"SRT"` — popular subtitle format.
             - `"SSMD"` — freespeech's speech synthesis markdown.
 
-            Document platforms:
-
-            - `"Google"` — Google Docs.
-            - `"Notion"` — Notion.
         lang (str): A BCP 47 tag indicating language of a transcript.
 
             Supported values:
@@ -60,6 +58,7 @@ async def load(
             - `"uk-UA"` (Ukrainian).
             - `"ru-RU"` (Russian).
             - `"pt-PT"` (Portuguese).
+            - `"fr-FR"` (French).
             - `"es-US"` (Spanish).
             - `"de-DE"` (German).
     Returns:
@@ -132,11 +131,14 @@ async def translate(
 async def save(
     transcript: Transcript,
     *,
-    method: Method,
+    platform: TranscriptPlatform,
+    format: TranscriptFormat,
     location: str | None,
     session: aiohttp.ClientSession,
 ) -> Task[SaveResponse] | Error:
-    request = SaveRequest(transcript=transcript, location=location, method=method)
+    request = SaveRequest(
+        transcript=transcript, platform=platform, format=format, location=location
+    )
     async with session.post(
         "/api/transcript/save", json=pydantic_encoder(request)
     ) as resp:

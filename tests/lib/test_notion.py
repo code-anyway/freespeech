@@ -28,7 +28,7 @@ async def test_create():
     )
 
     id, url, transcript = await notion.create(
-        expected_transcript, database_id=TRANSCRIPT_DATABASE_ID
+        expected_transcript, format="SSMD", database_id=TRANSCRIPT_DATABASE_ID
     )
 
     assert url.startswith("https://www.notion.so/")

@@ -20,6 +20,8 @@ from freespeech.types import (
     Transcript,
     TranslateRequest,
     assert_never,
+    is_language,
+    is_method,
     is_operation,
 )
 
@@ -55,12 +57,6 @@ def handle_response(response: Task | Error) -> web.Response:
             return web.Response(body=pydantic_encoder(response))
 
 
-def _raise_unknown_query(intent: str | None = None):
-    raise aiohttp.web.HTTPBadRequest(
-        text=f"Don't know how to handle {intent or 'this'}.\n{USER_EXAMPLES['other']}"
-    )
-
-
 def _build_request(
     intent: str, entities: Dict
 ) -> Tuple[LoadRequest | TranslateRequest | SynthesizeRequest, Dict]:
@@ -72,19 +68,27 @@ def _build_request(
         raise ValueError(f"Unknown intent: {operation}. Expected: {OPERATIONS}")
 
     url, *_ = entities.get("url", None) or [None]
-    method, *_ = entities.get("method", None) or ["Machine B"]
+    method, *_ = entities.get("method", None) or ["Machine C"]
     lang, *_ = entities.get("language", None) or [None]
 
-    if method.lower() == "srt":
-        method = "SRT"
+    if lang and not is_language(lang):
+        raise ValueError(f"Unknown language: {lang}")
 
     state = {"url": url, "method": method, "lang": lang}
     state = {k: v for k, v in state.items() if v}
 
+    if not url:
+        raise ValueError("Missing url")
+
     match operation:
         case "Transcribe":
+            if not method or not is_method(method):
+                logger.warning(f"Unknown method: {method}. Defaulting to Machine C")
+                method = "Machine C"
             return LoadRequest(source=url, method=method, lang=lang), state
         case "Translate":
+            if not lang:
+                raise ValueError("Missing language")
             return TranslateRequest(transcript=url, lang=lang), state
         case "Synthesize":
             return SynthesizeRequest(transcript=url), state
@@ -106,7 +110,8 @@ async def _ask(
 
     match request:
         case LoadRequest():
-            assert isinstance(request.source, str)
+            if request.source is None:
+                raise ValueError("Missing source URL")
             response = await transcript.load(
                 source=request.source,
                 method=request.method,
@@ -142,7 +147,6 @@ async def _ask(
             response = await transcript.synthesize(
                 transcript=request.transcript, session=session
             )
-
             response = replace(
                 response,
                 operation="Synthesize",
