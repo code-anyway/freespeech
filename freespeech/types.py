@@ -8,7 +8,9 @@ VideoEncoding = Literal["H264", "HEVC", "AV1"]
 ServiceProvider = Literal["Google", "Deepgram", "Azure"]
 TranscriptionModel = Literal["default", "latest_long", "general", "azure_granular"]
 
-SpeechToTextBackend = Literal["Machine A", "Machine B", "Machine C", "Machine D", "Subtitles"]
+SpeechToTextBackend = Literal[
+    "Machine A", "Machine B", "Machine C", "Machine D", "Subtitles"
+]
 SPEECH_BACKENDS = ["Machine A", "Machine B", "Machine C", "Machine D", "Subtitles"]
 
 

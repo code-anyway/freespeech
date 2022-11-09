@@ -32,11 +32,8 @@ from freespeech.types import (
     SpeechToTextBackend,
     SynthesizeRequest,
     Transcript,
-<<<<<<< HEAD
-    TranscriptionModel,
-=======
     TranscriptFormat,
->>>>>>> a5ecaf4 (finish refactoring)
+    TranscriptionModel,
     TranscriptPlatform,
     TranslateRequest,
     assert_never,
@@ -247,10 +244,10 @@ async def _transcribe_media(
             assert result.audio is not None
 
     match backend:
-        case "Machine A" | "Machine B" | "Machine C":
+        case "Machine A" | "Machine B" | "Machine C" | "Machine D":
             provider: ServiceProvider
             model: TranscriptionModel
-            match method:
+            match backend:
                 case "Machine A":
                     provider = "Google"
                     model = "latest_long"
@@ -278,9 +275,12 @@ async def _transcribe_media(
         case x:
             assert_never(x)
 
-    events = speech.normalize_speech(
-        events, gap_ms=GAP_MS, length=PHRASE_LENGTH, method="break_ends_sentence"
-    )
+    # Machine D assumes sentence-level timestamps
+    # we want to preserve them in the output.
+    if backend != "Machine D":
+        events = speech.normalize_speech(
+            events, gap_ms=GAP_MS, length=PHRASE_LENGTH, method="break_ends_sentence"
+        )
 
     return Transcript(
         title=None,
