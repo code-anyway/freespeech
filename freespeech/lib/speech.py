@@ -19,6 +19,7 @@ from google.api_core import exceptions as google_api_exceptions
 from google.cloud import speech as speech_api
 from google.cloud import texttospeech as google_tts
 from google.cloud.speech_v1.types.cloud_speech import LongRunningRecognizeResponse
+from pydantic.dataclasses import dataclass
 
 from freespeech import env
 from freespeech.lib import concurrency, media
@@ -398,42 +399,89 @@ async def _transcribe_azure(uri: url, lang: Language, model: TranscriptionModel)
         async with session.get(content_url) as response:
             result = await response.json()
 
-    def build_events():
-        for phrase in result["recognizedPhrases"]:
-            speaker = phrase.get("speaker", 0)
-            time_ms = int(phrase["offsetInTicks"] / 10000)
-            duration_ms = int(phrase["durationInTicks"] / 10000)
-            text = phrase["nBest"][0]["display"]
+    @dataclass
+    class AzureEvent:
+        offset: str
+        duration: str
+        offsetInTicks: int
+        durationInTicks: int
 
-            if model != "azure_granular":
-                yield Event(
-                    time_ms=time_ms,
-                    chunks=[text],
-                    duration_ms=duration_ms,
-                    voice=Voice(character=CHARACTERS[speaker]),
-                )
+    @dataclass
+    class Phrase:
+        lexical: str
+        itn: str
+        maskedITN: str
+        display: str
 
-            words = [
-                (
-                    word["word"],
-                    word["offsetInTicks"] / 10000.0,
-                    word["durationInTicks"] / 10000.0,
-                )
-                for word in phrase["nBest"][0]["words"]
-            ]
+    @dataclass
+    class CandidateWord(AzureEvent):
+        confidence: float
+        word: str
 
-            if model == "azure_granular":
-                for sentence, time_ms, duration_ms in break_phrase(
-                    text=text, words=words, lang=lang
-                ):
-                    yield Event(
+    @dataclass
+    class CandidatePhrase(Phrase):
+        confidence: float
+        words: list[CandidateWord]
+
+    @dataclass
+    class RecognizedPhrase(AzureEvent):
+        recognitionStatus: Literal["Success"]
+        channel: int
+        nBest: list[CandidatePhrase]
+        speaker: int = 0
+
+    def transform(phrase: RecognizedPhrase) -> list[Event]:
+        """Transforms Azure's REST API record into list of Events
+        Documentation: https://learn.microsoft.com/en-us/azure/cognitive-services/speech-service/batch-transcription-get?pivots=rest-api#transcription-result-file  # noqa: E501
+        """
+        time_ms = phrase.offsetInTicks // 10000
+        duration_ms = phrase.durationInTicks // 10000
+        text = phrase.nBest[0].display
+
+        match model:
+            case "default_granular":
+                return [
+                    Event(
                         time_ms=time_ms,
                         chunks=[sentence],
                         duration_ms=duration_ms,
-                        voice=Voice(character=CHARACTERS[speaker]),
+                        voice=Voice(character=CHARACTERS[phrase.speaker]),
                     )
+                    for sentence, time_ms, duration_ms in break_phrase(
+                        text=text,
+                        words=[
+                            (
+                                word.word,
+                                word.offsetInTicks // 10000,
+                                word.durationInTicks // 10000,
+                            )
+                            for word in phrase.nBest[0].words
+                        ],
+                        lang=lang,
+                    )
+                ]
+            case "default":
+                return [
+                    Event(
+                        time_ms=time_ms,
+                        chunks=[text],
+                        duration_ms=duration_ms,
+                        voice=Voice(character=CHARACTERS[phrase.speaker]),
+                    )
+                ]
+            case "latest_long" | "general":
+                raise ValueError(f"Azure doesn't support model: '{model}'")
+            case never:
+                assert_never(never)
 
-    return list(build_events())
+    # Flatten the result
+    return sum(
+        [
+            transform(RecognizedPhrase(**phrase))
+            for phrase in result["recognizedPhrases"]
+        ],
+        [],
+    )
 
 
 def is_valid_ssml(text: str) -> bool:

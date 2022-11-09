@@ -182,9 +182,9 @@ async def test_synthesize_google_transcribe_azure_granular(tmp_path) -> None:
     )
     assert first.chunks == ["Testing quite a long sentence. Hello."]
 
-    # mode="azure_granular" will create one event per sentence.
+    # mode="default_granular" will create one event per sentence.
     (first, second) = await speech.transcribe(
-        output_gs, lang="en-US", provider="Azure", model="azure_granular"
+        output_gs, lang="en-US", provider="Azure", model="default_granular"
     )
     assert first.chunks == ["Testing quite a long sentence."]
     assert second.chunks == ["Hello."]
