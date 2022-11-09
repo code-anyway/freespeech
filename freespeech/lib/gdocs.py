@@ -121,7 +121,7 @@ def extract(url: str) -> Tuple[str, str]:
                 raise e
 
 
-def load(url: str) -> Transcript:
+def load(url: str, format: TranscriptFormat) -> Transcript:
     """Loads transcript from Google Docs document.
 
     Args:
@@ -131,7 +131,7 @@ def load(url: str) -> Transcript:
         Instance of Transcript initialized from the document.
     """
     title, text = extract(url)
-    transcript = parse_transcript(text)
+    transcript = parse_transcript(text, format=format)
     return replace(transcript, title=title)
 
 
@@ -155,9 +155,6 @@ def create(source: Transcript, format: TranscriptFormat) -> str:
         case "SSMD":
             return create_from_text(title=source.title, text=render_transcript(source))
         case "SSMD-NEXT":
-            # return create_from_text(
-            #     title=source.title, text=ssmd.render(source)
-            # )
             raise NotImplementedError("SSMD-NEXT format is not supported yet")
         case "SRT":
             return create_from_text(

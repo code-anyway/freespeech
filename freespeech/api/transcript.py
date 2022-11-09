@@ -16,6 +16,7 @@ from freespeech.lib import gdocs, language
 from freespeech.lib import media as media_ops
 from freespeech.lib import notion, speech, youtube
 from freespeech.lib.storage import obj
+from freespeech.lib.transcript import srt_to_events
 from freespeech.types import (
     TRANSCRIPT_PLATFORMS,
     Error,
@@ -23,17 +24,24 @@ from freespeech.types import (
     Language,
     LoadRequest,
     MediaPlatform,
-    Method,
     SaveRequest,
     SaveResponse,
     ServiceProvider,
     Settings,
+    Source,
+    SpeechToTextBackend,
     SynthesizeRequest,
     Transcript,
+<<<<<<< HEAD
     TranscriptionModel,
+=======
+    TranscriptFormat,
+>>>>>>> a5ecaf4 (finish refactoring)
     TranscriptPlatform,
     TranslateRequest,
     assert_never,
+    is_speech_to_text_backend,
+    is_transcript_format,
     is_transcript_platform,
 )
 
@@ -51,9 +59,7 @@ PHRASE_LENGTH = 600
 TRANSCRIPT_NORMALIZATION: speech.Normalization = "break_ends_sentence"
 
 
-def _platform(source: str | BinaryIO) -> TranscriptPlatform | MediaPlatform:
-    if isinstance(source, BinaryIO):
-        return "Stream"
+def _platform(source: str) -> TranscriptPlatform | MediaPlatform:
     if source.startswith("https://docs.google.com/document/d/"):
         return "Google"
     if source.startswith("https://www.notion.so/"):
@@ -65,12 +71,15 @@ def _platform(source: str | BinaryIO) -> TranscriptPlatform | MediaPlatform:
         or source.startswith("https://music.youtube.com/")
     ):
         return "YouTube"
+    if source.startswith("gs://"):
+        return "GCS"
     else:
-        raise ValueError(f"Unsupported url: {input}")
+        raise ValueError(f"Unsupported url: {source}")
 
 
 async def _load_transcript(
     source: str | Transcript,
+    format: TranscriptFormat | None,
 ) -> Transcript:
     if isinstance(source, Transcript):
         return source
@@ -82,9 +91,18 @@ async def _load_transcript(
 
     match platform:
         case "Google":
-            return gdocs.load(source)
+            return gdocs.load(source, format=format or "SSMD")
         case "Notion":
             return await notion.load(source)
+        case "GCS":
+            if format != "SRT":
+                raise NotImplementedError("Only SRT format is supported for GCS")
+            with obj.stream(source, "rb") as f:
+                return Transcript(
+                    events=srt_to_events(f.read().decode("utf-8")),
+                    source=Source(url=source, method=format),
+                    lang="en-US",
+                )
         case x:
             assert_never(x)
 
@@ -102,24 +120,10 @@ async def _save(request: SaveRequest) -> SaveResponse:
             return SaveResponse(
                 url=gdocs.create(request.transcript, format=request.format)
             )
-        case "SRT":
-            return SaveResponse(
-                url=gdocs.create_from_text(
-                    title=request.transcript.title,
-                    text=transcript.events_to_srt(request.transcript.events),
-                )
+        case "GCS":
+            raise NotImplementedError(
+                "Saving transcript to GCS is not implemented yet."
             )
-        case "Subtitles":
-            plain_text = "\n\n".join(
-                "\n".join(event.chunks) for event in request.transcript.events
-            )
-            return SaveResponse(
-                url=gdocs.create_from_text(
-                    title=request.transcript.title, text=plain_text
-                )
-            )
-        case "Machine A" | "Machine B" | "Machine C" | "Machine D":
-            raise ValueError(f"Unsupported method: {request.method}")
         case x:
             assert_never(x)
 
@@ -127,7 +131,7 @@ async def _save(request: SaveRequest) -> SaveResponse:
 async def _synthesize(
     request: SynthesizeRequest, session: aiohttp.ClientSession
 ) -> Transcript:
-    transcript = await _load_transcript(request.transcript)
+    transcript = await _load_transcript(request.transcript, format=None)
 
     with TemporaryDirectory() as tmp_dir:
         synth_file, _, spans = await speech.synthesize_events(
@@ -197,29 +201,29 @@ async def _synthesize(
 
 async def _load(
     request: LoadRequest,
-    stream: BinaryIO | None,
     session: aiohttp.ClientSession,
 ) -> Transcript:
-    source = request.source or stream
-    if source is None:
-        raise ValueError("Either source or stream should be set.")
-
+    source = request.source
     platform = _platform(source)
 
-    if is_transcript_platform(platform):
+    if is_transcript_platform(platform) and is_transcript_format(request.method):
         if isinstance(source, BinaryIO):
             raise ValueError("Can't load transcript from stream")
-        return await _load_transcript(source)
-    else:
+        return await _load_transcript(source, format=request.method)
+    elif is_speech_to_text_backend(request.method):
         if request.lang is None:
             raise ValueError("Language is not set")
-        return await _transcribe(source, request.lang, request.method, session)
+        return await _transcribe_media(source, request.lang, request.method, session)
+    else:
+        raise NotImplementedError(
+            f"Don't know how to load {source} using {request.method}"
+        )
 
 
-async def _transcribe(
+async def _transcribe_media(
     source: str | BinaryIO,
     lang: Language,
-    method: Method,
+    backend: SpeechToTextBackend,
     session: aiohttp.ClientSession,
 ) -> Transcript:
 
@@ -242,7 +246,7 @@ async def _transcribe(
                 raise RuntimeError(result.message)
             assert result.audio is not None
 
-    match method:
+    match backend:
         case "Machine A" | "Machine B" | "Machine C":
             provider: ServiceProvider
             model: TranscriptionModel
@@ -269,7 +273,7 @@ async def _transcribe(
             )
         case "Subtitles":
             if isinstance(source, BinaryIO):
-                raise ValueError("Can't load subtitles from stream")
+                raise ValueError("Can't load subtitles from media stream")
             events = youtube.get_captions(source, lang=lang)
         case x:
             assert_never(x)
@@ -279,7 +283,7 @@ async def _transcribe(
     )
 
     return Transcript(
-        title=asset.meta.title if asset.meta else None,
+        title=None,
         events=events,
         lang=lang,
         audio=asset.audio,
@@ -302,7 +306,7 @@ async def _ingest(
 
 
 async def _translate(request: TranslateRequest):
-    transcript = await _load_transcript(request.transcript)
+    transcript = await _load_transcript(request.transcript, format="SSMD")
 
     target_language = request.lang
     translated_events = language.translate_events(
@@ -355,24 +359,10 @@ async def load(web_request: web.Request) -> web.Response:
     params = await web_request.json()
 
     try:
-        request = LoadRequest(**params)
-        if request.source is None:
-            raise ValueError("request.source can't be null")
-
-        if request.source.startswith("gs://"):
-            with obj.stream(request.source, "r") as stream:
-                response = await _load(
-                    request=LoadRequest(**params),
-                    stream=stream,
-                    session=client.create(),
-                )
-        else:
-            response = await _load(
-                request=LoadRequest(**params),
-                stream=None,
-                session=client.create(),
-            )
-
+        response = await _load(
+            request=LoadRequest(**params),
+            session=client.create(),
+        )
     except (ValidationError, ValueError) as e:
         raise errors.input_error(Error(message=str(e)))
 

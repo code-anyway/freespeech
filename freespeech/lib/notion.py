@@ -356,7 +356,7 @@ async def create(
     """
 
     match format:
-        case "SSMD-NEXT" | "SSMD":
+        case "SSMD":
             properties, blocks = render_transcript(transcript)
             result = await create_page(
                 database_id=database_id, properties=properties, blocks=blocks
@@ -366,8 +366,10 @@ async def create(
                 result["url"],
                 parse_transcript(properties=result["properties"], blocks=blocks),
             )
+        case "SSMD-NEXT":
+            raise NotImplementedError("SSMD-NEXT format in Notion is not supported yet")
         case "SRT":
-            raise NotImplementedError("SRT format is not supported yet")
+            raise NotImplementedError("SRT format in Notion is not supported yet")
 
 
 def render_event(event: Event) -> List[Dict]:

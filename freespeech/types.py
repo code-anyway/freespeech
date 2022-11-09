@@ -8,23 +8,33 @@ VideoEncoding = Literal["H264", "HEVC", "AV1"]
 ServiceProvider = Literal["Google", "Deepgram", "Azure"]
 TranscriptionModel = Literal["default", "latest_long", "general", "azure_granular"]
 
-SpeechToTextBackend = Literal["Machine A", "Machine B", "Machine C", "Machine D"]
-SPEECH_BACKENDS = ["Machine A", "Machine B", "Machine C", "Machine D"]
+SpeechToTextBackend = Literal["Machine A", "Machine B", "Machine C", "Machine D", "Subtitles"]
+SPEECH_BACKENDS = ["Machine A", "Machine B", "Machine C", "Machine D", "Subtitles"]
 
-TranscriptPlatform = Literal["Google", "Notion"]
-TRANSCRIPT_PLATFORMS = ["Google", "Notion"]
+
+def is_speech_to_text_backend(val: str) -> TypeGuard[SpeechToTextBackend]:
+    return val in SPEECH_BACKENDS
+
+
+TranscriptPlatform = Literal["Google", "Notion", "GCS"]
+TRANSCRIPT_PLATFORMS = ["Google", "Notion", "GCS"]
 
 
 def is_transcript_platform(val: str) -> TypeGuard[TranscriptPlatform]:
     return val in TRANSCRIPT_PLATFORMS
 
 
-MediaPlatform = Literal["YouTube", "Stream"]
-MEDIA_PLATFORMS = ["YouTube", "Stream"]
+MediaPlatform = Literal["YouTube", "GCS"]
+MEDIA_PLATFORMS = ["YouTube", "GCS"]
 
 
 TranscriptFormat = Literal["SRT", "SSMD", "SSMD-NEXT"]
 TRANSCRIPT_FORMATS = ["SRT", "SSMD", "SSMD-NEXT"]
+
+
+def is_transcript_format(val: str) -> TypeGuard[TranscriptFormat]:
+    return val in TRANSCRIPT_FORMATS
+
 
 Language = Literal[
     "en-US",
@@ -73,8 +83,8 @@ CHARACTERS: List[Character] = [
     "Greta",
 ]
 
-Method = Literal[SpeechToTextBackend, "Subtitles"]
-METHODS = SPEECH_BACKENDS + ["Subtitles"]
+Method = Literal[SpeechToTextBackend, TranscriptFormat]
+METHODS = SPEECH_BACKENDS + TRANSCRIPT_FORMATS
 
 BlankFillMethod = Literal["Crop", "Blank", "Fill"]
 BLANK_FILL_METHODS = ["Crop", "Blank", "Fill"]
@@ -290,7 +300,7 @@ class TranslateRequest:
 
 @dataclass(frozen=True)
 class LoadRequest:
-    source: str | None
+    source: str
     method: Method
     lang: Language | None
 
@@ -304,7 +314,6 @@ class IngestRequest:
 class IngestResponse:
     audio: str | None
     video: str | None
-    meta: Meta | None
 
 
 @dataclass(frozen=True)

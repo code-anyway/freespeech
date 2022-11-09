@@ -48,7 +48,7 @@ async def test_intent():
             "https://docs.google.com/document/d/1E_E9S5G4vH6MWxo3qB4itXZRcSrFeqHscMysFjen-sY/edit?usp=sharing"  # noqa: E501
         ],
         "language": ["en-US"],
-        "method": ["srt"],
+        "method": ["SRT"],
     }
 
     intent, entities = await chat.intent(
@@ -60,7 +60,7 @@ async def test_intent():
             "https://docs.google.com/document/d/1E_E9S5G4vH6MWxo3qB4itXZRcSrFeqHscMysFjen-sY/edit?usp=sharing"  # noqa: E501
         ],
         "language": ["en-US"],
-        "method": ["srt"],
+        "method": ["SRT"],
     }
 
 

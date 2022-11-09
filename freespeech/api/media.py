@@ -24,17 +24,18 @@ async def ingest(web_request: web.Request) -> web.Response:
 
     if request.source is None:
         raise ValueError("Missing source URL")
+    else:
+        source = request.source
 
-    if request.source.startswith("gs://"):
+    if source.startswith("gs://"):
         result = IngestResponse(
-            audio=obj.public_url(request.source),
-            video=obj.public_url(request.source),
-            meta=None,
+            audio=obj.public_url(source),
+            video=obj.public_url(source),
         )
 
         return web.json_response(pydantic_encoder(result))
     else:
-        hashed_url = hash.string(request.source)
+        hashed_url = hash.string(source)
 
         audio_url = f"{env.get_storage_url()}/media/a_{hashed_url}.wav"
         video_url = f"{env.get_storage_url()}/media/v_{hashed_url}.mp4"
@@ -46,10 +47,10 @@ async def ingest(web_request: web.Request) -> web.Response:
             os.mkfifo(audio_path)
             os.mkfifo(video_path)
 
-            _, _, meta, _ = await concurrency.run_in_thread_pool(
-                youtube.download, request.source, tempdir, audio_path, video_path, 4
-            )
             await asyncio.gather(
+                concurrency.run_in_thread_pool(
+                    lambda: youtube.download(source, tempdir, audio_path, video_path, 4)
+                ),
                 obj.put(audio_path, audio_url),
                 obj.put(video_path, video_url),
             )
@@ -57,6 +58,5 @@ async def ingest(web_request: web.Request) -> web.Response:
             result = IngestResponse(
                 audio=obj.public_url(audio_url),
                 video=obj.public_url(video_url),
-                meta=meta,
             )
             return web.json_response(pydantic_encoder(result))

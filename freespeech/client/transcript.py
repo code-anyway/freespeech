@@ -50,10 +50,6 @@ async def load(
             - `"SRT"` — popular subtitle format.
             - `"SSMD"` — freespeech's speech synthesis markdown.
 
-            Document platforms:
-
-            - `"Google"` — Google Docs.
-            - `"Notion"` — Notion.
         lang (str): A BCP 47 tag indicating language of a transcript.
 
             Supported values:
@@ -62,6 +58,7 @@ async def load(
             - `"uk-UA"` (Ukrainian).
             - `"ru-RU"` (Russian).
             - `"pt-PT"` (Portuguese).
+            - `"fr-FR"` (French).
             - `"es-US"` (Spanish).
             - `"de-DE"` (German).
     Returns:

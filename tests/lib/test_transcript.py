@@ -29,7 +29,7 @@ language: en-US
 voice: Alonzo Church
 clip_id: deadbeef239
 method: Subtitles
-original_audio_level: 2
+original_audio_level: 1
 video:
 
 00:00:00.000000/00:00:01.000000 (Grace Hopper)
@@ -141,7 +141,7 @@ def test_srt():
 
 
 def test_parse():
-    t = transcript.parse_transcript(EXPECTED_TEXT)
+    t = transcript.parse_transcript(EXPECTED_TEXT, format="SSMD")
     assert t == EXPECTED_TRANSCRIPT
 
 

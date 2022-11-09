@@ -92,7 +92,6 @@ async def test_synthesize_text(tmp_path) -> None:
     (first, second) = await speech.transcribe(
         output_gs, "en-US", provider="Google", model="latest_long"
     )
-    print(obj.public_url(output_gs))
     assert first.chunks == ["1 2"]
     assert second.chunks == [" 3"]
 
