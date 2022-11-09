@@ -26,6 +26,8 @@ def _nlp(lang: Language):
         case "ru-RU":
             nlp = spacy.load("ru_core_news_sm")
         case never:
+            # (astaff, 20221109): when adding a new language make sure
+            # to install the spacy model for it in setup.py.
             assert_never(never)
 
     return nlp

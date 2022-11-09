@@ -782,10 +782,10 @@ def break_phrase(
     Args:
         text: Paragraph of text with one or more sentences.
         words: Sequence of tuples representing a single word from the phrase,
-            it's start time and duration.
-        nlp: Instance of Spacy language model.
+            its start time and duration.
+        lang: Language code for language-aware sentence parsing.
     Returns:
-        Sequence of tuples representing a sentence, it's start time and duration.
+        Sequence of tuples representing a sentence, its start time and duration.
     """
     # reduce each word in text and words down to lemmas to avoid
     # mismatches due to effects of ASR's language model.
