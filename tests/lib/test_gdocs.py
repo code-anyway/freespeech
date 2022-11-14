@@ -33,20 +33,20 @@ def test_load():
         EXPECTED_TRANSCRIPT, title="Google Docs with speechrate integration test"
     )
     url = "https://docs.google.com/document/d/1zzvy4wBE96quSWP3VT7P_rj8b7gg7STEoLSNGSiZ_jM/edit?usp=sharing"  # noqa: E501
-    transcript = gdocs.load(url, format="SSMD")
+    transcript = gdocs.load(url)
     assert transcript == expected_transcript
 
 
 def test_create():
     expected_transcript = replace(EXPECTED_TRANSCRIPT, title="test_gdocs::test_create")
     url = gdocs.create(source=expected_transcript, format="SSMD")
-    transcript = gdocs.load(url, format="SSMD")
+    transcript = gdocs.load(url)
     assert transcript == expected_transcript
 
 
 def test_long_transcript():
     url = "https://docs.google.com/document/d/1FQEWOvJPq3_KR7pm2-L_GWqHgKRP9iq0Cx1vwNGCptg/edit#"  # noqa: E501
-    transcript = gdocs.load(url=url, format="SSMD")
+    transcript = gdocs.load(url=url)
 
     assert transcript.source.url == "https://www.youtube.com/watch?v=U93QRMcQU5Y"
     assert len(transcript.events) == 14

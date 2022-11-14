@@ -121,7 +121,7 @@ def extract(url: str) -> Tuple[str, str]:
                 raise e
 
 
-def load(url: str, format: TranscriptFormat) -> Transcript:
+def load(url: str) -> Transcript:
     """Loads transcript from Google Docs document.
 
     Args:
@@ -131,7 +131,7 @@ def load(url: str, format: TranscriptFormat) -> Transcript:
         Instance of Transcript initialized from the document.
     """
     title, text = extract(url)
-    transcript = parse_transcript(text, format=format)
+    transcript = parse_transcript(text)
     return replace(transcript, title=title)
 
 
