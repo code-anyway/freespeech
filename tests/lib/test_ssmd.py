@@ -111,26 +111,26 @@ def test_no_gaps_basic():
 
     aligned_events = ssmd.no_gaps(events, threshold_ms=1000)
     assert aligned_events == [
-            Event(
-                time_ms=0,
-                chunks=["Hello!"],
-                duration_ms=1000,
-            ),
-            Event(
-                time_ms=1000,
-                chunks=["Goodbye! #0.5#"],
-                duration_ms=1000,
-            ),
-            Event(
-                time_ms=2000,
-                chunks=["Hi!"],
-                duration_ms=1000,
-            ),
-            Event(
-                time_ms=3000,
-                chunks=["Bye!"],
-                duration_ms=1000,
-            ),
+        Event(
+            time_ms=0,
+            chunks=["Hello!"],
+            duration_ms=1000,
+        ),
+        Event(
+            time_ms=1000,
+            chunks=["Goodbye! #0.5#"],
+            duration_ms=1000,
+        ),
+        Event(
+            time_ms=2000,
+            chunks=["Hi!"],
+            duration_ms=1000,
+        ),
+        Event(
+            time_ms=3000,
+            chunks=["Bye!"],
+            duration_ms=1000,
+        ),
     ]
 
     assert (
@@ -168,32 +168,32 @@ def test_no_gaps_with_long_pauses():
 
     aligned_events = ssmd.no_gaps(events, threshold_ms=1000)
     assert aligned_events == [
-            Event(
-                time_ms=0,
-                chunks=["Hello!"],
-                duration_ms=1000,
-            ),
-            Event(
-                time_ms=1000,
-                chunks=[""],
-                duration_ms=1500,
-            ),
-            Event(
-                time_ms=2500,
-                chunks=["Goodbye!"],
-                duration_ms=500,
-            ),
-            Event(
-                time_ms=3000,
-                chunks=["Hi! #0.5#"],
-                duration_ms=2000,
-            ),
-            Event(
-                time_ms=5000,
-                chunks=["Bye!"],
-                duration_ms=1000,
-            ),
-        ]
+        Event(
+            time_ms=0,
+            chunks=["Hello!"],
+            duration_ms=1000,
+        ),
+        Event(
+            time_ms=1000,
+            chunks=[""],
+            duration_ms=1500,
+        ),
+        Event(
+            time_ms=2500,
+            chunks=["Goodbye!"],
+            duration_ms=500,
+        ),
+        Event(
+            time_ms=3000,
+            chunks=["Hi! #0.5#"],
+            duration_ms=2000,
+        ),
+        Event(
+            time_ms=5000,
+            chunks=["Bye!"],
+            duration_ms=1000,
+        ),
+    ]
 
     assert (
         ssmd.render(aligned_events)
