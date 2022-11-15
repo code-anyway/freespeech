@@ -2,7 +2,7 @@ import logging
 import re
 from dataclasses import replace
 from datetime import datetime
-from typing import Callable, Dict, Sequence, Tuple
+from typing import Dict, Sequence, Tuple
 
 import pytz
 

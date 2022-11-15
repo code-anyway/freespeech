@@ -14,7 +14,6 @@ from freespeech.lib.transcript import (
     parse_transcript,
     render_events,
     render_properties,
-    render_transcript,
 )
 from freespeech.types import Transcript, TranscriptFormat
 

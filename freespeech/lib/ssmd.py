@@ -86,13 +86,11 @@ def parse(s: str) -> Sequence[Event]:
     blocks = [block.strip() for block in s.split("\n\n") if block]
     return no_gaps(
         sum(
-            [
-                parse_block(block, group=group)
-                for group, block in enumerate(blocks)
-            ],
+            [parse_block(block, group=group) for group, block in enumerate(blocks)],
             [],
         ),
-        threshold_ms=MAXIMUM_GAP_MS)
+        threshold_ms=MAXIMUM_GAP_MS,
+    )
 
 
 def no_gaps(events: list[Event], threshold_ms: int) -> list[Event]:
