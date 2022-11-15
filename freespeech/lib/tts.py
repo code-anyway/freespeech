@@ -76,9 +76,10 @@ def adjust(
     target_scale_factor = interval.rate / target_rate
     speech = interval.speech_ms * target_scale_factor
     silence_ms = _silence(interval.outline) * interval.silence_scale
-    # Don't shrink pauses below their original value
+    # Don't shrink pauses below min_silence_scale.
     silence_scale = max(
-        1.0, (silence_ms - (speech - interval.speech_ms)) / _silence(interval.outline)
+        min_silence_scale,
+        (silence_ms - (speech - interval.speech_ms)) / _silence(interval.outline),
     )
     speech_ms = round(
         interval.speech_ms + silence_ms - _silence(interval.outline) * silence_scale
@@ -105,7 +106,7 @@ def adjust(
 
     assert (
         abs(old_interval_duration - new_interval_duration) <= 1
-    ), f"Adjustment resulted in different durations: old={old_interval_duration}, new={new_interval_duration}"
+    ), f"Adjustment resulted in different durations: old={old_interval_duration}, new={new_interval_duration}"  # noqa: E501
 
     return new_interval
 
@@ -128,11 +129,11 @@ def get_outline(s: str, sentence_pause_ms: int, lang: Language) -> list[str | in
         if sentence or pause
     ]
 
-    outline = [item for item in sum(sentences_and_pauses, []) if item]
+    outline: list[str | int] = [item for item in sum(sentences_and_pauses, []) if item]
 
     # Add leading pause.
     if outline and not isinstance(outline[0], int):
-        outline = [sentence_pause_ms] + outline
+        outline = [sentence_pause_ms, *outline]
 
     return normalize(outline)
 
@@ -161,9 +162,7 @@ async def get_interval(
             for chunk in outline
         ]
 
-        speech_ms = sum(
-            media.audio_duration(clip) for clip in clips if not isinstance(clip, int)
-        )
+        speech_ms = sum(audio.duration(clip) for clip in clips if isinstance(clip, str))
 
         if event.duration_ms:
             silence_ms = event.duration_ms - speech_ms
@@ -181,20 +180,6 @@ async def get_interval(
     )
 
     return interval
-
-
-def verify_interval(event: Event, interval: Interval) -> bool:
-    if event.duration_ms is None:
-        return True
-
-    return (
-        round(
-            event.duration_ms
-            - interval.speech_ms
-            - _silence(interval.outline) * interval.silence_scale
-        )
-        == 0
-    )
 
 
 def average_rate(intervals: list[Interval]) -> float:
@@ -283,18 +268,20 @@ async def synthesize_intervals(
             if isinstance(item, str):
                 clips += [
                     audio.strip(
-                        (
-                            await speech.synthesize_text(
-                                text=item,
-                                duration_ms=None,
-                                voice=Voice(
-                                    character=interval.character,
-                                    speech_rate=interval.rate,
-                                ),
-                                output_dir=output_dir,
-                                lang=lang,
-                            )
-                        )[0]
+                        str(
+                            (
+                                await speech.synthesize_text(
+                                    text=item,
+                                    duration_ms=None,
+                                    voice=Voice(
+                                        character=interval.character,
+                                        speech_rate=interval.rate,
+                                    ),
+                                    output_dir=output_dir,
+                                    lang=lang,
+                                )
+                            )[0]
+                        )
                     )
                 ]
             elif isinstance(item, int):
@@ -303,6 +290,7 @@ async def synthesize_intervals(
                         int(item * interval.silence_scale), output_dir=output_dir
                     )
                 ]
+
     return str(await media.concat(clips=clips, output_dir=output_dir))
 
 
@@ -324,11 +312,22 @@ async def synthesize_block(
         adjust(interval, target_rate=min_rate, min_silence_scale=min_silence_scale)
         for interval in intervals
     ]
-    print("> Adjusted intervals:")
-    print(adjusted_intervals)
+
+    def _verify_interval(event: Event, interval: Interval) -> bool:
+        if event.duration_ms is None:
+            return True
+
+        return (
+            round(
+                event.duration_ms
+                - interval.speech_ms
+                - _silence(interval.outline) * interval.silence_scale
+            )
+            == 0
+        )
 
     for event, interval in zip(events, adjusted_intervals):
-        assert verify_interval(
+        assert _verify_interval(
             event, interval
         ), f"Generated interval duration doesn't match the event: {interval} {event}"
 
@@ -337,11 +336,20 @@ async def synthesize_block(
         min_silence_scale=min_silence_scale,
         variance_threshold=variance_threshold,
     )
-    print("> Smooth intervals:")
-    print(smooth_intervals)
 
-    return await synthesize_intervals(
+    clip = await synthesize_intervals(
         smooth_intervals, lang=lang, output_dir=output_dir
+    )
+
+    block_duration_ms = 0
+    for event in events:
+        assert event.duration_ms is not None, f"Event duration is not set for {event}"
+        block_duration_ms += event.duration_ms
+
+    return audio.resample(
+        audio_file=clip,
+        target_duration_ms=block_duration_ms,
+        output_dir=output_dir,
     )
 
 
@@ -389,13 +397,7 @@ async def synthesize(
             if event.duration_ms is None:
                 raise ValueError(f"Event duration is not set for: {event}")
 
-        clips += [
-            audio.resample(
-                audio_file=clip,
-                target_duration_ms=sum(event.duration_ms for event in block),
-                output_dir=output_dir,
-            )
-        ]
+        clips += [clip]
 
     previous_block_end_ms = 0
     gaps = []
@@ -405,9 +407,13 @@ async def synthesize(
         last = events[-1]
 
         gaps += [first.time_ms - previous_block_end_ms]
+
+        if last.duration_ms is None:
+            raise ValueError(f"Event duration is not set for: {last}")
+
         previous_block_end_ms = last.time_ms + last.duration_ms
 
-    audio_files = sum(
+    audio_files: list[str] = sum(
         [
             [str(audio.silence(gap, output_dir=output_dir)), str(speech_file)]
             for gap, speech_file in zip(gaps, clips)
