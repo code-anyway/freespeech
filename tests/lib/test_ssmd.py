@@ -1,5 +1,5 @@
-from freespeech.lib import speech, ssmd
-from freespeech.types import Event, Voice
+from freespeech.lib import gdocs, speech, ssmd
+from freespeech.types import Event, Transcript, Voice
 
 
 def test_wrap_ssml():
@@ -83,6 +83,11 @@ def test_parse_and_render():
 00:00:06.00 (Grace@2.0) Hmm"""
     assert ssmd.render(events) == rendered_text
     assert ssmd.parse(rendered_text) == events
+
+    url = gdocs.create(Transcript(events=events, lang="en-US"), "SSMD-NEXT")
+    print(url)
+    transcript = gdocs.load(url)
+    assert transcript.events == events
 
 
 def test_no_gaps_basic():

@@ -2,7 +2,7 @@ import logging
 import re
 from dataclasses import replace
 from datetime import datetime
-from typing import Dict, Sequence, Tuple
+from typing import Callable, Dict, Sequence, Tuple
 
 import pytz
 
@@ -17,6 +17,7 @@ from freespeech.types import (
     Settings,
     Source,
     Transcript,
+    TranscriptFormat,
     Voice,
     assert_never,
     is_blank_fill_method,
@@ -256,8 +257,7 @@ def parse_transcript(text: str) -> Transcript:
     )
 
 
-def render_transcript(transcript: Transcript) -> str:
-    # putting up properties
+def render_properties(transcript: Transcript) -> str:
     properties = {
         "language": transcript.lang,
         "method": transcript.source and transcript.source.method,
@@ -268,11 +268,12 @@ def render_transcript(transcript: Transcript) -> str:
         "blanks": transcript.settings.space_between_events,
     }
 
-    output = "\n".join(f"{key}: {value}" for key, value in properties.items() if value)
-    output += "\n"
+    return "\n".join(f"{key}: {value}" for key, value in properties.items() if value)
 
-    # putting up events
-    for event in transcript.events:
+
+def render_events(events: Sequence[Event]) -> str:
+    output = ""
+    for event in events:
         output += "\n"
         output += (
             unparse_time_interval(
@@ -285,6 +286,16 @@ def render_transcript(transcript: Transcript) -> str:
         output += "\n".join(event.chunks) + "\n"
 
     return output
+
+
+def render_transcript(
+    transcript: Transcript,
+    format: TranscriptFormat,
+) -> str:
+    return f"""{render_properties(transcript)}
+format: {format}
+
+{render_events(transcript.events)}"""
 
 
 def srt_to_events(text: str) -> Sequence[Event]:

@@ -84,13 +84,15 @@ def parse(s: str) -> Sequence[Event]:
     """Parses SSMD text and extracts speech events turning gaps into blanks."""
 
     blocks = [block.strip() for block in s.split("\n\n") if block]
-    return sum(
-        [
-            no_gaps(parse_block(block, group=group), threshold_ms=MAXIMUM_GAP_MS)
-            for group, block in enumerate(blocks)
-        ],
-        [],
-    )
+    return no_gaps(
+        sum(
+            [
+                parse_block(block, group=group)
+                for group, block in enumerate(blocks)
+            ],
+            [],
+        ),
+        threshold_ms=MAXIMUM_GAP_MS)
 
 
 def no_gaps(events: list[Event], threshold_ms: int) -> list[Event]:
@@ -174,8 +176,9 @@ def render(events: list[Event]) -> str:
         String in SSMD format, with events grouped by event.group
         and separated by empty lines.
     """
+    events = no_gaps(events, threshold_ms=MAXIMUM_GAP_MS)
     blocks = [
-        render_block(no_gaps(list(events), threshold_ms=MAXIMUM_GAP_MS))
-        for _, events in itertools.groupby(events, lambda event: event.group)
+        render_block(list(block))
+        for _, block in itertools.groupby(events, lambda event: event.group)
     ]
     return "\n\n".join(blocks)
