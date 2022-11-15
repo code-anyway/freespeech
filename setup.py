@@ -46,6 +46,7 @@ setup(
         "deepgram-sdk",
         "fastapi[all]",
         "ffmpeg-python",
+        "librosa",
         # TODO (astaff): update/remove after https://github.com/pytube/pytube/pull/1282
         # is merged/released,
         "pytube @ git+https://github.com/brilliant-ember/pytube.git@a3c96b92a517d7e2978a45112cbf11993271c010#egg=pytube-12.0.1",  # noqa E501
@@ -64,6 +65,7 @@ setup(
         "pydantic",
         "pytz",
         "requests",
+        "soundfile",
         "spacy",
         *[
             f"{lang}_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/{lang}_core_web_sm-3.4.0/{lang}_core_web_sm-3.4.0.tar.gz"
