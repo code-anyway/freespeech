@@ -166,6 +166,7 @@ class Event:
     time_ms: int
     chunks: List[str]
     duration_ms: int | None = None
+    group: int = 0
     voice: Voice = Voice()
 
 

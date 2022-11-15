@@ -173,7 +173,10 @@ async def _handle_message(message: tg_types.Message):
                     response = await transcript.save(
                         transcript_ready,
                         platform="Google",
-                        format="SSMD",
+                        format="SSMD-NEXT"
+                        if (transcript_ready.source and transcript_ready.source.method)
+                        == "Machine D"
+                        else "SSMD",
                         location=None,
                         session=session,
                     )

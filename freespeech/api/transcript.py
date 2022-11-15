@@ -88,7 +88,7 @@ async def _load_transcript(
 
     match platform:
         case "Google":
-            return gdocs.load(source, format=format or "SSMD")
+            return gdocs.load(source)
         case "Notion":
             return await notion.load(source)
         case "GCS":

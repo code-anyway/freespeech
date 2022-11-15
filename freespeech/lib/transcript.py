@@ -6,10 +6,12 @@ from typing import Dict, Sequence, Tuple
 
 import pytz
 
+from freespeech.lib import ssmd
 from freespeech.types import (
     BLANK_FILL_METHODS,
     LANGUAGES,
     METHODS,
+    TRANSCRIPT_FORMATS,
     Character,
     Event,
     Settings,
@@ -22,6 +24,7 @@ from freespeech.types import (
     is_character,
     is_language,
     is_method,
+    is_transcript_format,
 )
 
 logger = logging.getLogger(__name__)
@@ -174,7 +177,7 @@ def parse_properties(text: str) -> Dict[str, str]:
     }
 
 
-def parse_transcript(text: str, format: TranscriptFormat) -> Transcript:
+def parse_transcript(text: str) -> Transcript:
     parts = text.split("\n\n", maxsplit=1)
     if not len(parts) == 2:
         raise ValueError(
@@ -184,13 +187,19 @@ def parse_transcript(text: str, format: TranscriptFormat) -> Transcript:
     properties = parse_properties(parts[0])
     body = parts[1]
 
+    format = properties.get("format", "SSMD")
+    if not is_transcript_format(format):
+        raise ValueError(
+            f"Invalid transcript format: {format}. Supported values: {TRANSCRIPT_FORMATS}"  # noqa: E501
+        )
+
     match format:
         case "SRT":
             events = srt_to_events(body)
         case "SSMD":
             events = parse_events(text=body)
         case "SSMD-NEXT":
-            raise NotImplementedError("SSMD-NEXT is not supported yet")
+            events = ssmd.parse(body)
         case x:
             assert_never(x)
 
@@ -248,8 +257,7 @@ def parse_transcript(text: str, format: TranscriptFormat) -> Transcript:
     )
 
 
-def render_transcript(transcript: Transcript) -> str:
-    # putting up properties
+def render_properties(transcript: Transcript) -> str:
     properties = {
         "language": transcript.lang,
         "method": transcript.source and transcript.source.method,
@@ -260,11 +268,12 @@ def render_transcript(transcript: Transcript) -> str:
         "blanks": transcript.settings.space_between_events,
     }
 
-    output = "\n".join(f"{key}: {value}" for key, value in properties.items() if value)
-    output += "\n"
+    return "\n".join(f"{key}: {value}" for key, value in properties.items() if value)
 
-    # putting up events
-    for event in transcript.events:
+
+def render_events(events: Sequence[Event]) -> str:
+    output = ""
+    for event in events:
         output += "\n"
         output += (
             unparse_time_interval(
@@ -277,6 +286,16 @@ def render_transcript(transcript: Transcript) -> str:
         output += "\n".join(event.chunks) + "\n"
 
     return output
+
+
+def render_transcript(
+    transcript: Transcript,
+    format: TranscriptFormat,
+) -> str:
+    return f"""{render_properties(transcript)}
+format: {format}
+
+{render_events(transcript.events)}"""
 
 
 def srt_to_events(text: str) -> Sequence[Event]:

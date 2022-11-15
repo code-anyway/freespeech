@@ -141,7 +141,7 @@ def test_srt():
 
 
 def test_parse():
-    t = transcript.parse_transcript(EXPECTED_TEXT, format="SSMD")
+    t = transcript.parse_transcript(EXPECTED_TEXT)
     assert t == EXPECTED_TRANSCRIPT
 
 
