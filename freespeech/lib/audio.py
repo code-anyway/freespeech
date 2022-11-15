@@ -4,8 +4,6 @@ from uuid import uuid4
 import librosa
 import soundfile as sf
 
-from freespeech.lib import media
-
 
 def duration(file: Path | str) -> int:
     signal, rate = librosa.load(file)
@@ -18,7 +16,7 @@ def resample(audio_file: str, target_duration_ms: int, output_dir: str) -> str:
     new_sr = sr * (target_duration_ms / original_duration_ms)
     new_signal = librosa.resample(signal, orig_sr=sr, target_sr=new_sr)
 
-    output_file = f"{media.new_file(output_dir)}.wav"
+    output_file = str(Path(output_dir) / f"{uuid4()}.wav")
 
     with open(output_file, "wb") as fd:
         sf.write(fd, new_signal, sr, subtype="PCM_16")
@@ -26,7 +24,7 @@ def resample(audio_file: str, target_duration_ms: int, output_dir: str) -> str:
     return output_file
 
 
-def strip(file: Path | str) -> Path | str:
+def strip(file: Path | str) -> str:
     """Removes silence in the beginning and in the end of audio file.
     This function will overwrite the original file.
     Args:
@@ -42,12 +40,12 @@ def strip(file: Path | str) -> Path | str:
     with open(file, "wb") as fd:
         sf.write(fd, signal[start:end], rate, subtype="PCM_16")
 
-    return file
+    return str(file)
 
 
-def silence(duration_ms: int, output_dir: str) -> Path:
+def silence(duration_ms: int, output_dir: str) -> str:
     sample_rate = 44100
     signal = [0.0] * round((duration_ms / 1000.0) * sample_rate)
-    file = Path(output_dir) / f"{uuid4()}.wav"
+    file = str(Path(output_dir) / f"{uuid4()}.wav")
     sf.write(file=str(file), data=signal, samplerate=sample_rate, subtype="PCM_16")
     return file
