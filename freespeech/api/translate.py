@@ -1,7 +1,13 @@
 from dataclasses import replace
 
 from freespeech.lib import language
-from freespeech.types import Language, Transcript, TranscriptFormat, TranscriptPlatform
+from freespeech.types import (
+    Language,
+    Transcript,
+    TranscriptFormat,
+    TranscriptPlatform,
+    assert_never,
+)
 
 from . import transcript
 
@@ -29,5 +35,5 @@ async def translate(
             )
         case "Notion":
             raise NotImplementedError("Notion translation is not implemented yet")
-        case "GCS":
-            raise NotImplementedError("GCS translation is not implemented yet")
+        case x:
+            assert_never(x)

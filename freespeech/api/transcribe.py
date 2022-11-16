@@ -18,13 +18,16 @@ GAP_MS = 1400
 # Won't attempt concatenating events if one is longer than LENGTH.
 PHRASE_LENGTH = 600
 
+# Max download retries for YouTube videos.
+MAX_RETRIES = 4
+
 
 async def ingest(source: str) -> tuple[str | None, str | None]:
     if source.startswith("gs://"):
         return obj.public_url(source), obj.public_url(source)
 
     with tempfile.TemporaryDirectory() as tempdir:
-        audio, video = youtube.download(source, tempdir, max_retries=4)
+        audio, video = youtube.download(source, tempdir, max_retries=MAX_RETRIES)
         audio_url = (
             await obj.put(audio, f"{env.get_storage_url()}/media/{audio.name}")
             if audio
@@ -52,9 +55,6 @@ async def transcribe(
     with tempfile.TemporaryDirectory() as tmp_dir:
         audio = await obj.get(obj.storage_url(audio_url), tmp_dir)
         audio_mono = await media.multi_channel_audio_to_mono(audio, tmp_dir)
-        mono_url = await obj.put(
-            audio_mono, f"{env.get_storage_url()}/media/{audio_mono.name}"
-        )
 
     match backend:
         case "Machine A" | "Machine B" | "Machine C" | "Machine D":
@@ -76,7 +76,7 @@ async def transcribe(
                 case never:
                     assert_never(never)
             events = await speech.transcribe(
-                uri=obj.storage_url(mono_url),
+                file=str(audio_mono),
                 lang=lang,
                 model=model,
                 provider=provider,
