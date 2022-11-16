@@ -18,8 +18,8 @@ def is_speech_to_text_backend(val: str) -> TypeGuard[SpeechToTextBackend]:
     return val in SPEECH_BACKENDS
 
 
-TranscriptPlatform = Literal["Google", "Notion", "GCS"]
-TRANSCRIPT_PLATFORMS = ["Google", "Notion", "GCS"]
+TranscriptPlatform = Literal["Google", "Notion"]
+TRANSCRIPT_PLATFORMS = ["Google", "Notion"]
 
 
 def is_transcript_platform(val: str) -> TypeGuard[TranscriptPlatform]:

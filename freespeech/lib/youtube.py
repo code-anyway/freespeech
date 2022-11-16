@@ -2,13 +2,13 @@ import html
 import http.client
 import json
 import logging
-import os
 import random
 import time
 import xml.etree.ElementTree as ET
 from os import PathLike
 from pathlib import Path
 from typing import Dict, Sequence, Tuple
+from uuid import uuid4
 
 import httplib2
 import pytube
@@ -153,26 +153,11 @@ def upload(video_file, meta_file, credentials_file):
     )
 
 
-def download_stream(
-    stream: pytube.Stream,
-    output_dir: str | PathLike,
-    output_filename: str | PathLike,
-    max_retries: int,
-) -> PathLike:
-    # file = Path(f"{media.new_file(output_dir)}.{stream.subtype}")
-    stream.download(
-        output_path=output_dir, filename=output_filename, max_retries=max_retries
-    )
-    return Path(os.path.join(output_dir, output_filename))
-
-
 def download(
     url: str,
     output_dir: str | PathLike,
-    audio_filename: str | PathLike,
-    video_filename: str | PathLike,
     max_retries: int = 0,
-) -> Tuple[PathLike, PathLike, Meta, Dict[str, Sequence[Event]]]:
+) -> tuple[Path, Path | None]:
     """Downloads YouTube video from URL into output_dir.
 
     Args:
@@ -180,18 +165,18 @@ def download(
         output_dir: directory where video and audio files will be created.
 
     Returns:
-        A tuple (audio_stream, video_stream, info).
+        Audio and video files.
     """
     yt = pytube.YouTube(url)
     filtered = yt.streams.filter(only_audio=True)
     *_, audio = filtered.order_by("abr")
-    audio_stream = download_stream(
-        stream=audio,
-        output_dir=output_dir,
-        output_filename=audio_filename,
+    audio_file = audio.download(
+        output_path=output_dir,
+        filename=f"{uuid4()}.{audio.subtype}",
         max_retries=max_retries,
     )
 
+    video_streams = []
     for resolution in ("1080p", "720p", "360p"):
         video_streams = list(
             yt.streams.filter(resolution=resolution, mime_type="video/mp4")
@@ -201,12 +186,13 @@ def download(
         else:
             logger.warning(f"Resolution {resolution} is not available for {url}")
 
+    video_stream = None
+    video_file = None
     for stream in video_streams:
         try:
-            video_stream = download_stream(
-                stream=stream,
-                output_dir=output_dir,
-                output_filename=video_filename,
+            video_file = stream.download(
+                output_path=output_dir,
+                output_filename=f"{uuid4()}.{stream.subtype}",
                 max_retries=max_retries,
             )
             break
@@ -217,15 +203,17 @@ def download(
             # Some have content-length missing.
             logger.warning(f"Missing key for {stream} of {url}: {str(e)}")
 
-    if not video_stream:
+    if video_stream is None:
         raise RuntimeError(
             f"Unable to download video stream for {url}. Candidates: {video_streams}"
         )
 
-    info = Meta(title=yt.title, description=yt.description, tags=yt.keywords)
-    captions = [(caption.code, caption.xml_captions) for caption in yt.captions]
+    return Path(audio_file), Path(video_file)
 
-    return audio_stream, video_stream, info, convert_captions(captions)
+
+def get_meta(url: str) -> Meta:
+    yt = pytube.YouTube(url)
+    return Meta(title=yt.title, description=yt.description, tags=yt.keywords)
 
 
 def get_captions(url: str, lang: Language) -> Sequence[Event]:
