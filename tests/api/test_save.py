@@ -1,70 +1,41 @@
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
-from freespeech.client import client, tasks, transcript
-from freespeech.types import Error
+from freespeech.api import transcript
 
 NOTION_TRANSCRIPT_DATABASE_ID = "e1a094dbac5845409d2e995d4ce3675e"
 
 
 @pytest.mark.asyncio
-async def test_save(mock_client, monkeypatch) -> None:
-    monkeypatch.setattr(client, "create", mock_client)
-    session = mock_client()
-    # session = client.create()
+async def test_save() -> None:
+    from_srt = await transcript.load(
+        source=Path("tests/lib/data/transcript/karlsson.srt"),
+        lang="en-US",
+    )
+    from_srt = replace(from_srt, title="test_save")
 
-    async with session:
-        with open("tests/lib/data/transcript/karlsson.srt", "rb") as stream:
-            task = await transcript.load(
-                source=stream,
-                method="SRT",
-                lang="en-US",
-                session=session,
-            )
-            from_srt = await tasks.future(task, session)
-            from_srt = replace(from_srt, title="test_save")
+    result = await transcript.save(
+        transcript=from_srt,
+        platform="Google",
+        format="SRT",
+        location=None,
+    )
+    assert result.startswith("https://docs.google.com/document/d/")
 
-        if isinstance(from_srt, Error):
-            assert False, from_srt.message
+    result = await transcript.save(
+        transcript=from_srt,
+        platform="Google",
+        format="SSMD",
+        location=None,
+    )
+    assert result.startswith("https://docs.google.com/document/d/")
 
-        response = await transcript.save(
-            transcript=from_srt,
-            platform="Google",
-            format="SRT",
-            location=None,
-            session=session,
-        )
-        if isinstance(response, Error):
-            assert False, response.message
-        result = await tasks.future(response, session)
-        if isinstance(result, Error):
-            assert False, result.message
-        assert result.url.startswith("https://docs.google.com/document/d/")
-
-        response = await transcript.save(
-            transcript=from_srt,
-            platform="Google",
-            format="SSMD",
-            location=None,
-            session=session,
-        )
-        if isinstance(response, Error):
-            assert False, response.message
-        result = await tasks.future(response, session)
-        if isinstance(result, Error):
-            assert False, result.message
-        assert result.url.startswith("https://docs.google.com/document/d/")
-        response = await transcript.save(
-            transcript=from_srt,
-            platform="Notion",
-            format="SSMD",
-            location=NOTION_TRANSCRIPT_DATABASE_ID,
-            session=session,
-        )
-        if isinstance(response, Error):
-            assert False, response.message
-        result = await tasks.future(response, session)
-        if isinstance(result, Error):
-            assert False, result.message
-        assert result.url.startswith("https://www.notion.so/test_save")
+    response = await transcript.save(
+        transcript=from_srt,
+        platform="Notion",
+        format="SSMD",
+        location=NOTION_TRANSCRIPT_DATABASE_ID,
+    )
+    assert response.startswith("https://www.notion.so/test_save")

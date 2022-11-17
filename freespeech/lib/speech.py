@@ -188,7 +188,7 @@ def supported_azure_voices() -> Dict[str, Sequence[str]]:
 
 
 async def transcribe(
-    file: str,
+    file: Path,
     lang: Language,
     model: TranscriptionModel,
     provider: ServiceProvider,
@@ -221,7 +221,7 @@ async def transcribe(
             assert_never(never)
 
 
-async def _transcribe_deepgram(file: str, lang: Language, model: TranscriptionModel):
+async def _transcribe_deepgram(file: Path, lang: Language, model: TranscriptionModel):
     # For more info see language section of
     # https://developers.deepgram.com/api-reference/#transcription-prerecorded
     LANGUAGE_OVERRIDE = {
@@ -272,10 +272,10 @@ async def _transcribe_deepgram(file: str, lang: Language, model: TranscriptionMo
 
 
 async def _transcribe_google(
-    file: str, lang: Language, model: TranscriptionModel
+    file: Path, lang: Language, model: TranscriptionModel
 ) -> Sequence[Event]:
     client = speech_api.SpeechClient()
-    uri = await obj.put(file, f"{env.get_storage_url()}/transcribe_google/")
+    uri = await obj.put(file, f"{env.get_storage_url()}/transcribe_google/{file.name}")
     try:
 
         def _api_call() -> LongRunningRecognizeResponse:
@@ -324,10 +324,8 @@ async def _transcribe_google(
     return events
 
 
-async def _transcribe_azure(file: str, lang: Language, model: TranscriptionModel):
-    uri = await obj.put(
-        file, f"az://freespeech-files/{str(uuid4())}.{Path(file).suffix}"
-    )
+async def _transcribe_azure(file: Path, lang: Language, model: TranscriptionModel):
+    uri = await obj.put(file, f"az://freespeech-files/{str(uuid4())}.{file.suffix}")
 
     key, region = env.get_azure_config()
     # more info: https://westus.dev.cognitive.microsoft.com/docs/services/speech-to-text-api-v3-0/operations/CreateTranscription  # noqa: E501

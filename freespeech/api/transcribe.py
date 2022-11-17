@@ -9,6 +9,7 @@ from freespeech.lib.storage import obj
 from freespeech.types import (
     Language,
     ServiceProvider,
+    Source,
     SpeechToTextBackend,
     Transcript,
     TranscriptionModel,
@@ -82,7 +83,7 @@ async def transcribe(
                 audio = await obj.get(obj.storage_url(audio_url), tmp_dir)
                 audio_mono = await media.multi_channel_audio_to_mono(audio, tmp_dir)
                 events = await speech.transcribe(
-                    file=str(audio_mono),
+                    file=audio_mono,
                     lang=lang,
                     model=model,
                     provider=provider,
@@ -101,6 +102,7 @@ async def transcribe(
 
     return Transcript(
         title=None,
+        source=Source(method=backend, url=source),
         events=events,
         lang=lang,
         audio=obj.public_url(audio_url),

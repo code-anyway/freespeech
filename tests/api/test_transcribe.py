@@ -1,24 +1,23 @@
+import asyncio
+
 import pytest
+
+from freespeech.api import transcribe
+from freespeech.types import (
+    SPEECH_BACKENDS,
+    Transcript,
+    Voice,
+    is_speech_to_text_backend,
+)
 
 
 @pytest.mark.asyncio
-async def test_load_subtitles(mock_client, monkeypatch) -> None:
-    monkeypatch.setattr(client, "create", mock_client)
-    session = mock_client()
-    # session = client.create()
-
-    async with session:
-        task = await transcript.load(
-            source="https://www.youtube.com/watch?v=ALaTm6VzTBw",
-            method="Subtitles",
-            lang="en-US",
-            session=session,
-        )
-
-        result = await tasks.future(task, session)
-
-    if isinstance(result, Error):
-        assert False, result.message
+async def test_load_subtitles() -> None:
+    result = await transcribe.transcribe(
+        source="https://www.youtube.com/watch?v=ALaTm6VzTBw",
+        backend="Subtitles",
+        lang="en-US",
+    )
 
     first, *_, last = result.events
 
@@ -36,7 +35,7 @@ async def test_load_subtitles(mock_client, monkeypatch) -> None:
 
     assert result.audio
     assert result.audio.startswith("https://")
-    assert result.audio.endswith(".wav")
+    assert result.audio.endswith(".webm")
 
     assert result.video
     assert result.video.startswith("https://")
@@ -44,63 +43,33 @@ async def test_load_subtitles(mock_client, monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_load_transcribe(mock_client, monkeypatch) -> None:
-    monkeypatch.setattr(client, "create", mock_client)
-    session = mock_client()
-    # session = client.create()
-
-    async with session:
-        methods: Sequence[Method] = ("Machine A", "Machine B", "Machine C")
-
-        responses = [
-            await transcript.load(
-                source="https://www.youtube.com/watch?v=bhRaND9jiOA",
-                method=method,
-                lang="en-US",
-                session=session,
-            )
-            for method in methods
-        ]
-
-        result_a, result_b, result_c = await asyncio.gather(
-            *[tasks.future(response, session) for response in responses]
+async def test_transcribe() -> None:
+    responses = [
+        transcribe.transcribe(
+            source="https://www.youtube.com/watch?v=bhRaND9jiOA",
+            backend=backend,
+            lang="en-US",
         )
+        for backend in SPEECH_BACKENDS
+        if is_speech_to_text_backend(backend)
+    ]
 
-    # Check Machine A output
-    event, *_ = result_a.events
-    chunk, *_ = event.chunks
+    results: list[Transcript] = await asyncio.gather(*responses)
 
-    assert "One" in chunk
-    assert "procrastination and sloth" in chunk
+    for backend, result in zip(SPEECH_BACKENDS, results):
+        assert result.source is not None, f"Backend {backend} failed"
+        assert result.source.method == backend, f"Backend {backend} failed"
+        assert result.audio is not None, f"Backend {backend} failed"
+        assert result.audio.startswith("https://")
+        assert result.audio.endswith(".webm")
 
-    assert result_a.audio.startswith("https://")
-    assert result_a.audio.endswith(".wav")
 
-    assert result_a.video.startswith("https://")
-    assert result_a.video.endswith(".mp4")
-
-    # Check Machine B output
-    event, *_ = result_b.events
-    chunk, *_ = event.chunks
-
-    assert "One" in chunk
-    assert "procrastination and sloth" in chunk
-
-    assert result_b.audio.startswith("https://")
-    assert result_b.audio.endswith(".wav")
-
-    assert result_b.video.startswith("https://")
-    assert result_b.video.endswith(".mp4")
-
-    # Check Machine C output
-    event, *_ = result_c.events
-    chunk, *_ = event.chunks
-
-    assert chunk.startswith("One")
-    assert "procrastination and sloth" in chunk
-
-    assert result_c.audio.startswith("https://")
-    assert result_c.audio.endswith(".wav")
-
-    assert result_c.video.startswith("https://")
-    assert result_c.video.endswith(".mp4")
+@pytest.mark.asyncio
+async def test_transcribe_machine_d() -> None:
+    result = await transcribe.transcribe(
+        source="https://www.youtube.com/watch?v=N9B59PHIFbA",
+        lang="en-US",
+        backend="Machine D",
+    )
+    assert isinstance(result, Transcript)
+    assert len(result.events) == 12

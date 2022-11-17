@@ -98,20 +98,5 @@ def upload(video_file, meta_file, credentials_file):
     )
 
 
-@click.option(
-    "-p",
-    "--port",
-    required=False,
-    default=8080,
-    type=int,
-    help="HTTP port to listen on",
-)
-@cli.command(name="start-telegram")
-def start_telegram(port: int):
-    from freespeech.api import telegram
-
-    telegram.start_bot(port)
-
-
 if __name__ == "__main__":
     cli()

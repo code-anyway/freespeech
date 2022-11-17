@@ -6,6 +6,7 @@ import random
 import time
 import xml.etree.ElementTree as ET
 from os import PathLike
+from pathlib import Path
 from typing import Dict, Sequence, Tuple
 from uuid import uuid4
 
@@ -156,7 +157,7 @@ def download(
     url: str,
     output_dir: str | PathLike,
     max_retries: int = 0,
-) -> tuple[str, str | None]:
+) -> tuple[Path, Path | None]:
     """Downloads YouTube video from URL into output_dir.
 
     Args:
@@ -206,7 +207,7 @@ def download(
             f"Unable to download video stream for {url}. Candidates: {video_streams}"
         )
 
-    return audio_file, video_file
+    return Path(audio_file), Path(video_file)
 
 
 def get_meta(url: str) -> Meta:

@@ -1,7 +1,12 @@
+from pathlib import Path
+
 from fastapi import APIRouter
 
 from freespeech.lib import gdocs, notion
+from freespeech.lib.transcript import srt_to_events
 from freespeech.types import (
+    Language,
+    Source,
     Transcript,
     TranscriptFormat,
     TranscriptPlatform,
@@ -21,8 +26,20 @@ def _platform(source: str) -> TranscriptPlatform:
 
 
 @router.get("/transcript")
-async def load(source: str) -> Transcript:
+async def load(source: str | Path, lang: Language | None = None) -> Transcript:
+    if isinstance(source, Path):
+        if lang is None:
+            raise ValueError("lang must be specified when loading from a file")
+
+        with open(source) as stream:
+            return Transcript(
+                source=Source(method="SRT", url=str(source)),
+                events=srt_to_events(stream.read()),
+                lang=lang,
+            )
+
     platform = _platform(source)
+
     match platform:
         case "Google":
             return gdocs.load(source)

@@ -1,7 +1,7 @@
 import pytest
 
-from freespeech.client import client, tasks, transcript
-from freespeech.types import Error, Event, Settings, Transcript, Voice
+from freespeech.api import synthesize
+from freespeech.types import Event, Settings, Transcript, Voice
 
 ANNOUNCERS_TEST_TRANSCRIPT_RU = Transcript(
     settings=Settings(),
@@ -27,33 +27,18 @@ ANNOUNCERS_TEST_TRANSCRIPT_RU = Transcript(
 
 
 @pytest.mark.asyncio
-async def test_synthesize_basic(mock_client, monkeypatch) -> None:
-    monkeypatch.setattr(client, "create", mock_client)
-    session = mock_client()
-    # session = client.create()
+async def test_synthesize_basic() -> None:
+    test_ru = Transcript(
+        lang="ru-RU",
+        events=[
+            Event(
+                time_ms=0,
+                chunks=["Путин хуйло!"],
+            )
+        ],
+    )
+    audio = await synthesize.synthesize(test_ru)
 
-    async with client.create() as session:
-        test_ru = Transcript(
-            lang="ru-RU",
-            events=[
-                Event(
-                    time_ms=0,
-                    chunks=["Путин хуйло!"],
-                )
-            ],
-        )
-        result = await transcript.synthesize(test_ru, session=session)
-
-        if isinstance(result, Error):
-            assert False, result.message
-
-        # assert result.message == "Estimated wait time: 5 minutes"
-
-        task_result = await tasks.future(result, session)
-
-    if isinstance(task_result, Error):
-        assert False, task_result.message
-
-    assert task_result.audio
-    assert task_result.audio.endswith(".wav")
-    assert task_result.audio.startswith("https://")
+    assert audio
+    assert audio.endswith(".wav")
+    assert audio.startswith("gs://")

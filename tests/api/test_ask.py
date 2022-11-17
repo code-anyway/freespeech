@@ -1,69 +1,17 @@
+from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import ffmpeg
 import pytest
 
-from freespeech.client import chat, client, tasks, transcript
 from freespeech.lib import hash, media, speech
 from freespeech.lib.storage import obj
 from freespeech.types import Error, Transcript, Voice
 
-AUDIO_BLANK = "tests/lib/data/ask/audio-blank-blanked.wav"
-AUDIO_BLANK_SYNTHESIZED = "tests/lib/data/ask/audio-blank-synthesized.wav"
-AUDIO_FILL = "tests/lib/data/ask/audio-fill-filled.wav"
-AUDIO_FILL_SYNTHESIZED = "tests/lib/data/ask/audio-fill-synthesized.wav"
-
-
-@pytest.mark.asyncio
-async def test_transcribe(mock_client, monkeypatch) -> None:
-    monkeypatch.setattr(client, "create", mock_client)
-    session = mock_client()
-
-    message = (
-        "Transcribe https://www.youtube.com/watch?v=bhRaND9jiOA "
-        "in English using Machine B"
-    )
-    response = await chat.ask(message=message, intent=None, state={}, session=session)
-
-    assert (
-        response.message == "Transcribing https://www.youtube.com/watch?v=bhRaND9jiOA"
-        " with Machine B in en-US. Watch this space!"
-    )
-
-    if isinstance(response, Error):
-        assert False, response.message
-    result = await tasks.future(response, session)
-    if isinstance(result, Error):
-        assert False, result.message
-
-    assert isinstance(result, Transcript)
-    assert result.events
-
-
-@pytest.mark.asyncio
-async def test_transcribe_machine_d(mock_client, monkeypatch) -> None:
-    monkeypatch.setattr(client, "create", mock_client)
-    session = mock_client()
-
-    message = (
-        "Transcribe https://www.youtube.com/watch?v=N9B59PHIFbA "
-        "in English using Machine D"
-    )
-    response = await chat.ask(message=message, intent=None, state={}, session=session)
-
-    assert (
-        response.message == "Transcribing https://www.youtube.com/watch?v=N9B59PHIFbA"
-        " with Machine D in en-US. Watch this space!"
-    )
-
-    if isinstance(response, Error):
-        assert False, response.message
-    result = await tasks.future(response, session)
-    if isinstance(result, Error):
-        assert False, result.message
-
-    assert isinstance(result, Transcript)
-    assert len(result.events) == 12
+AUDIO_BLANK = Path("tests/lib/data/ask/audio-blank-blanked.wav")
+AUDIO_BLANK_SYNTHESIZED = Path("tests/lib/data/ask/audio-blank-synthesized.wav")
+AUDIO_FILL = Path("tests/lib/data/ask/audio-fill-filled.wav")
+AUDIO_FILL_SYNTHESIZED = Path("tests/lib/data/ask/audio-fill-synthesized.wav")
 
 
 @pytest.mark.asyncio
@@ -213,11 +161,11 @@ async def test_synthesize_blank(mock_client, monkeypatch) -> None:
         downmixed_audio = await media.multi_channel_audio_to_mono(
             transcript_str, tmp_dir
         )
-        assert hash.file(str(downmixed_audio)) == hash.file(AUDIO_BLANK)
+        assert hash.file(downmixed_audio) == hash.file(AUDIO_BLANK)
 
 
 @pytest.mark.asyncio
-async def test_synthesize_fill(mock_client, monkeypatch) -> None:
+async def test_synthesize_fill(monkeypatch) -> None:
     async def synthesize_events(*args, **kwargs):
         return [
             AUDIO_FILL_SYNTHESIZED,
@@ -233,12 +181,9 @@ async def test_synthesize_fill(mock_client, monkeypatch) -> None:
             ],
         ]
 
-    monkeypatch.setattr(client, "create", mock_client)
     monkeypatch.setattr(speech, "synthesize_events", synthesize_events)
-    session = mock_client()
 
     test_doc = "https://docs.google.com/document/d/11WOfJZi8pqpj7_BLPy0uq9h1R0f_n-dJ11LPOBvPtQA/edit?usp=sharing"  # noqa: E501
-
     test_message = f"Dub {test_doc}"
 
     task = await chat.ask(message=test_message, intent=None, state={}, session=session)
@@ -255,4 +200,4 @@ async def test_synthesize_fill(mock_client, monkeypatch) -> None:
             obj.storage_url(str(result.video)), dst_dir=tmp_dir
         )
         downmixed_audio = await media.multi_channel_audio_to_mono(transcript_str, ".")
-        assert hash.file(str(downmixed_audio)) == hash.file(AUDIO_FILL)
+        assert hash.file(downmixed_audio) == hash.file(AUDIO_FILL)
