@@ -1,4 +1,7 @@
 import tempfile
+from pathlib import Path
+
+from fastapi import APIRouter
 
 from freespeech import env
 from freespeech.lib import media, speech, youtube
@@ -21,7 +24,10 @@ PHRASE_LENGTH = 600
 # Max download retries for YouTube videos.
 MAX_RETRIES = 4
 
+router = APIRouter()
 
+
+@router.post("/media")
 async def ingest(source: str) -> tuple[str | None, str | None]:
     if source.startswith("gs://"):
         return obj.public_url(source), obj.public_url(source)
@@ -29,12 +35,12 @@ async def ingest(source: str) -> tuple[str | None, str | None]:
     with tempfile.TemporaryDirectory() as tempdir:
         audio, video = youtube.download(source, tempdir, max_retries=MAX_RETRIES)
         audio_url = (
-            await obj.put(audio, f"{env.get_storage_url()}/media/{audio.name}")
+            await obj.put(audio, f"{env.get_storage_url()}/media/{Path(audio).name}")
             if audio
             else None
         )
         video_url = (
-            await obj.put(video, f"{env.get_storage_url()}/media/{video.name}")
+            await obj.put(video, f"{env.get_storage_url()}/media/{Path(video).name}")
             if video
             else None
         )
@@ -42,6 +48,7 @@ async def ingest(source: str) -> tuple[str | None, str | None]:
         return (audio_url, video_url)
 
 
+@router.get("/transcript/{source}/{lang}")
 async def transcribe(
     source: str,
     lang: Language,
@@ -97,6 +104,6 @@ async def transcribe(
         title=None,
         events=events,
         lang=lang,
-        audio=audio_url,
-        video=video_url,
+        audio=obj.public_url(audio_url),
+        video=obj.public_url(video_url) if video_url else None,
     )

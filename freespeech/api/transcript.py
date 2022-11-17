@@ -1,3 +1,5 @@
+from fastapi import APIRouter
+
 from freespeech.lib import gdocs, notion
 from freespeech.types import (
     Transcript,
@@ -5,6 +7,8 @@ from freespeech.types import (
     TranscriptPlatform,
     assert_never,
 )
+
+router = APIRouter()
 
 
 def _platform(source: str) -> TranscriptPlatform:
@@ -16,6 +20,7 @@ def _platform(source: str) -> TranscriptPlatform:
         raise ValueError(f"Unsupported url: {source}")
 
 
+@router.get("/transcript/{source}")
 async def load(
     source: str,
 ) -> Transcript:
@@ -29,6 +34,7 @@ async def load(
             assert_never(x)
 
 
+@router.post("/transcript")
 async def save(
     transcript: Transcript,
     platform: TranscriptPlatform,

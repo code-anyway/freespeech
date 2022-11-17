@@ -33,7 +33,6 @@ setup(
         "freespeech.lib.storage",
         "freespeech.lib.tasks",
         "freespeech.api",
-        "freespeech.client",
     ],
     entry_points="""
         [console_scripts]
@@ -47,6 +46,7 @@ setup(
         "azure-storage-blob",
         "click",
         "deepgram-sdk",
+        "fastapi[all]",
         "ffmpeg-python",
         # TODO (astaff): update/remove after https://github.com/pytube/pytube/pull/1282
         # is merged/released,

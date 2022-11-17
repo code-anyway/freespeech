@@ -157,7 +157,7 @@ def download(
     url: str,
     output_dir: str | PathLike,
     max_retries: int = 0,
-) -> tuple[Path, Path | None]:
+) -> tuple[str, str | None]:
     """Downloads YouTube video from URL into output_dir.
 
     Args:
@@ -186,13 +186,12 @@ def download(
         else:
             logger.warning(f"Resolution {resolution} is not available for {url}")
 
-    video_stream = None
     video_file = None
     for stream in video_streams:
         try:
             video_file = stream.download(
                 output_path=output_dir,
-                output_filename=f"{uuid4()}.{stream.subtype}",
+                filename=f"{uuid4()}.{stream.subtype}",
                 max_retries=max_retries,
             )
             break
@@ -203,12 +202,12 @@ def download(
             # Some have content-length missing.
             logger.warning(f"Missing key for {stream} of {url}: {str(e)}")
 
-    if video_stream is None:
+    if video_file is None:
         raise RuntimeError(
             f"Unable to download video stream for {url}. Candidates: {video_streams}"
         )
 
-    return Path(audio_file), Path(video_file)
+    return audio_file, video_file
 
 
 def get_meta(url: str) -> Meta:
@@ -241,6 +240,8 @@ def _language_tag(lang: str) -> str | None:
             return "de-DE"
         case "es":
             return "es-US"
+        case "fr":
+            return "fr-FR"
         case unsupported_language:
             logger.warning(f"Unsupported caption language: {unsupported_language}")
             return None

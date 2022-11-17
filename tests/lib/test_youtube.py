@@ -26,9 +26,7 @@ BROKEN_DOWNLOAD_VIDEO = "https://www.youtube.com/watch?v=8xKCecfR-z8"
 def test_broken_download(tmp_path):
     # The default video stream for this video won't download due to
     # http.client.IncompleteRead.
-    audio_file, video_file, _, _ = youtube.download(
-        BROKEN_DOWNLOAD_VIDEO, tmp_path, "test.audio", "test.video"
-    )
+    audio_file, video_file = youtube.download(BROKEN_DOWNLOAD_VIDEO, tmp_path)
     AUDIO_HASH = (
         "fc38b308bd03da71f0a3a27d41dd37281d24ed2a828c0f81a6f43b02b0679b9d",
         "9a9c1ed4484fa7242543b7bc34fe2bf60b6b0ae0f30a9fc4cccd5b6767f3b337",

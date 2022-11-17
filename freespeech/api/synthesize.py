@@ -1,5 +1,7 @@
 from tempfile import TemporaryDirectory
 
+from fastapi import APIRouter
+
 from freespeech import env
 from freespeech.lib import media, speech
 from freespeech.lib.storage import obj
@@ -7,7 +9,10 @@ from freespeech.types import Transcript
 
 from . import transcript
 
+router = APIRouter()
 
+
+@router.post("/synthesize")
 async def synthesize(source: Transcript | str) -> str:
     if isinstance(source, str):
         source = await transcript.load(source)

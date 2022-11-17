@@ -46,7 +46,6 @@ from freespeech.types import (
     Voice,
     assert_never,
     is_character,
-    url,
 )
 
 logger = logging.getLogger(__name__)

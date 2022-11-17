@@ -1,5 +1,7 @@
 from dataclasses import replace
 
+from fastapi import APIRouter
+
 from freespeech.lib import language
 from freespeech.types import (
     Language,
@@ -11,7 +13,10 @@ from freespeech.types import (
 
 from . import transcript
 
+router = APIRouter()
 
+
+@router.post("/translate")
 async def translate(
     source: Transcript | str,
     lang: Language,
