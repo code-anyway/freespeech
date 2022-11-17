@@ -1,14 +1,8 @@
 import logging
 import logging.config
 from dataclasses import dataclass
-from typing import Generator
 
 import pytest
-import pytest_asyncio
-from aiohttp import web
-from aiohttp.pytest_plugin import AiohttpClient
-
-from freespeech.lib.tasks import dummy
 
 LOGGING_CONFIG = {
     "version": 1,

@@ -10,7 +10,7 @@ from aiogram.utils.executor import start_webhook
 from pydantic.json import pydantic_encoder
 
 from freespeech import env
-from freespeech.client import chat, client, tasks, transcript
+from freespeech.api import transcript
 from freespeech.types import Error, assert_never
 
 CLIENT_TIMEOUT = 1800

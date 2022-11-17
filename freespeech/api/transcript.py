@@ -20,10 +20,8 @@ def _platform(source: str) -> TranscriptPlatform:
         raise ValueError(f"Unsupported url: {source}")
 
 
-@router.get("/transcript/{source}")
-async def load(
-    source: str,
-) -> Transcript:
+@router.get("/transcript")
+async def load(source: str) -> Transcript:
     platform = _platform(source)
     match platform:
         case "Google":

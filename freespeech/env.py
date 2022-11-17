@@ -164,6 +164,26 @@ def get_telegram_bot_token() -> str:
 
 
 @functools.cache
+def get_telegram_api_hash() -> str:
+    token = os.environ.get("TELEGRAM_API_HASH", None)
+
+    if not token:
+        raise RuntimeError("Environment variable TELEGRAM_API_HASH is not set. ")
+
+    return token
+
+
+@functools.cache
+def get_telegram_api_id() -> int:
+    token = os.environ.get("TELEGRAM_API_ID", None)
+
+    if not token:
+        raise RuntimeError("Environment variable TELEGRAM_API_ID is not set. ")
+
+    return int(token)
+
+
+@functools.cache
 def get_telegram_webhook_url() -> str:
     url = os.environ.get("TELEGRAM_WEBHOOK_URL", None)
 

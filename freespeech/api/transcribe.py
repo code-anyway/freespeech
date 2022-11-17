@@ -48,7 +48,7 @@ async def ingest(source: str) -> tuple[str | None, str | None]:
         return (audio_url, video_url)
 
 
-@router.get("/transcript/{source}/{lang}")
+@router.post("/transcribe")
 async def transcribe(
     source: str,
     lang: Language,
@@ -58,10 +58,6 @@ async def transcribe(
 
     if not audio_url:
         raise ValueError(f"No audio stream: {source}")
-
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        audio = await obj.get(obj.storage_url(audio_url), tmp_dir)
-        audio_mono = await media.multi_channel_audio_to_mono(audio, tmp_dir)
 
     match backend:
         case "Machine A" | "Machine B" | "Machine C" | "Machine D":
@@ -82,12 +78,15 @@ async def transcribe(
                     model = "default_granular"
                 case never:
                     assert_never(never)
-            events = await speech.transcribe(
-                file=str(audio_mono),
-                lang=lang,
-                model=model,
-                provider=provider,
-            )
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                audio = await obj.get(obj.storage_url(audio_url), tmp_dir)
+                audio_mono = await media.multi_channel_audio_to_mono(audio, tmp_dir)
+                events = await speech.transcribe(
+                    file=str(audio_mono),
+                    lang=lang,
+                    model=model,
+                    provider=provider,
+                )
         case "Subtitles":
             events = youtube.get_captions(source, lang=lang)
         case x:

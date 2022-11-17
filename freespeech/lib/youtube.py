@@ -6,7 +6,6 @@ import random
 import time
 import xml.etree.ElementTree as ET
 from os import PathLike
-from pathlib import Path
 from typing import Dict, Sequence, Tuple
 from uuid import uuid4
 
@@ -228,7 +227,7 @@ def get_captions(url: str, lang: Language) -> Sequence[Event]:
 
 def _language_tag(lang: str) -> str | None:
     match lang:
-        case "en" | "en-US" | "a.en":
+        case "en" | "en-US" | "a.en" | "en-GB":
             return "en-US"
         case "uk":
             return "uk-UA"

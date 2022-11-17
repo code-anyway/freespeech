@@ -9,5 +9,3 @@ app.include_router(synthesize.router)
 app.include_router(transcribe.router)
 app.include_router(transcript.router)
 app.include_router(translate.router)
-
-
