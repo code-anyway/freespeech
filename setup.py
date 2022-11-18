@@ -31,9 +31,7 @@ setup(
         "freespeech",
         "freespeech.lib",
         "freespeech.lib.storage",
-        "freespeech.lib.tasks",
         "freespeech.api",
-        "freespeech.client",
     ],
     entry_points="""
         [console_scripts]
@@ -41,12 +39,12 @@ setup(
     """,
     install_requires=[
         "aiohttp",
-        "aiogram",
         "deepl",
         "azure-ai-language-conversations",
         "azure-storage-blob",
         "click",
         "deepgram-sdk",
+        "fastapi[all]",
         "ffmpeg-python",
         # TODO (astaff): update/remove after https://github.com/pytube/pytube/pull/1282
         # is merged/released,
@@ -63,8 +61,8 @@ setup(
         "google-auth",
         "google-auth-oauthlib",
         "google-auth-httplib2",
-        "hypothesis",
         "pydantic",
+        "pytz",
         "requests",
         "spacy",
         *[
@@ -73,6 +71,7 @@ setup(
         *[
             f"{lang}_core_news_sm @ https://github.com/explosion/spacy-models/releases/download/{lang}_core_news_sm-3.4.0/{lang}_core_news_sm-3.4.0.tar.gz"
             for lang in ("es", "uk", "pt", "ru", "de", "fr")],
+        "telethon",
         "types-requests",
     ],
     extras_require={

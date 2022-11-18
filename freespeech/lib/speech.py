@@ -46,7 +46,6 @@ from freespeech.types import (
     Voice,
     assert_never,
     is_character,
-    url,
 )
 
 logger = logging.getLogger(__name__)
@@ -189,7 +188,7 @@ def supported_azure_voices() -> Dict[str, Sequence[str]]:
 
 
 async def transcribe(
-    uri: str,
+    file: Path,
     lang: Language,
     model: TranscriptionModel,
     provider: ServiceProvider,
@@ -213,16 +212,16 @@ async def transcribe(
 
     match provider:
         case "Google":
-            return await _transcribe_google(uri, lang, model)
+            return await _transcribe_google(file, lang, model)
         case "Deepgram":
-            return await _transcribe_deepgram(uri, lang, model)
+            return await _transcribe_deepgram(file, lang, model)
         case "Azure":
-            return await _transcribe_azure(uri, lang, model)
+            return await _transcribe_azure(file, lang, model)
         case never:
             assert_never(never)
 
 
-async def _transcribe_deepgram(uri: url, lang: Language, model: TranscriptionModel):
+async def _transcribe_deepgram(file: Path, lang: Language, model: TranscriptionModel):
     # For more info see language section of
     # https://developers.deepgram.com/api-reference/#transcription-prerecorded
     LANGUAGE_OVERRIDE = {
@@ -239,23 +238,20 @@ async def _transcribe_deepgram(uri: url, lang: Language, model: TranscriptionMod
 
     deepgram = Deepgram(env.get_deepgram_token())
 
-    with TemporaryDirectory() as tmp_dir:
-        file_path = await obj.get(uri, tmp_dir)
-
-        with open(file_path, "rb") as buffer:
-            source = {"buffer": buffer, "mimetype": mime_type}
-            response = await deepgram.transcription.prerecorded(
-                source,
-                {
-                    "punctuate": True,
-                    "language": deepgram_lang,
-                    "model": model,
-                    "profanity_filter": False,
-                    "diarize": True,
-                    "utterances": True,
-                    "utt_split": 1.4,
-                },
-            )
+    with open(file, "rb") as buffer:
+        source = {"buffer": buffer, "mimetype": mime_type}
+        response = await deepgram.transcription.prerecorded(
+            source,
+            {
+                "punctuate": True,
+                "language": deepgram_lang,
+                "model": model,
+                "profanity_filter": False,
+                "diarize": True,
+                "utterances": True,
+                "utt_split": 1.4,
+            },
+        )
 
     events = []
     for utterance in response["results"]["utterances"]:
@@ -276,10 +272,10 @@ async def _transcribe_deepgram(uri: url, lang: Language, model: TranscriptionMod
 
 
 async def _transcribe_google(
-    uri: url, lang: Language, model: TranscriptionModel
+    file: Path, lang: Language, model: TranscriptionModel
 ) -> Sequence[Event]:
     client = speech_api.SpeechClient()
-
+    uri = await obj.put(file, f"{env.get_storage_url()}/transcribe_google/{file.name}")
     try:
 
         def _api_call() -> LongRunningRecognizeResponse:
@@ -328,15 +324,8 @@ async def _transcribe_google(
     return events
 
 
-async def _transcribe_azure(uri: url, lang: Language, model: TranscriptionModel):
-    with TemporaryDirectory() as tmp_dir:
-        file = await obj.get(uri, tmp_dir)
-        # NOTE:
-        # 1. To avoid collisions, we are generating new name every time
-        # 2. To make naming easier, we are re-assigning the uri
-        uri = await obj.put(
-            file, f"az://freespeech-files/{str(uuid4())}.{Path(file).suffix}"
-        )
+async def _transcribe_azure(file: Path, lang: Language, model: TranscriptionModel):
+    uri = await obj.put(file, f"az://freespeech-files/{str(uuid4())}.{file.suffix}")
 
     key, region = env.get_azure_config()
     # more info: https://westus.dev.cognitive.microsoft.com/docs/services/speech-to-text-api-v3-0/operations/CreateTranscription  # noqa: E501

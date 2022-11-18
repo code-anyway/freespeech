@@ -1,0 +1,4 @@
+service: base
+runtime: custom
+env: flex
+service_account: test-service@freespeech-343914.iam.gserviceaccount.com

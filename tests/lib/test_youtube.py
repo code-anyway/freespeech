@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from freespeech.lib import hash, youtube
 from freespeech.types import Event
@@ -26,9 +27,7 @@ BROKEN_DOWNLOAD_VIDEO = "https://www.youtube.com/watch?v=8xKCecfR-z8"
 def test_broken_download(tmp_path):
     # The default video stream for this video won't download due to
     # http.client.IncompleteRead.
-    audio_file, video_file, _, _ = youtube.download(
-        BROKEN_DOWNLOAD_VIDEO, tmp_path, "test.audio", "test.video"
-    )
+    audio_file, video_file = youtube.download(BROKEN_DOWNLOAD_VIDEO, tmp_path)
     AUDIO_HASH = (
         "fc38b308bd03da71f0a3a27d41dd37281d24ed2a828c0f81a6f43b02b0679b9d",
         "9a9c1ed4484fa7242543b7bc34fe2bf60b6b0ae0f30a9fc4cccd5b6767f3b337",
@@ -40,33 +39,38 @@ def test_broken_download(tmp_path):
         "f96cb054fd52199437c57250d323108ba5f0753d2043de5e982fa486e65d8146",
     )
     assert hash.file(audio_file) in AUDIO_HASH
+    assert video_file is not None, "video file should be downloaded"
     assert hash.file(video_file) in VIDEO_HASH
 
     # some videos have streams with 'content-length' missing which causes
     # pytube to crash
     missing_content_length = "https://youtu.be/BoGEAwsHmr0"
-    _, _, _, _ = youtube.download(
+    _, _ = youtube.download(
         missing_content_length,
         output_dir=tmp_path,
-        audio_filename="test.audio",
-        video_filename="test.video",
         max_retries=10,
     )
 
 
 def test_download_local(tmp_path):
-    audio_file, video_file, info, captions = youtube.download(
-        VIDEO_URL, tmp_path, "test.audio", "test.video"
+    audio_file, video_file = youtube.download(
+        VIDEO_URL,
+        tmp_path,
     )
 
-    assert info.title == "Announcer's test"
-    assert info.description == VIDEO_DESCRIPTION
-    assert info.tags == ["announcer's", "test"]
+    meta = youtube.get_meta(VIDEO_URL)
 
-    assert audio_file.suffix == ".audio"
-    assert video_file.suffix == ".video"
+    assert meta.title == "Announcer's test"
+    assert meta.description == VIDEO_DESCRIPTION
+    assert meta.tags == ["announcer's", "test"]
 
-    assert captions["en-US"][0] == Event(
+    assert Path(audio_file).suffix == ".webm"
+    assert video_file is not None, "video file should be downloaded"
+    assert Path(video_file).suffix == ".mp4"
+
+    captions = youtube.get_captions(VIDEO_URL, "en-US")
+
+    assert captions[0] == Event(
         time_ms=480,
         duration_ms=6399,
         chunks=["one hand two ducks three squawking geese"],

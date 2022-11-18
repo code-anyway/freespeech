@@ -1,15 +1,15 @@
 import json
 import tempfile
+from pathlib import Path
 from typing import Sequence, get_args
 
 import pytest
 
 from freespeech import env
 from freespeech.lib import media, speech
-from freespeech.lib.storage import obj
 from freespeech.types import Character, Event, Language, Voice, assert_never
 
-AUDIO_EN_LOCAL = "tests/lib/data/media/en-US-mono.wav"
+AUDIO_EN_LOCAL = Path("tests/lib/data/media/en-US-mono.wav")
 AUDIO_EN_GS = "gs://freespeech-tests/test_speech/en-US-mono.wav"
 
 TEST_OUTPUT_GS = "gs://freespeech-tests/test_speech/output/"
@@ -45,10 +45,9 @@ async def test_transcribe(tmp_path) -> None:
     downmixed_local = await media.multi_channel_audio_to_mono(
         file=AUDIO_EN_LOCAL, output_dir=tmp_path
     )
-    await obj.put(downmixed_local, AUDIO_EN_GS)
 
     t_en = await speech.transcribe(
-        AUDIO_EN_GS, "en-US", provider="Deepgram", model="default"
+        downmixed_local, "en-US", provider="Deepgram", model="default"
     )
 
     voice = Voice(character="Alan", pitch=0.0, speech_rate=1.0)
@@ -58,7 +57,7 @@ async def test_transcribe(tmp_path) -> None:
     assert t_en == [event]
 
     t_en = await speech.transcribe(
-        AUDIO_EN_GS, "en-US", provider="Google", model="latest_long"
+        AUDIO_EN_LOCAL, "en-US", provider="Google", model="latest_long"
     )
 
     assert event.time_ms == 971
@@ -87,10 +86,9 @@ async def test_synthesize_text(tmp_path) -> None:
     downmixed_local = await media.multi_channel_audio_to_mono(
         output, output_dir=tmp_path
     )
-    output_gs = await obj.put(downmixed_local, f"{TEST_OUTPUT_GS}{output.name}")
 
     (first, second) = await speech.transcribe(
-        output_gs, "en-US", provider="Google", model="latest_long"
+        downmixed_local, "en-US", provider="Google", model="latest_long"
     )
     assert first.chunks == ["1 2"]
     assert second.chunks == [" 3"]
@@ -130,10 +128,9 @@ async def test_synthesize_azure_transcribe_google(tmp_path) -> None:
     downmixed_local = await media.multi_channel_audio_to_mono(
         output, output_dir=tmp_path
     )
-    output_gs = await obj.put(downmixed_local, f"{TEST_OUTPUT_GS}{output.name}")
 
     (first, second) = await speech.transcribe(
-        output_gs, "en-US", provider="Google", model="latest_long"
+        downmixed_local, "en-US", provider="Google", model="latest_long"
     )
     assert first.chunks == ["Testing quite a long sentence."]
     assert second.chunks == [" Hello."]
@@ -152,10 +149,9 @@ async def test_synthesize_google_transcribe_azure(tmp_path) -> None:
     downmixed_local = await media.multi_channel_audio_to_mono(
         output, output_dir=tmp_path
     )
-    output_gs = await obj.put(downmixed_local, f"{TEST_OUTPUT_GS}{output.name}")
 
     (first, second) = await speech.transcribe(
-        output_gs, lang="en-US", provider="Azure", model="default"
+        downmixed_local, lang="en-US", provider="Azure", model="default"
     )
     assert first.chunks == ["Testing quite a long sentence."]
     assert second.chunks == ["Hello."]
@@ -174,17 +170,16 @@ async def test_synthesize_google_transcribe_azure_granular(tmp_path) -> None:
     downmixed_local = await media.multi_channel_audio_to_mono(
         output, output_dir=tmp_path
     )
-    output_gs = await obj.put(downmixed_local, f"{TEST_OUTPUT_GS}{output.name}")
 
     # With no "model" provided Azure transcription will not break sentences.
     (first, *_) = await speech.transcribe(
-        output_gs, lang="en-US", provider="Azure", model="default"
+        downmixed_local, lang="en-US", provider="Azure", model="default"
     )
     assert first.chunks == ["Testing quite a long sentence. Hello."]
 
     # mode="default_granular" will create one event per sentence.
     (first, second) = await speech.transcribe(
-        output_gs, lang="en-US", provider="Azure", model="default_granular"
+        downmixed_local, lang="en-US", provider="Azure", model="default_granular"
     )
     assert first.chunks == ["Testing quite a long sentence."]
     assert second.chunks == ["Hello."]
@@ -225,10 +220,8 @@ async def test_synthesize_events(tmp_path) -> None:
     downmixed_local = await media.multi_channel_audio_to_mono(
         output, output_dir=tmp_path
     )
-    output_gs = await obj.put(downmixed_local, f"{TEST_OUTPUT_GS}{output.name}")
-
     t_en = await speech.transcribe(
-        output_gs, "en-US", provider="Google", model="latest_long"
+        downmixed_local, "en-US", provider="Google", model="latest_long"
     )
 
     first, second = t_en

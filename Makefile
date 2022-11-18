@@ -20,7 +20,3 @@ quality:
 style:
 	black $(check_dirs)
 	isort $(check_dirs)
-
-data:
-	mkdir -p data
-	python -c "from freespeech.lib import chat; import json; print(json.dumps(chat.generate_training_data(intents=['dub', 'translate', 'transcribe'], sample_sizes=[100, 100, 100]), indent=4))" > data/chat.json
