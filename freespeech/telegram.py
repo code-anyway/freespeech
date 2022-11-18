@@ -72,7 +72,7 @@ def log_user_action(event, action: str, **kwargs):
 
 
 async def handle_dub(url: str, is_smooth: bool, event):
-    await event.reply(f"Dubbing {url}. Please wait a few minutes.")
+    await event.reply(f"Dubbing {url}. Please wait a few minutes.", link_preview=False)
     try:
         log_user_action(event, "dub", url=url, is_smooth=is_smooth)
         media_url = await synthesize.dub(
@@ -105,7 +105,9 @@ async def handle_translate(url: str, lang: Language, event):
 async def handle_transcribe(
     url: str, lang: Language, backend: SpeechToTextBackend, event
 ):
-    await event.reply(f"Transcribing in {url} using {backend}. Watch this space!")
+    await event.reply(
+        f"Transcribing in {url} using {backend}. Watch this space!", link_preview=False
+    )  # noqa: E501
     try:
         log_user_action(event, "transcribe", url=url, lang=lang, backend=backend)
         transcript_url = await transcript.save(
@@ -131,7 +133,7 @@ async def handle_callback(event):
     if action == "dub-1":
         url = user_state[event.sender_id]
         await handle_dub(url, is_smooth=False, event=event)
-    if action == "dub-2":
+    elif action == "dub-2":
         url = user_state[event.sender_id]
         await handle_dub(url, is_smooth=True, event=event)
     elif action == "translate":
