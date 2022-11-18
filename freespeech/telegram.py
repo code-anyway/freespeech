@@ -130,10 +130,10 @@ async def handle_callback(event):
 
     if action == "dub-1":
         url = user_state[event.sender_id]
-        await handle_dub(url, event)
-    if action == "dub-1":
+        await handle_dub(url, is_smooth=False, event=event)
+    if action == "dub-2":
         url = user_state[event.sender_id]
-        await handle_dub(url, event)
+        await handle_dub(url, is_smooth=True, event=event)
     elif action == "translate":
         await select_language(event, action, "What language to translate to?")
     elif action in ("subtitles", "speech_recognition"):
