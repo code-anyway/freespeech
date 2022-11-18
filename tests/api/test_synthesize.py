@@ -68,7 +68,7 @@ async def test_synthesize_crop() -> None:
     url = await synthesize.dub(test_doc)
 
     with TemporaryDirectory() as tmp_dir:
-        transcript_str = await obj.get(url, dst_dir=tmp_dir)
+        transcript_str = await obj.get(obj.storage_url(url), dst_dir=tmp_dir)
         assert float(
             ffmpeg.probe(transcript_str).get("format", {}).get("duration", None)
         ) == pytest.approx(11.4, 0.12)
@@ -96,7 +96,7 @@ async def test_synthesize_blank(monkeypatch) -> None:
     url = await synthesize.dub(test_doc)
 
     with TemporaryDirectory() as tmp_dir:
-        transcript_str = await obj.get(url, dst_dir=tmp_dir)
+        transcript_str = await obj.get(obj.storage_url(url), dst_dir=tmp_dir)
         downmixed_audio = await media.multi_channel_audio_to_mono(
             transcript_str, tmp_dir
         )
@@ -129,7 +129,7 @@ async def test_synthesize_fill(monkeypatch) -> None:
     url = await synthesize.dub(test_doc)
 
     with TemporaryDirectory() as tmp_dir:
-        transcript_str = await obj.get(url, dst_dir=tmp_dir)
+        transcript_str = await obj.get(obj.storage_url(url), dst_dir=tmp_dir)
         downmixed_audio = await media.multi_channel_audio_to_mono(transcript_str, ".")
         assert hash.file(downmixed_audio) in (
             hash.file(AUDIO_FILL),
