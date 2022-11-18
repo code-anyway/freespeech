@@ -2,6 +2,7 @@ import re
 from dataclasses import dataclass
 from functools import reduce
 from itertools import zip_longest
+from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from freespeech.lib import audio, media, speech, text
@@ -378,7 +379,7 @@ async def synthesize(
     min_silence_scale: float,
     variance_threshold: float,
     output_dir: str,
-) -> str:
+) -> Path:
     clips = []
     blocks = separate_events(events)
 
@@ -421,4 +422,4 @@ async def synthesize(
         [],
     )
 
-    return str(await media.concat(clips=audio_files, output_dir=output_dir))
+    return await media.concat(clips=audio_files, output_dir=output_dir)

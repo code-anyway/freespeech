@@ -12,5 +12,7 @@ filterwarnings = [
     'ignore:unclosed transport <_SelectorSocketTransport:ResourceWarning',
     'ignore:unclosed <socket.socket:ResourceWarning',
     'ignore:unclosed <ssl.SSLSocket',
+    # https://github.com/beetbox/audioread/issues/97
+    'ignore:unclosed file <_io.BufferedReader:ResourceWarning',
 ]
 asyncio_mode = "strict"
