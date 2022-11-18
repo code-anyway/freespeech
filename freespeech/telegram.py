@@ -1,10 +1,43 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import logging
+import logging.config
 
 from telethon import Button, TelegramClient, events
 
 from freespeech import env
 from freespeech.api import synthesize, transcribe, transcript, translate
+from freespeech.types import Language, SpeechToTextBackend
+
+logging_handler = ["google" if env.is_in_cloud_run() else "console"]
+
+LOGGING_CONFIG = {
+    "version": 1,
+    "formatters": {
+        "brief": {"format": "%(message)s"},
+        "default": {
+            "format": "%(asctime)s %(levelname)-8s %(name)-15s %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "default",
+            "stream": "ext://sys.stdout",
+        },
+        "google": {"class": "google.cloud.logging.handlers.StructuredLogHandler"},
+    },
+    "loggers": {
+        "freespeech": {"level": logging.INFO, "handlers": logging_handler},
+        "aiohttp": {"level": logging.INFO, "handlers": logging_handler},
+        "__main__": {"level": logging.INFO, "handlers": logging_handler},
+    },
+}
+logging.config.dictConfig(LOGGING_CONFIG)
+
+logger = logging.getLogger(__name__)
+
 
 api_id = env.get_telegram_api_id()
 api_hash = env.get_telegram_api_hash()
@@ -34,15 +67,68 @@ async def select_language(event, action: str, message: str):
     )
 
 
+def log_user_action(event, action: str, **kwargs):
+    logger.info(f"User {event.sender_id} ({event.sender.username}) {action} {kwargs}")
+
+
+async def handle_dub(url: str, event):
+    await event.reply(f"Dubbing {url}. Please wait a few minutes.")
+    try:
+        log_user_action(event, "dub", url=url)
+        media_url = await synthesize.dub(await transcript.load(source=url))
+    except Exception as e:
+        logger.exception(e)
+        await event.reply("Something went wrong. Please try again later.")
+        return
+    await event.reply(f"Here you are: {media_url}")
+
+
+async def handle_translate(url: str, lang: Language, event):
+    await event.reply(f"Translating to {lang}. Stay tuned!")
+    try:
+        log_user_action(event, "translate", url=url, lang=lang)
+        transcript_url = await translate.translate(
+            source=url, lang=lang, format="SSMD-NEXT", platform="Google"
+        )
+    except Exception as e:
+        logger.exception(e)
+        await event.reply("Something went wrong. Please try again later.")
+        return
+    await event.reply(
+        f"Here you are: {transcript_url}. Now you can paste this link into this chat to dub.",  # noqa: E501
+        link_preview=False,
+    )
+
+
+async def handle_transcribe(
+    url: str, lang: Language, backend: SpeechToTextBackend, event
+):
+    await event.reply(f"Transcribing in {url} using {backend}. Watch this space!")
+    try:
+        log_user_action(event, "transcribe", url=url, lang=lang, backend=backend)
+        transcript_url = await transcript.save(
+            transcript=await transcribe.transcribe(url, lang=lang, backend=backend),
+            platform="Google",
+            format="SSMD-NEXT",
+            location=None,
+        )
+    except Exception as e:
+        logger.exception(e)
+        await event.reply("Something went wrong. Please try again later.")
+        return
+    await event.reply(
+        f"Here you are: {transcript_url}. Now you can paste this link into this chat to translate or dub.",  # noqa: E501
+        link_preview=False,
+    )
+
+
 @client.on(events.CallbackQuery())
 async def handle_callback(event):
     action = event.data.decode("ASCII")
 
     if action == "dub":
         url = user_state[event.sender_id]
-        await event.reply(f"Dubbing {url}. Please wait a few minutes.")
-        media_url = await synthesize.dub(await transcript.load(source=url))
-        await event.reply(f"Here you are: {media_url}")
+        await handle_dub(url, event)
     elif action == "translate":
         await select_language(event, action, "What language to translate to?")
     elif action in ("subtitles", "speech_recognition"):
@@ -50,44 +136,17 @@ async def handle_callback(event):
     elif action.startswith("translate;"):
         _, lang = action.split(";")
         url = user_state[event.sender_id]
-        await event.reply(f"Translating to {lang}. Stay tuned!")
-        transcript_url = await translate.translate(
-            source=url, lang=lang, format="SSMD-NEXT", platform="Google"
-        )
-        await event.reply(
-            f"Here you are: {transcript_url}. Now you can paste this link into this chat to dub.",  # noqa: E501
-            link_preview=False,
-        )
+        await handle_translate(url, lang, event)
     elif action.startswith("subtitles;"):
         _, lang = action.split(";")
         url = user_state[event.sender_id]
-        await event.reply(f"Transcribing in {lang} using Subtitles. Watch this space!")
-        transcript_url = await transcript.save(
-            transcript=await transcribe.transcribe(url, lang, "Subtitles"),
-            platform="Google",
-            format="SSMD-NEXT",
-            location=None,
-        )
-        await event.reply(
-            f"Here you are: {transcript_url}. Now you can paste this link into this chat to translate or dub.",  # noqa: E501
-            link_preview=False,
-        )
+        await handle_transcribe(url, lang, "Subtitles", event)
     elif action.startswith("speech_recognition;"):
         _, lang = action.split(";")
         url = user_state[event.sender_id]
-        await event.reply(
-            f"Transcribing in {lang} using speech recognition. Watch this space!"
-        )
-        transcript_url = await transcript.save(
-            transcript=await transcribe.transcribe(url, lang, "Machine D"),
-            platform="Google",
-            format="SSMD-NEXT",
-            location=None,
-        )
-        await event.reply(
-            f"Here you are: {transcript_url}. Now you can paste this link into this chat to translate or dub.",  # noqa: E501
-            link_preview=False,
-        )
+        await handle_transcribe(url, lang, "Machine D", event)
+    else:
+        raise ValueError(f"Unknown action: {action}")
 
 
 @client.on(events.NewMessage(pattern=r".*"))
@@ -129,5 +188,6 @@ async def url_handler(event):
 
 
 if __name__ == "__main__":
+    logger.info("Starting Telegram client")
     client.start()
     client.run_until_disconnected()
