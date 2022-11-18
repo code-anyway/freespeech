@@ -71,11 +71,13 @@ def log_user_action(event, action: str, **kwargs):
     logger.info(f"User {event.sender_id} ({event.sender.username}) {action} {kwargs}")
 
 
-async def handle_dub(url: str, event):
+async def handle_dub(url: str, is_smooth: bool, event):
     await event.reply(f"Dubbing {url}. Please wait a few minutes.")
     try:
-        log_user_action(event, "dub", url=url)
-        media_url = await synthesize.dub(await transcript.load(source=url))
+        log_user_action(event, "dub", url=url, is_smooth=is_smooth)
+        media_url = await synthesize.dub(
+            await transcript.load(source=url), is_smooth=is_smooth
+        )
     except Exception as e:
         logger.exception(e)
         await event.reply("Something went wrong. Please try again later.")
@@ -126,7 +128,10 @@ async def handle_transcribe(
 async def handle_callback(event):
     action = event.data.decode("ASCII")
 
-    if action == "dub":
+    if action == "dub-1":
+        url = user_state[event.sender_id]
+        await handle_dub(url, event)
+    if action == "dub-1":
         url = user_state[event.sender_id]
         await handle_dub(url, event)
     elif action == "translate":
@@ -167,7 +172,8 @@ async def url_handler(event):
             "Translate or dub?",
             buttons=[
                 Button.inline("Translate", data="translate".encode("ASCII")),
-                Button.inline("Dub", data="dub".encode("ASCII")),
+                Button.inline("Dub-1", data="dub-1".encode("ASCII")),
+                Button.inline("Dub-2", data="dub-2".encode("ASCII")),
             ],
         )
     elif url.startswith("https://youtu.be/") or url.startswith(
