@@ -19,3 +19,19 @@ async def test_translate():
 
     translated = await transcript.load(translated_url)
     assert translated.lang == TARGET_LANG, f"Translated URL: {translated_url}"
+
+
+@pytest.mark.asyncio
+async def test_translate_srt():
+    transcript_en = await transcript.load(
+        source="https://docs.google.com/document/d/1E_E9S5G4vH6MWxo3qB4itXZRcSrFeqHscMysFjen-sY/edit?usp=sharing"  # noqa: E501
+    )
+    transcript_url_ru = await translate.translate(
+        source=transcript_en, lang="ru-RU", format="SSMD-NEXT", platform="Google"
+    )
+    transcript_ru = await transcript.load(source=transcript_url_ru)
+    assert transcript_ru.lang == "ru-RU"
+    assert (
+        transcript_ru.events[0].chunks[0]
+        == "Вдохновленный романом Астрид Линдгрен фея сказка."
+    )

@@ -1,4 +1,4 @@
-from typing import Dict, Generic, List, Literal, NoReturn, Sequence, TypeGuard, TypeVar
+from typing import Generic, List, Literal, NoReturn, Sequence, TypeGuard, TypeVar
 
 from pydantic.dataclasses import dataclass
 
@@ -282,109 +282,6 @@ class Meta:
     title: str
     description: str
     tags: List[str]
-
-
-@dataclass(frozen=True)
-class Error:
-    message: str
-    details: str | None = None
-
-
-@dataclass(frozen=True)
-class SynthesizeRequest:
-    transcript: Transcript | str
-
-
-@dataclass(frozen=True)
-class TranslateRequest:
-    transcript: Transcript | str
-    lang: Language
-
-
-@dataclass(frozen=True)
-class LoadRequest:
-    source: str
-    method: Method
-    lang: Language | None
-
-
-@dataclass(frozen=True)
-class IngestRequest:
-    source: str | None
-
-
-@dataclass(frozen=True)
-class IngestResponse:
-    audio: str | None
-    video: str | None
-
-
-@dataclass(frozen=True)
-class AskRequest:
-    message: str
-    intent: str | None
-    state: Dict
-
-
-@dataclass(frozen=True)
-class AskResponse:
-    message: str
-    state: Dict
-
-
-@dataclass(frozen=True)
-class SaveRequest:
-    """Request to save Transcript.
-
-    Attributes:
-        transcript (Transcript): Target transcript to save.
-        storage (str):
-
-            - `"SRT"` — SRT to Google Docs.
-            - `"SSMD"` — freespeech's speech synthesis markdown to Google Docs.
-            - `"Google"` — Google Docs.
-            - `"Notion"` — Notion.
-
-        location (str, optional):
-
-            - Database ID for Notion.
-
-    """
-
-    transcript: Transcript
-    platform: TranscriptPlatform
-    format: TranscriptFormat
-    location: str | None
-
-
-@dataclass(frozen=True)
-class SaveResponse:
-    url: str
-
-
-TaskReturnType = TypeVar(
-    "TaskReturnType", Transcript, IngestResponse, AskResponse, SaveResponse
-)
-
-RequestType = TypeVar(
-    "RequestType",
-    SynthesizeRequest,
-    SaveRequest,
-    TranslateRequest,
-    AskRequest,
-    LoadRequest,
-    IngestRequest,
-    SynthesizeRequest,
-)
-
-
-@dataclass(frozen=True)
-class Task(Generic[TaskReturnType]):
-    state: Literal["Done", "Pending", "Failed"]
-    id: str
-    result: TaskReturnType | Error | None = None
-    message: str | None = None
-    operation: Operation | None = None
 
 
 def assert_never(x: NoReturn) -> NoReturn:

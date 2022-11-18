@@ -4,7 +4,7 @@
 from telethon import Button, TelegramClient, events
 
 from freespeech import env
-from freespeech.api import transcribe, transcript, translate
+from freespeech.api import synthesize, transcribe, transcript, translate
 
 api_id = env.get_telegram_api_id()
 api_hash = env.get_telegram_api_hash()
@@ -39,7 +39,10 @@ async def handle_callback(event):
     action = event.data.decode("ASCII")
 
     if action == "dub":
-        await event.reply("Dubbing!")
+        url = user_state[event.sender_id]
+        await event.reply(f"Dubbing {url}. Please wait a few minutes.")
+        media_url = await synthesize.synthesize(await transcript.load(source=url))
+        await event.reply(f"Here you are: {media_url}")
     elif action == "translate":
         await select_language(event, action)
     elif action in ("subtitles", "speech_recognition"):
