@@ -31,7 +31,6 @@ setup(
         "freespeech",
         "freespeech.lib",
         "freespeech.lib.storage",
-        "freespeech.lib.tasks",
         "freespeech.api",
     ],
     entry_points="""

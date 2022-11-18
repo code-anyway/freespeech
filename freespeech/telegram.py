@@ -8,20 +8,20 @@ from freespeech.api import synthesize, transcribe, transcript, translate
 
 api_id = env.get_telegram_api_id()
 api_hash = env.get_telegram_api_hash()
-client = TelegramClient("anon", api_id, api_hash).start(
+client = TelegramClient("/tmp/freespeechbot", api_id, api_hash).start(
     bot_token=env.get_telegram_bot_token()
 )
 
 URL_SOLUTION_TEXT = (
-    "Please send a message with a link to a YouTube video or Google Docs transcript."
+    "Please send me a link to a YouTube video or Google Docs transcript."
 )
 
 user_state: dict[str, str] = {}
 
 
-async def select_language(event, action: str):
+async def select_language(event, action: str, message: str):
     await event.reply(
-        "Select language:",
+        message,
         buttons=[
             Button.inline("EN", data=f"{action};en-US".encode("ASCII")),
             Button.inline("UA", data=f"{action};uk-UA".encode("ASCII")),
@@ -44,9 +44,9 @@ async def handle_callback(event):
         media_url = await synthesize.synthesize(await transcript.load(source=url))
         await event.reply(f"Here you are: {media_url}")
     elif action == "translate":
-        await select_language(event, action)
+        await select_language(event, action, "What language to translate to?")
     elif action in ("subtitles", "speech_recognition"):
-        await select_language(event, action)
+        await select_language(event, action, "What's the original language?")
     elif action.startswith("translate;"):
         _, lang = action.split(";")
         url = user_state[event.sender_id]
@@ -54,29 +54,40 @@ async def handle_callback(event):
         transcript_url = await translate.translate(
             source=url, lang=lang, format="SSMD-NEXT", platform="Google"
         )
-        await event.reply(f"Translated transcript: {transcript_url}")
+        await event.reply(
+            f"Here you are: {transcript_url}. Now you can paste this link into this chat to dub.",  # noqa: E501
+            link_preview=False,
+        )
     elif action.startswith("subtitles;"):
         _, lang = action.split(";")
         url = user_state[event.sender_id]
-        await event.reply(f"Transcribing in {lang} using Subtitles!")
+        await event.reply(f"Transcribing in {lang} using Subtitles. Watch this space!")
         transcript_url = await transcript.save(
             transcript=await transcribe.transcribe(url, lang, "Subtitles"),
             platform="Google",
             format="SSMD-NEXT",
             location=None,
         )
-        await event.reply(f"Here you are: {transcript_url}")
+        await event.reply(
+            f"Here you are: {transcript_url}. Now you can paste this link into this chat to translate or dub.",  # noqa: E501
+            link_preview=False,
+        )
     elif action.startswith("speech_recognition;"):
         _, lang = action.split(";")
         url = user_state[event.sender_id]
-        await event.reply(f"Transcribe in {lang} using speech recognition!")
+        await event.reply(
+            f"Transcribing in {lang} using speech recognition. Watch this space!"
+        )
         transcript_url = await transcript.save(
             transcript=await transcribe.transcribe(url, lang, "Machine D"),
             platform="Google",
             format="SSMD-NEXT",
             location=None,
         )
-        await event.reply(f"Here you are: {transcript_url}")
+        await event.reply(
+            f"Here you are: {transcript_url}. Now you can paste this link into this chat to translate or dub.",  # noqa: E501
+            link_preview=False,
+        )
 
 
 @client.on(events.NewMessage(pattern=r".*"))

@@ -52,7 +52,7 @@ async def test_synthesize_basic() -> None:
 
     assert audio
     assert audio.endswith(".wav")
-    assert audio.startswith("gs://")
+    assert audio.startswith("https://")
 
 
 @pytest.mark.asyncio

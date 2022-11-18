@@ -79,4 +79,5 @@ async def synthesize(source: Transcript | str) -> str:
                 dub_file, f"{env.get_storage_url()}/media/{dub_file.name}"
             )
 
-    return video_url or audio_url
+    gs_url = video_url or audio_url
+    return obj.public_url(gs_url)
