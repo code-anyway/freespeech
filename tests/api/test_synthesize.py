@@ -48,7 +48,7 @@ async def test_synthesize_basic() -> None:
             )
         ],
     )
-    audio = await synthesize.synthesize(test_ru)
+    audio = await synthesize.dub(test_ru)
 
     assert audio
     assert audio.endswith(".wav")
@@ -58,14 +58,14 @@ async def test_synthesize_basic() -> None:
 @pytest.mark.asyncio
 async def test_synthesize() -> None:
     test_doc = "https://docs.google.com/document/d/1Oexfd27oToEWyxj9g7YCp3IYHqjYO8US0RtnoP32fXU/edit#"  # noqa: E501
-    url = await synthesize.synthesize(test_doc)
+    url = await synthesize.dub(test_doc)
     assert url
 
 
 @pytest.mark.asyncio
 async def test_synthesize_crop() -> None:
     test_doc = "https://docs.google.com/document/d/1HpH-ZADbAM8AzluFWO8ZTOkEoRobAvQ13rrCsK6SU-U/edit?usp=sharing"  # noqa: E501
-    url = await synthesize.synthesize(test_doc)
+    url = await synthesize.dub(test_doc)
 
     with TemporaryDirectory() as tmp_dir:
         transcript_str = await obj.get(url, dst_dir=tmp_dir)
@@ -93,7 +93,7 @@ async def test_synthesize_blank(monkeypatch) -> None:
 
     monkeypatch.setattr(speech, "synthesize_events", synthesize_events)
     test_doc = "https://docs.google.com/document/d/1CvjpOs5QEe_mmAc5CEGRVNV68qDjdQipCDb2ge6OIn4/edit?usp=sharing"  # noqa: E501
-    url = await synthesize.synthesize(test_doc)
+    url = await synthesize.dub(test_doc)
 
     with TemporaryDirectory() as tmp_dir:
         transcript_str = await obj.get(url, dst_dir=tmp_dir)
@@ -126,7 +126,7 @@ async def test_synthesize_fill(monkeypatch) -> None:
     monkeypatch.setattr(speech, "synthesize_events", synthesize_events)
 
     test_doc = "https://docs.google.com/document/d/11WOfJZi8pqpj7_BLPy0uq9h1R0f_n-dJ11LPOBvPtQA/edit?usp=sharing"  # noqa: E501
-    url = await synthesize.synthesize(test_doc)
+    url = await synthesize.dub(test_doc)
 
     with TemporaryDirectory() as tmp_dir:
         transcript_str = await obj.get(url, dst_dir=tmp_dir)

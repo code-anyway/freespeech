@@ -41,7 +41,7 @@ async def handle_callback(event):
     if action == "dub":
         url = user_state[event.sender_id]
         await event.reply(f"Dubbing {url}. Please wait a few minutes.")
-        media_url = await synthesize.synthesize(await transcript.load(source=url))
+        media_url = await synthesize.dub(await transcript.load(source=url))
         await event.reply(f"Here you are: {media_url}")
     elif action == "translate":
         await select_language(event, action, "What language to translate to?")
