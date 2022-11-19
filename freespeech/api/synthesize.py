@@ -24,19 +24,7 @@ async def dub(source: Transcript | str, is_smooth: bool) -> str:
         source = await transcript.load(source)
 
     with TemporaryDirectory() as tmp_dir:
-        if is_smooth:
-            synth_file = await tts.synthesize(
-                list(source.events),
-                lang=source.lang,
-                sentence_pause_ms=SENTENCE_PAUSE_MS,
-                min_rate=MIN_RATE,
-                min_silence_scale=MIN_SILENCE_SCALE,
-                variance_threshold=VARIANCE_THRESHOLD,
-                output_dir=tmp_dir,
-            )
-            raise NotImplementedError("Smooth dubbing is not implemented yet.")
-        else:
-            synth_file, spans = await _synthesize(source, tmp_dir)
+        synth_file, spans = await _synthesize(source, is_smooth, tmp_dir)
 
         audio_url = await obj.put(
             synth_file, f"{env.get_storage_url()}/media/{synth_file.name}"
@@ -65,18 +53,34 @@ async def dub(source: Transcript | str, is_smooth: bool) -> str:
     return obj.public_url(gs_url)
 
 
-async def _synthesize(source, tmp_dir):
-    synth_file, _, spans = await speech.synthesize_events(
-        events=source.events,
-        lang=source.lang,
-        output_dir=tmp_dir,
-    )
+async def _synthesize(source, is_smooth: bool, tmp_dir):
+    spans: list[media.Span] = []
+    if is_smooth:
+        synth_file = await tts.synthesize(
+            list(source.events),
+            lang=source.lang,
+            sentence_pause_ms=SENTENCE_PAUSE_MS,
+            min_rate=MIN_RATE,
+            min_silence_scale=MIN_SILENCE_SCALE,
+            variance_threshold=VARIANCE_THRESHOLD,
+            output_dir=tmp_dir,
+        )
+        first = source.events[0]
+        last = source.events[-1]
+        spans = [("event", first.time_ms, last.time_ms + last.duration_ms)]
+    else:
+        synth_file, _, spans = await speech.synthesize_events(
+            events=source.events,
+            lang=source.lang,
+            output_dir=tmp_dir,
+        )
 
     if source.audio:
         audio_file = await obj.get(obj.storage_url(source.audio), dst_dir=tmp_dir)
         mono_audio = await media.multi_channel_audio_to_mono(
             audio_file, output_dir=tmp_dir
         )
+
         match source.settings.space_between_events:
             case "Fill" | "Crop":
                 # has side effects :(

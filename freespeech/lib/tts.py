@@ -74,6 +74,15 @@ def adjust(
         New speech interval with speech rate as close to target_rate as possible
         while minimum pause scale factor.
     """
+    if interval.speech_ms == 0:
+        return Interval(
+            speech_ms=0,
+            rate=target_rate,
+            silence_scale=interval.silence_scale,
+            outline=interval.outline,
+            character=interval.character,
+        )
+
     target_scale_factor = interval.rate / target_rate
     speech = interval.speech_ms * target_scale_factor
     silence_ms = _silence(interval.outline) * interval.silence_scale
@@ -142,8 +151,15 @@ def get_outline(s: str, sentence_pause_ms: int, lang: Language) -> list[str | in
 async def get_interval(
     event: Event, sentence_pause_ms: int, lang: Language
 ) -> Interval:
+    if event.duration_ms is None:
+        raise ValueError("event.duration_ms must be set")
+
     paragraph = " ".join(event.chunks)
-    outline = get_outline(paragraph, sentence_pause_ms=sentence_pause_ms, lang=lang)
+    outline: list[str | int] = get_outline(
+        paragraph, sentence_pause_ms=sentence_pause_ms, lang=lang
+    )
+    if outline == []:
+        outline = [event.duration_ms]
 
     with TemporaryDirectory() as tmp_dir:
         clips = [
@@ -314,23 +330,21 @@ async def synthesize_block(
         for interval in intervals
     ]
 
-    def _verify_interval(event: Event, interval: Interval) -> bool:
+    def interval_event_delta(event: Event, interval: Interval) -> int:
         if event.duration_ms is None:
             return True
 
-        return (
-            round(
-                event.duration_ms
-                - interval.speech_ms
-                - _silence(interval.outline) * interval.silence_scale
-            )
-            == 0
+        return round(
+            event.duration_ms
+            - interval.speech_ms
+            - _silence(interval.outline) * interval.silence_scale
         )
 
     for event, interval in zip(events, adjusted_intervals):
-        assert _verify_interval(
-            event, interval
-        ), f"Generated interval duration doesn't match the event: {interval} {event}"
+        delta = interval_event_delta(event, interval)
+        assert (
+            abs(delta) <= 1
+        ), f"Event duration mismatch (d={delta}): {event} {interval}"  # noqa: E501
 
     smooth_intervals = smoothen(
         adjusted_intervals,

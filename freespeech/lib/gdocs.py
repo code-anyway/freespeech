@@ -122,7 +122,7 @@ def extract(url: str) -> Tuple[str, str]:
             case 403:
                 raise PermissionError(e.error_details) from e
             case 404:
-                raise RuntimeError(e.error_details) from e
+                raise ValueError(f"Couldn't open document: {url}")
             case _:
                 raise e
 
