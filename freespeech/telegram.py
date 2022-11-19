@@ -7,7 +7,14 @@ from telethon import Button, TelegramClient, events
 
 from freespeech import env
 from freespeech.api import synthesize, transcribe, transcript, translate
-from freespeech.types import Language, SpeechToTextBackend
+from freespeech.lib import youtube
+from freespeech.types import (
+    Language,
+    Operation,
+    SpeechToTextBackend,
+    assert_never,
+    platform,
+)
 
 logging_handler = ["google" if env.is_in_cloud_run() else "console"]
 
@@ -71,43 +78,126 @@ def log_user_action(event, action: str, **kwargs):
     logger.info(f"User {event.sender_id} ({event.sender.username}) {action} {kwargs}")
 
 
+async def estimate_operation_duration(url: str, operation: Operation) -> int:
+    """Return estimated duration of an operation for a video or transcript in seconds.
+
+    Args:
+        url (str): URL of a video or transcript.
+        operation (Operation): Operation to estimate duration for.
+
+    Returns:
+        Estimated duration in seconds.
+    """
+    _platform = platform(url)
+
+    match _platform:
+        case "YouTube":
+            metric = youtube.get_meta(url).duration_ms
+        case "Google" | "Notion":
+            metric = len(
+                " ".join(
+                    " ".join(event.chunks)
+                    for event in (await transcript.load(url)).events
+                )
+            )
+        case "GCS":
+            raise NotImplementedError("GCS is not supported yet")
+        case _platform:
+            assert_never(_platform)
+
+    match operation:
+        case "Transcribe":
+            return round(metric / 2581)
+        case "Translate":
+            return round(metric / 102.679)
+        case "Synthesize":
+            return round(metric / 12.679)
+        case _:
+            assert_never(operation)
+
+
+def seconds_to_human_readable(seconds: int) -> str:
+    """Convert seconds to human readable format.
+
+    Args:
+        seconds (int): Seconds to convert.
+
+    Returns:
+        Human readable format.
+    """
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    seconds = seconds % 60
+
+    res = ""
+    if hours:
+        res += f" {hours} hour{'s' if hours > 1 else ''}"
+    if minutes:
+        res += f" {minutes} minute{'s' if minutes > 1 else ''}"
+    if not res:
+        res += f" {seconds} second{'s' if seconds > 1 else ''}"
+
+    return res.strip()
+
+
 async def handle_dub(url: str, is_smooth: bool, event):
-    await event.reply(f"Dubbing {url}. Please wait a few minutes.", link_preview=False)
+    duration = seconds_to_human_readable(
+        await estimate_operation_duration(url, "Synthesize")
+    )
+
+    await event.reply(
+        f"Alright! This should take me about {duration} to dub {url}",
+        link_preview=False,
+    )
     try:
         log_user_action(event, "dub", url=url, is_smooth=is_smooth)
         media_url = await synthesize.dub(
             await transcript.load(source=url), is_smooth=is_smooth
         )
+        await event.reply(f"Here you are: {media_url}")
+    except (ValueError, NotImplementedError) as e:
+        await event.reply(str(e))
     except Exception as e:
         logger.exception(e)
         await event.reply("Something went wrong. Please try again later.")
-        return
-    await event.reply(f"Here you are: {media_url}")
 
 
 async def handle_translate(url: str, lang: Language, event):
-    await event.reply(f"Translating to {lang}. Stay tuned!")
+    duration = seconds_to_human_readable(
+        await estimate_operation_duration(url, "Translate")
+    )
+
+    await event.reply(
+        f"Cool! This should take me about {duration} to translate {url} to {lang}.",
+        link_preview=False,
+    )
     try:
         log_user_action(event, "translate", url=url, lang=lang)
         transcript_url = await translate.translate(
             source=url, lang=lang, format="SSMD-NEXT", platform="Google"
         )
+        await event.reply(
+            f"Here you are: {transcript_url}. Now you can paste this link into this chat to dub.",  # noqa: E501
+            link_preview=False,
+        )
+    except (ValueError, NotImplementedError) as e:
+        await event.reply(str(e))
     except Exception as e:
         logger.exception(e)
         await event.reply("Something went wrong. Please try again later.")
-        return
-    await event.reply(
-        f"Here you are: {transcript_url}. Now you can paste this link into this chat to dub.",  # noqa: E501
-        link_preview=False,
-    )
 
 
 async def handle_transcribe(
     url: str, lang: Language, backend: SpeechToTextBackend, event
 ):
+    duration = seconds_to_human_readable(
+        await estimate_operation_duration(url, "Transcribe")
+    )
+
     await event.reply(
-        f"Transcribing in {url} using {backend}. Watch this space!", link_preview=False
-    )  # noqa: E501
+        f"Sure! This should take me about {duration} to transcribe {url} in {lang} using {backend}.",  # noqa: E501
+        link_preview=False,
+    )
     try:
         log_user_action(event, "transcribe", url=url, lang=lang, backend=backend)
         transcript_url = await transcript.save(
@@ -116,25 +206,28 @@ async def handle_transcribe(
             format="SSMD-NEXT",
             location=None,
         )
+        await event.reply(
+            f"Here you are: {transcript_url}. Now you can paste this link into this chat to translate or dub.",  # noqa: E501
+            link_preview=False,
+        )
+    except (ValueError, NotImplementedError) as e:
+        await event.reply(str(e))
     except Exception as e:
         logger.exception(e)
         await event.reply("Something went wrong. Please try again later.")
-        return
-    await event.reply(
-        f"Here you are: {transcript_url}. Now you can paste this link into this chat to translate or dub.",  # noqa: E501
-        link_preview=False,
-    )
 
 
 @client.on(events.CallbackQuery())
 async def handle_callback(event):
     action = event.data.decode("ASCII")
+    url = user_state.get(event.sender_id, None)
+
+    if url is None:
+        raise ValueError("URL is missing")
 
     if action == "dub-1":
-        url = user_state[event.sender_id]
         await handle_dub(url, is_smooth=False, event=event)
     elif action == "dub-2":
-        url = user_state[event.sender_id]
         await handle_dub(url, is_smooth=True, event=event)
     elif action == "translate":
         await select_language(event, action, "What language to translate to?")
@@ -142,15 +235,12 @@ async def handle_callback(event):
         await select_language(event, action, "What's the original language?")
     elif action.startswith("translate;"):
         _, lang = action.split(";")
-        url = user_state[event.sender_id]
         await handle_translate(url, lang, event)
     elif action.startswith("subtitles;"):
         _, lang = action.split(";")
-        url = user_state[event.sender_id]
         await handle_transcribe(url, lang, "Subtitles", event)
     elif action.startswith("speech_recognition;"):
         _, lang = action.split(";")
-        url = user_state[event.sender_id]
         await handle_transcribe(url, lang, "Machine D", event)
     else:
         raise ValueError(f"Unknown action: {action}")
@@ -168,31 +258,32 @@ async def url_handler(event):
 
     url = urls[0]
 
-    if url.startswith("https://docs.google.com/document/d/"):
-        user_state[event.sender_id] = url
-        await event.reply(
-            "Translate or dub?",
-            buttons=[
-                Button.inline("Translate", data="translate".encode("ASCII")),
-                Button.inline("Dub-1", data="dub-1".encode("ASCII")),
-                Button.inline("Dub-2", data="dub-2".encode("ASCII")),
-            ],
-        )
-    elif url.startswith("https://youtu.be/") or url.startswith(
-        "https://www.youtube.com/"
-    ):
-        user_state[event.sender_id] = url
-        await event.reply(
-            "Create transcript using Subtitles or Speech Recognition?",
-            buttons=[
-                Button.inline("Subtitles", data="subtitles".encode("ASCII")),
-                Button.inline(
-                    "Speech Recognition", data="speech_recognition".encode("ASCII")
-                ),
-            ],
-        )
-    else:
-        await event.reply(f"Unsupported url: {url}. {URL_SOLUTION_TEXT}")
+    match platform(url):
+        case "YouTube":
+            user_state[event.sender_id] = url
+            await event.reply(
+                "Create transcript using Subtitles or Speech Recognition?",
+                buttons=[
+                    Button.inline("Subtitles", data="subtitles".encode("ASCII")),
+                    Button.inline(
+                        "Speech Recognition", data="speech_recognition".encode("ASCII")
+                    ),
+                ],
+            )
+        case "Google" | "Notion":
+            user_state[event.sender_id] = url
+            await event.reply(
+                "Translate or dub?",
+                buttons=[
+                    Button.inline("Translate", data="translate".encode("ASCII")),
+                    Button.inline("Dub-1", data="dub-1".encode("ASCII")),
+                    Button.inline("Dub-2", data="dub-2".encode("ASCII")),
+                ],
+            )
+        case "GCS":
+            raise NotImplementedError("GCS is not supported yet")
+        case x:
+            assert_never(x)
 
 
 if __name__ == "__main__":

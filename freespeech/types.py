@@ -30,6 +30,28 @@ MediaPlatform = Literal["YouTube", "GCS"]
 MEDIA_PLATFORMS = ["YouTube", "GCS"]
 
 
+def is_media_platform(val: str) -> TypeGuard[MediaPlatform]:
+    return val in MEDIA_PLATFORMS
+
+
+def platform(url: str) -> TranscriptPlatform | MediaPlatform:
+    if not url or not url.startswith("https://"):
+        raise ValueError("Invalid URL")
+
+    if url.startswith("https://docs.google.com/document/d/"):
+        return "Google"
+    elif url.startswith("https://www.notion.so/"):
+        return "Notion"
+    elif url.startswith("https://youtu.be/") or url.startswith(
+        "https://www.youtube.com/"
+    ):
+        return "YouTube"
+    else:
+        raise ValueError(
+            f"Unsupported url: {url}. Supported platforms are: {TRANSCRIPT_PLATFORMS + MEDIA_PLATFORMS}"  # noqa: E501
+        )
+
+
 TranscriptFormat = Literal["SRT", "SSMD", "SSMD-NEXT"]
 TRANSCRIPT_FORMATS = ["SRT", "SSMD", "SSMD-NEXT"]
 
@@ -280,6 +302,7 @@ class Transcript:
 @dataclass(frozen=True)
 class Meta:
     title: str
+    duration_ms: int
     description: str
     tags: List[str]
 
