@@ -133,3 +133,9 @@ async def test_synthesize_fill(monkeypatch) -> None:
             hash.file(AUDIO_FILL),
             "dfd8817aebe33652a873fa61d51526062e73e87c0a03523b527dd2ac09edb5ef",
         )  # noqa: E501
+
+
+@pytest.mark.asyncio
+async def test_synthesize_smooth() -> None:
+    test_doc = "https://docs.google.com/document/d/1FcpUuLBv-yOfkJkMo2ltzqyr716b0zN3ftRwlkvbCVs/edit#"  # noqa: E501
+    assert test_doc
