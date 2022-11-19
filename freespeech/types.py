@@ -48,7 +48,7 @@ def platform(url: str) -> TranscriptPlatform | MediaPlatform:
         return "YouTube"
     else:
         raise ValueError(
-            f"Unsupported url: {url}. Supported platforms are: {TRANSCRIPT_PLATFORMS + MEDIA_PLATFORMS}"  # noqa: E501
+            f"Unsupported url: {url}. Supported platforms are: {', '.join(TRANSCRIPT_PLATFORMS + MEDIA_PLATFORMS)}"  # noqa: E501
         )
 
 

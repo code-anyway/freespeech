@@ -5,6 +5,7 @@ profile = "black"
 [tool.pytest.ini_options]
 filterwarnings = [
     "error",
+    'ignore:.*inspect.getargspec.*:DeprecationWarning',
     # note the use of single quote below to denote "raw" strings in TOML
     'ignore:the imp module is deprecated:DeprecationWarning', 
     'ignore:ssl.PROTOCOL_TLS is deprecated:DeprecationWarning',

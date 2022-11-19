@@ -136,6 +136,8 @@ async def test_synthesize_fill(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip
 async def test_synthesize_smooth() -> None:
     test_doc = "https://docs.google.com/document/d/1FcpUuLBv-yOfkJkMo2ltzqyr716b0zN3ftRwlkvbCVs/edit#"  # noqa: E501
-    assert test_doc
+    url = await synthesize.dub(test_doc, is_smooth=True)
+    assert url
