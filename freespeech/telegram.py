@@ -111,7 +111,7 @@ async def estimate_operation_duration(url: str, operation: Operation) -> int:
         case "Translate":
             return round(metric / 102.679)
         case "Synthesize":
-            return round(metric / 12.679)
+            return round(metric / 25)
         case _:
             assert_never(operation)
 
@@ -141,21 +141,21 @@ def seconds_to_human_readable(seconds: int) -> str:
 
 
 async def handle_dub(url: str, is_smooth: bool, event):
-    duration = seconds_to_human_readable(
-        await estimate_operation_duration(url, "Synthesize")
-    )
-
-    await event.reply(
-        f"Alright! This should take me about {duration} to dub {url}",
-        link_preview=False,
-    )
     try:
+        duration = seconds_to_human_readable(
+            await estimate_operation_duration(url, "Synthesize")
+        )
+
+        await event.reply(
+            f"Alright! It should take me about {duration} to dub {url}",
+            link_preview=False,
+        )
         log_user_action(event, "dub", url=url, is_smooth=is_smooth)
         media_url = await synthesize.dub(
             await transcript.load(source=url), is_smooth=is_smooth
         )
         await event.reply(f"Here you are: {media_url}")
-    except (ValueError, NotImplementedError) as e:
+    except (ValueError, NotImplementedError, PermissionError) as e:
         await event.reply(str(e))
     except Exception as e:
         logger.exception(e)
@@ -163,15 +163,15 @@ async def handle_dub(url: str, is_smooth: bool, event):
 
 
 async def handle_translate(url: str, lang: Language, event):
-    duration = seconds_to_human_readable(
-        await estimate_operation_duration(url, "Translate")
-    )
-
-    await event.reply(
-        f"Cool! This should take me about {duration} to translate {url} to {lang}.",
-        link_preview=False,
-    )
     try:
+        duration = seconds_to_human_readable(
+            await estimate_operation_duration(url, "Translate")
+        )
+
+        await event.reply(
+            f"Cool! It should take me about {duration} to translate {url} to {lang}.",
+            link_preview=False,
+        )
         log_user_action(event, "translate", url=url, lang=lang)
         transcript_url = await translate.translate(
             source=url, lang=lang, format="SSMD-NEXT", platform="Google"
@@ -180,7 +180,7 @@ async def handle_translate(url: str, lang: Language, event):
             f"Here you are: {transcript_url}. Now you can paste this link into this chat to dub.",  # noqa: E501
             link_preview=False,
         )
-    except (ValueError, NotImplementedError) as e:
+    except (ValueError, NotImplementedError, PermissionError) as e:
         await event.reply(str(e))
     except Exception as e:
         logger.exception(e)
@@ -190,15 +190,15 @@ async def handle_translate(url: str, lang: Language, event):
 async def handle_transcribe(
     url: str, lang: Language, backend: SpeechToTextBackend, event
 ):
-    duration = seconds_to_human_readable(
-        await estimate_operation_duration(url, "Transcribe")
-    )
-
-    await event.reply(
-        f"Sure! This should take me about {duration} to transcribe {url} in {lang} using {backend}.",  # noqa: E501
-        link_preview=False,
-    )
     try:
+        duration = seconds_to_human_readable(
+            await estimate_operation_duration(url, "Transcribe")
+        )
+
+        await event.reply(
+            f"Sure! It should take me about {duration} to transcribe {url} in {lang} using {backend}.",  # noqa: E501
+            link_preview=False,
+        )
         log_user_action(event, "transcribe", url=url, lang=lang, backend=backend)
         transcript_url = await transcript.save(
             transcript=await transcribe.transcribe(url, lang=lang, backend=backend),
@@ -210,7 +210,7 @@ async def handle_transcribe(
             f"Here you are: {transcript_url}. Now you can paste this link into this chat to translate or dub.",  # noqa: E501
             link_preview=False,
         )
-    except (ValueError, NotImplementedError) as e:
+    except (ValueError, NotImplementedError, PermissionError) as e:
         await event.reply(str(e))
     except Exception as e:
         logger.exception(e)
@@ -225,9 +225,7 @@ async def handle_callback(event):
     if url is None:
         raise ValueError("URL is missing")
 
-    if action == "dub-1":
-        await handle_dub(url, is_smooth=False, event=event)
-    elif action == "dub-2":
+    if action == "dub":
         await handle_dub(url, is_smooth=True, event=event)
     elif action == "translate":
         await select_language(event, action, "What language to translate to?")
@@ -258,7 +256,14 @@ async def url_handler(event):
 
     url = urls[0]
 
-    match platform(url):
+    try:
+        _platform = platform(url)
+    except ValueError as e:
+        await event.reply(str(e))
+        logger.exception(e)
+        return
+
+    match _platform:
         case "YouTube":
             user_state[event.sender_id] = url
             await event.reply(
@@ -276,8 +281,7 @@ async def url_handler(event):
                 "Translate or dub?",
                 buttons=[
                     Button.inline("Translate", data="translate".encode("ASCII")),
-                    Button.inline("Dub-1", data="dub-1".encode("ASCII")),
-                    Button.inline("Dub-2", data="dub-2".encode("ASCII")),
+                    Button.inline("Dub", data="dub".encode("ASCII")),
                 ],
             )
         case "GCS":
