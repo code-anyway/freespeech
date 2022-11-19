@@ -212,7 +212,13 @@ def download(
 
 def get_meta(url: str) -> Meta:
     yt = pytube.YouTube(url)
-    return Meta(title=yt.title, description=yt.description, tags=yt.keywords)
+    duration_ms = yt.length * 1000
+    return Meta(
+        title=yt.title,
+        description=yt.description,
+        tags=yt.keywords,
+        duration_ms=duration_ms,
+    )
 
 
 def get_captions(url: str, lang: Language) -> Sequence[Event]:
