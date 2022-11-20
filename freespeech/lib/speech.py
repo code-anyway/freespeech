@@ -50,6 +50,43 @@ from freespeech.types import (
 
 logger = logging.getLogger(__name__)
 
+
+@dataclass
+class AzureEvent:
+    offset: str
+    duration: str
+    offsetInTicks: int
+    durationInTicks: int
+
+
+@dataclass
+class Phrase:
+    lexical: str
+    itn: str
+    maskedITN: str
+    display: str
+
+
+@dataclass
+class CandidateWord(AzureEvent):
+    confidence: float
+    word: str
+
+
+@dataclass
+class CandidatePhrase(Phrase):
+    confidence: float
+    words: list[CandidateWord]
+
+
+@dataclass
+class RecognizedPhrase(AzureEvent):
+    recognitionStatus: Literal["Success"]
+    channel: int
+    nBest: list[CandidatePhrase]
+    speaker: int = 0
+
+
 Normalization = Literal["break_ends_sentence", "extract_breaks_from_sentence"]
 
 MAX_CHUNK_LENGTH = 1000  # Google Speech API Limit
@@ -324,6 +361,53 @@ async def _transcribe_google(
     return events
 
 
+def transform_azure_result(
+    phrase: RecognizedPhrase, lang: Language, model: TranscriptionModel
+) -> list[Event]:
+    """Transforms Azure's REST API record into list of Events
+    Documentation: https://learn.microsoft.com/en-us/azure/cognitive-services/speech-service/batch-transcription-get?pivots=rest-api#transcription-result-file  # noqa: E501
+    """
+    time_ms = phrase.offsetInTicks // 10000
+    duration_ms = phrase.durationInTicks // 10000
+    text = phrase.nBest[0].display
+
+    match model:
+        case "default_granular":
+            return [
+                Event(
+                    time_ms=time_ms,
+                    chunks=[sentence],
+                    duration_ms=duration_ms,
+                    voice=Voice(character=CHARACTERS[phrase.speaker]),
+                )
+                for sentence, time_ms, duration_ms in break_phrase(
+                    text=text,
+                    words=[
+                        (
+                            word.word,
+                            word.offsetInTicks // 10000,
+                            word.durationInTicks // 10000,
+                        )
+                        for word in phrase.nBest[0].words
+                    ],
+                    lang=lang,
+                )
+            ]
+        case "default":
+            return [
+                Event(
+                    time_ms=time_ms,
+                    chunks=[text],
+                    duration_ms=duration_ms,
+                    voice=Voice(character=CHARACTERS[phrase.speaker]),
+                )
+            ]
+        case "latest_long" | "general":
+            raise ValueError(f"Azure doesn't support model: '{model}'")
+        case never:
+            assert_never(never)
+
+
 async def _transcribe_azure(file: Path, lang: Language, model: TranscriptionModel):
     uri = await obj.put(file, f"az://freespeech-files/{str(uuid4())}.{file.suffix}")
 
@@ -388,85 +472,10 @@ async def _transcribe_azure(file: Path, lang: Language, model: TranscriptionMode
         async with session.get(content_url) as response:
             result = await response.json()
 
-    @dataclass
-    class AzureEvent:
-        offset: str
-        duration: str
-        offsetInTicks: int
-        durationInTicks: int
-
-    @dataclass
-    class Phrase:
-        lexical: str
-        itn: str
-        maskedITN: str
-        display: str
-
-    @dataclass
-    class CandidateWord(AzureEvent):
-        confidence: float
-        word: str
-
-    @dataclass
-    class CandidatePhrase(Phrase):
-        confidence: float
-        words: list[CandidateWord]
-
-    @dataclass
-    class RecognizedPhrase(AzureEvent):
-        recognitionStatus: Literal["Success"]
-        channel: int
-        nBest: list[CandidatePhrase]
-        speaker: int = 0
-
-    def transform(phrase: RecognizedPhrase) -> list[Event]:
-        """Transforms Azure's REST API record into list of Events
-        Documentation: https://learn.microsoft.com/en-us/azure/cognitive-services/speech-service/batch-transcription-get?pivots=rest-api#transcription-result-file  # noqa: E501
-        """
-        time_ms = phrase.offsetInTicks // 10000
-        duration_ms = phrase.durationInTicks // 10000
-        text = phrase.nBest[0].display
-
-        match model:
-            case "default_granular":
-                return [
-                    Event(
-                        time_ms=time_ms,
-                        chunks=[sentence],
-                        duration_ms=duration_ms,
-                        voice=Voice(character=CHARACTERS[phrase.speaker]),
-                    )
-                    for sentence, time_ms, duration_ms in break_phrase(
-                        text=text,
-                        words=[
-                            (
-                                word.word,
-                                word.offsetInTicks // 10000,
-                                word.durationInTicks // 10000,
-                            )
-                            for word in phrase.nBest[0].words
-                        ],
-                        lang=lang,
-                    )
-                ]
-            case "default":
-                return [
-                    Event(
-                        time_ms=time_ms,
-                        chunks=[text],
-                        duration_ms=duration_ms,
-                        voice=Voice(character=CHARACTERS[phrase.speaker]),
-                    )
-                ]
-            case "latest_long" | "general":
-                raise ValueError(f"Azure doesn't support model: '{model}'")
-            case never:
-                assert_never(never)
-
     # Flatten the result
     return sum(
         [
-            transform(RecognizedPhrase(**phrase))
+            transform_azure_result(RecognizedPhrase(**phrase), lang, model)
             for phrase in result["recognizedPhrases"]
         ],
         [],
