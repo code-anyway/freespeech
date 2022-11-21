@@ -214,7 +214,7 @@ async def test_synthesize_events(tmp_path) -> None:
         ("blank", 0, 1000),
         ("event", 1000, 2975),
         ("blank", 2975, 5000),
-        ("event", 5000, 7027),
+        ("event", 5000, 7028),
     ]
 
     downmixed_local = await media.multi_channel_audio_to_mono(
