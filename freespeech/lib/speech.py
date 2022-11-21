@@ -167,6 +167,17 @@ SYNTHESIS_RETRIES = 10
 GOOGLE_TRANSCRIBE_TIMEOUT_SEC = 480 * 60
 AZURE_TRANSCRIBE_TIMEOUT_SEC = 60 * 60
 
+SSML_EMOTIONS = {
+    "😌": "calm",
+    "🙂": "calm",
+    "😢": "sad",
+    "😞": "sad",
+    "🤩": "excited",
+    "😊": "excited",
+    "😡": "angry",
+    "😠": "angry",
+}
+
 
 @cache
 def supported_google_voices() -> Dict[str, Sequence[str]]:
@@ -482,8 +493,8 @@ def is_valid_ssml(text: str) -> bool:
     return root.tag == "{http://www.w3.org/2001/10/synthesis}speak"
 
 
-def _collect_and_remove_gdoc_emojis(text: str, collection: list[str] | None) -> str:
-    """Remove gdoc emojis from the given string while collecting
+def _collect_and_remove_emojis(text: str, collection: list[str] | None) -> str:
+    """Remove emojis from the given string while collecting
     fragments with encountered emojis to the given list.
     If the collection argument is None, the collection step will be skipped.
     """
@@ -498,7 +509,7 @@ def _collect_and_remove_gdoc_emojis(text: str, collection: list[str] | None) -> 
             return " "
 
     text = re.sub(
-        r"\s*\@\:[a-z,-]+\:\s*\.*",
+        rf"\s*[{''.join(SSML_EMOTIONS.keys())}]\s*\.*",
         lambda m: _repl(m, collection),
         text,
     )
@@ -506,18 +517,11 @@ def _collect_and_remove_gdoc_emojis(text: str, collection: list[str] | None) -> 
     return text
 
 
-def _gdoc_emojis_to_ssml_emotion_tags(text: str, lang: Language) -> str:
-    ssml_emotions = {
-        "@:crying-face:": "sad",
-        "@:star-struck:": "excited",
-        "@:relieved-face:": "calm",
-        "@:enraged-face:": "angry",
-    }
-
+def _emojis_to_ssml_emotion_tags(text: str, lang: Language) -> str:
     def _wrap_into_emotion_tag(text: str, emotion: str):
         return f'<mstts:express-as style="{emotion}">' + text + "</mstts:express-as>"
 
-    pattern = r"(\@\:[a-z-]+\:\s*[.!?,;:]*)"
+    pattern = rf"([{''.join(SSML_EMOTIONS.keys())}]\s*[.!?,;:]*)"
     split_by_emojis = re.split(pattern, text)
 
     text_with_emotion_tags = ""
@@ -532,9 +536,8 @@ def _gdoc_emojis_to_ssml_emotion_tags(text: str, lang: Language) -> str:
             continue
 
         # Retrieve a clean emoji and punctuation marks
-        split_idx = emoji_fagment_dirty.find(":", 2)
-        gdoc_emoji = emoji_fagment_dirty[: split_idx + 1]
-        punctuation_tail = emoji_fagment_dirty[split_idx + 1 :].strip()
+        emoji = emoji_fagment_dirty[0]
+        punctuation_tail = emoji_fagment_dirty[1:].strip()
 
         # Azure seems to be sensitive when it comes to emotion tags
         # and punctuation. It refuses to tone a sentence into any emotions,
@@ -549,19 +552,13 @@ def _gdoc_emojis_to_ssml_emotion_tags(text: str, lang: Language) -> str:
         ):
             punctuation_tail = "."
 
-        if not is_supported_gdoc_emoji(gdoc_emoji):
-            text_with_emotion_tags += _wrap_into_emotion_tag(
-                substr + punctuation_tail, "calm"
-            )
-            continue
-
         _sentences = sentences(substr, lang)
 
         # An encountered emoji affects only the last
         # sentence of the preceding substring
         affected_substr = _sentences[-1]
         affected_substr = _wrap_into_emotion_tag(
-            affected_substr + punctuation_tail, ssml_emotions[gdoc_emoji]
+            affected_substr + punctuation_tail, SSML_EMOTIONS[emoji]
         )
 
         # If the preceding substring contained other sentences,
@@ -591,7 +588,7 @@ def _wrap_in_ssml(
     def _google():
         decorated_text = "".join(
             [
-                f"<s>{_collect_and_remove_gdoc_emojis(sentence, collection=None)}</s>"
+                f"<s>{_collect_and_remove_emojis(sentence, collection=None)}</s>"
                 for sentence in split_sentences(text)
             ]
         )
@@ -618,7 +615,7 @@ def _wrap_in_ssml(
             '<speak xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" xmlns:emo="http://www.w3.org/2009/10/emotionml" xml:lang="{LANG}" version="1.0">'  # noqa: E501
             '<voice name="{VOICE}"><prosody rate="{RATE}"><mstts:silence type="Sentenceboundary" value="100ms"/>{TEXT}</prosody></voice>'  # noqa: E501
             "</speak>".format(
-                TEXT=_gdoc_emojis_to_ssml_emotion_tags(text, lang),
+                TEXT=_emojis_to_ssml_emotion_tags(text, lang),
                 VOICE=voice,
                 RATE=rate_str,
                 LANG=lang,
