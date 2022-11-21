@@ -112,11 +112,6 @@ async def multi_channel_audio_to_mono(
     file = Path(file)
     output_dir = Path(output_dir)
 
-    (audio), _ = probe(file)
-
-    if len(audio) > 1:
-        logger.warning(f"Multiple audio streams in {file}: {audio}")
-
     output_file = Path(f"{new_file(output_dir)}.wav")
     pipeline = ffmpeg.output(
         ffmpeg.input(file).audio,
