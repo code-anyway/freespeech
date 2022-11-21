@@ -410,6 +410,8 @@ async def _run(pipeline):
         def _run_pipeline():
             process = pipeline.run_async(pipe_stdout=True, pipe_stderr=True)
             process.wait()
+            process.stdout.close()
+            process.stderr.close()
             process.kill()
 
         await concurrency.run_in_thread_pool(_run_pipeline)
