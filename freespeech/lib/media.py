@@ -2,6 +2,7 @@ import logging
 import uuid
 from os import PathLike, system
 from pathlib import Path
+from subprocess import TimeoutExpired
 from tempfile import TemporaryDirectory
 from typing import Dict, Literal, Sequence, Tuple
 
@@ -409,10 +410,12 @@ async def _run(pipeline):
 
         def _run_pipeline():
             process = pipeline.run_async(pipe_stdout=True, pipe_stderr=True)
-            process.wait()
-            process.stdout.close()
-            process.stderr.close()
-            process.kill()
+
+            try:
+                _, _ = process.communicate(timeout=60)
+            except TimeoutExpired:
+                process.kill()
+                _, _ = process.communicate()
 
         await concurrency.run_in_thread_pool(_run_pipeline)
     except ffmpeg.Error as e:
