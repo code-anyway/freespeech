@@ -405,18 +405,18 @@ async def cut(
     return output_file
 
 
+def _run_pipeline(pipeline):
+    process = pipeline.run_async(pipe_stdout=True, pipe_stderr=True)
+
+    try:
+        _, _ = process.communicate(timeout=60)
+    except TimeoutExpired:
+        process.kill()
+        _, _ = process.communicate()
+
+
 async def _run(pipeline):
     try:
-
-        def _run_pipeline():
-            process = pipeline.run_async(pipe_stdout=True, pipe_stderr=True)
-
-            try:
-                _, _ = process.communicate(timeout=60)
-            except TimeoutExpired:
-                process.kill()
-                _, _ = process.communicate()
-
-        await concurrency.run_in_thread_pool(_run_pipeline)
+        await concurrency.run_in_process_pool(_run_pipeline, pipeline)
     except ffmpeg.Error as e:
         raise RuntimeError(f"ffmpeg Error stderr: {e.stderr}")

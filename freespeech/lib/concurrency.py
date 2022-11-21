@@ -11,6 +11,6 @@ async def run_in_thread_pool(func: Callable[..., Any], *args: Any) -> Any:
     return await loop.run_in_executor(THREAD_POOL, func, *args)
 
 
-async def run_in_process_pool(func: Callable[..., Any]) -> Any:
+async def run_in_process_pool(func: Callable[..., Any], *args: Any) -> Any:
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(PROCESS_POOL, func)
+    return await loop.run_in_executor(PROCESS_POOL, func, *args)
