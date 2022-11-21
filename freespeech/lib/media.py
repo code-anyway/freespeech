@@ -408,7 +408,9 @@ async def _run(pipeline):
     try:
 
         def _run_pipeline():
-            pipeline.run(overwrite_output=True, capture_stderr=True)
+            process = pipeline.run_async(pipe_stdout=True, pipe_stderr=True)
+            process.wait()
+            process.kill()
 
         await concurrency.run_in_thread_pool(_run_pipeline)
     except ffmpeg.Error as e:
