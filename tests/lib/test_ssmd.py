@@ -90,6 +90,52 @@ def test_parse_and_render():
     assert transcript.events == events
 
 
+def test_emojis_to_ssml_emotion_tags():
+    text_in = "Hello world! 🤩 How are you?"
+    text_out = (
+        '<mstts:express-as style="excited">Hello world!</mstts:express-as>'
+        '<mstts:express-as style="calm">How are you?</mstts:express-as>'
+    )
+    assert speech._emojis_to_ssml_emotion_tags(text_in, "en-US") == text_out
+
+    text_in = (
+        "Wrap every sentence of the input text containing an allowed emoji "
+        "before the full stop into a 😌 corresponding "
+        "ssml emotion tag 😢  . Ignore emojis in the middle or "
+        "in the begining of the sentences🤩. Remove all "
+        "the emojis from the input text😡. 😢😢."
+    )
+    text_out = (
+        '<mstts:express-as style="calm">Wrap every sentence of the input text '
+        "containing an allowed emoji before the full stop into a.</mstts:express-as>"
+        '<mstts:express-as style="sad">corresponding ssml emotion tag.</mstts:express-as>'  # noqa: E501
+        '<mstts:express-as style="excited">Ignore emojis in the middle or in '
+        "the begining of the sentences.</mstts:express-as>"
+        '<mstts:express-as style="angry">Remove all the emojis '
+        "from the input text.</mstts:express-as>"
+    )
+    assert speech._emojis_to_ssml_emotion_tags(text_in, "en-US") == text_out
+
+
+def test_collect_and_remove_emojis():
+    text_in = (
+        "Wrap every sentence of the input text containing an allowed emoji "
+        "before the full stop into a 😌 corresponding "
+        "ssml emotion tag 😢  . Ignore emojis in the middle or "
+        "in the begining of the sentences🤩. Remove all "
+        "the emojis from the input text😡. 😢😢."
+    )
+    text_out = (
+        "Wrap every sentence of the input text containing an allowed emoji "
+        "before the full stop into a corresponding "
+        "ssml emotion tag. Ignore emojis in the middle or "
+        "in the begining of the sentences. Remove all "
+        "the emojis from the input text. ."
+    )
+    encountered_emojis = []
+    assert speech._collect_and_remove_emojis(text_in, encountered_emojis) == text_out
+
+
 def test_no_gaps_basic():
     events = [
         Event(

@@ -167,6 +167,17 @@ SYNTHESIS_RETRIES = 10
 GOOGLE_TRANSCRIBE_TIMEOUT_SEC = 480 * 60
 AZURE_TRANSCRIBE_TIMEOUT_SEC = 60 * 60
 
+SSML_EMOTIONS = {
+    "😌": "calm",
+    "🙂": "calm",
+    "😢": "sad",
+    "😞": "sad",
+    "🤩": "excited",
+    "😊": "excited",
+    "😡": "angry",
+    "😠": "angry",
+}
+
 
 @cache
 def supported_google_voices() -> Dict[str, Sequence[str]]:
@@ -482,12 +493,104 @@ def is_valid_ssml(text: str) -> bool:
     return root.tag == "{http://www.w3.org/2001/10/synthesis}speak"
 
 
+def _collect_and_remove_emojis(text: str, collection: list[str] | None) -> str:
+    """Remove emojis from the given string while collecting
+    fragments with encountered emojis to the given list.
+    If the collection argument is None, the collection step will be skipped.
+    """
+
+    def _repl(m, acc):
+        if acc:
+            acc.append(m.group(0))
+
+        if m.group(0).endswith("."):
+            return "."
+        else:
+            return " "
+
+    text = re.sub(
+        rf"\s*[{''.join(SSML_EMOTIONS.keys())}]\s*\.*",
+        lambda m: _repl(m, collection),
+        text,
+    )
+
+    return text
+
+
+def _emojis_to_ssml_emotion_tags(text: str, lang: Language) -> str:
+    def _wrap_into_emotion_tag(text: str, emotion: str):
+        return f'<mstts:express-as style="{emotion}">' + text + "</mstts:express-as>"
+
+    pattern = rf"([{''.join(SSML_EMOTIONS.keys())}]\s*[.!?,;:]*)"
+    split_by_emojis = re.split(pattern, text)
+
+    text_with_emotion_tags = ""
+    # Iterate over pairs: substring and it's subsequent emoji fragment
+    for i in range(0, len(split_by_emojis) - 1, 2):
+        # Emoji fragment is dirty - it contains
+        # subsequent spaces and punctuation marks
+        emoji_fagment_dirty = split_by_emojis[i + 1]
+        substr = split_by_emojis[i].strip()
+
+        if substr == "":
+            continue
+
+        # Retrieve a clean emoji and punctuation marks
+        emoji = emoji_fagment_dirty[0]
+        punctuation_tail = emoji_fagment_dirty[1:].strip()
+
+        # Azure seems to be sensitive when it comes to emotion tags
+        # and punctuation. It refuses to tone a sentence into any emotions,
+        # if parts of the sentence are wrapped into their own emotion tags.
+        # Azure only tones a sentence when it is wrapped into a single
+        # emotion tag as a whole. The following part should handle cases
+        # of inconvenient emoji positioning in a sentence relative
+        # to surrounding punctuation.
+        # TODO: improve this part - for now it's a crude fix.
+        if not re.fullmatch(r"[.?!]+", punctuation_tail) and not substr.endswith(
+            (".", "!", "?")
+        ):
+            punctuation_tail = "."
+
+        _sentences = sentences(substr, lang)
+
+        # An encountered emoji affects only the last
+        # sentence of the preceding substring
+        affected_substr = _sentences[-1]
+        affected_substr = _wrap_into_emotion_tag(
+            affected_substr + punctuation_tail, SSML_EMOTIONS[emoji]
+        )
+
+        # If the preceding substring contained other sentences,
+        # wrap them into a default emotion
+        if len(_sentences) > 1:
+            unaffected_substr = " ".join(s.strip() for s in _sentences[:-1])
+            unaffected_substr = _wrap_into_emotion_tag(
+                unaffected_substr, "calm"  # emotion used as default
+            )
+            text_with_emotion_tags += unaffected_substr
+
+        text_with_emotion_tags += affected_substr
+
+    # Don't forget the last element of the
+    # split array which is always non-emoji
+    if split_by_emojis[-1].strip() != "":
+        text_with_emotion_tags += _wrap_into_emotion_tag(
+            split_by_emojis[-1].strip(), "calm"
+        )
+
+    return text_with_emotion_tags
+
+
 def _wrap_in_ssml(
     text: str, voice: str, speech_rate: float, lang: Language = "en-US"
 ) -> str:
     def _google():
         decorated_text = "".join(
-            [f"<s>{sentence}</s>" for sentence in split_sentences(text)]
+            [
+                f"<s>{_collect_and_remove_emojis(sentence, collection=None)}</s>"
+                for sentence in split_sentences(text)
+            ]
         )
 
         result = (
@@ -510,8 +613,13 @@ def _wrap_in_ssml(
 
         result = (
             '<speak xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" xmlns:emo="http://www.w3.org/2009/10/emotionml" xml:lang="{LANG}" version="1.0">'  # noqa: E501
-            '<voice name="{VOICE}"><prosody rate="{RATE}"><mstts:express-as style="calm"><mstts:silence type="Sentenceboundary" value="100ms"/>{TEXT}</mstts:express-as></prosody></voice>'  # noqa: E501
-            "</speak>".format(TEXT=text, VOICE=voice, RATE=rate_str, LANG=lang)
+            '<voice name="{VOICE}"><prosody rate="{RATE}"><mstts:silence type="Sentenceboundary" value="100ms"/>{TEXT}</prosody></voice>'  # noqa: E501
+            "</speak>".format(
+                TEXT=_emojis_to_ssml_emotion_tags(text, lang),
+                VOICE=voice,
+                RATE=rate_str,
+                LANG=lang,
+            )
         )
         assert is_valid_ssml(result), f"text={text} result={result}"
         return result

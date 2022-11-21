@@ -77,6 +77,20 @@ def split_sentences(s: str) -> Sequence[str]:
     ]
 
 
+def split_sentences_nlp(s: str, lang: Language) -> Sequence[str]:
+    """Split string into sentences using nlp.
+    Args:
+        s: string to split
+    Returns:
+        Sequence of strings representing sentences.
+    """
+    nlp = _nlp(lang)
+    doc = nlp(s)
+    senter = nlp.get_pipe("senter")
+    sentences = [span.text for span in senter(doc).sents]
+    return sentences
+
+
 def chunk(text: str, max_chars: int, sentence_overhead: int = 0) -> Sequence[str]:
     """Split text into chunks.
 
