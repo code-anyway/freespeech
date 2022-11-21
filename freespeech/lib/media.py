@@ -408,6 +408,9 @@ def _run_pipeline(pipeline):
     except TimeoutExpired:
         process.kill()
         _, _ = process.communicate()
+    finally:
+        process.stdout.close()
+        process.stderr.close()
 
 
 async def _run(pipeline):
