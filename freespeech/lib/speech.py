@@ -22,7 +22,7 @@ from google.cloud.speech_v1.types.cloud_speech import LongRunningRecognizeRespon
 from pydantic.dataclasses import dataclass
 
 from freespeech import env
-from freespeech.lib import concurrency, media
+from freespeech.lib import audio, concurrency, media
 from freespeech.lib.storage import obj
 from freespeech.lib.text import (
     capitalize_sentence,
@@ -36,7 +36,6 @@ from freespeech.lib.text import (
 )
 from freespeech.types import (
     CHARACTERS,
-    Audio,
     Character,
     Event,
     Language,
@@ -680,20 +679,19 @@ async def synthesize_text(
                     fd.write(response)
             audio_file = await media.concat(files, output_dir)
 
-        (audio, *_), _ = media.probe(audio_file)
-        assert isinstance(audio, Audio)
+        audio_duration_ms = audio.duration(audio_file)
 
         if (
             duration_ms is None
             or retries is None
-            or abs(audio.duration_ms - duration_ms) < SYNTHESIS_ERROR_MS
+            or abs(audio_duration_ms - duration_ms) < SYNTHESIS_ERROR_MS
         ):
             return Path(audio_file), rate
         else:
             logger.warning(
-                f"retrying delta={audio.duration_ms - duration_ms} rate={rate}"
+                f"retrying delta={audio_duration_ms - duration_ms} rate={rate}"
             )
-            rate *= audio.duration_ms / duration_ms
+            rate *= audio_duration_ms / duration_ms
             return await _synthesize_step(rate, retries - 1)
 
     output_file, speech_rate = await _synthesize_step(
@@ -727,14 +725,13 @@ async def synthesize_events(
             lang=lang,
             output_dir=output_dir,
         )
-        (audio, *_), _ = media.probe(clip)
-        assert isinstance(audio, Audio)
+        audio_duration_ms = audio.duration(clip)
 
         if padding_ms < 0:
             logger.warning(f"Negative padding ({padding_ms}) in front of: {text}")
 
         clips += [(padding_ms, clip)]
-        current_time_ms = event.time_ms + audio.duration_ms
+        current_time_ms = event.time_ms + audio_duration_ms
         spans += [("event", event.time_ms, current_time_ms)]
 
         voices += [voice]

@@ -6,7 +6,13 @@ import soundfile as sf
 
 
 def duration(file: Path | str) -> int:
-    signal, rate = librosa.load(file)
+    try:
+        signal, rate = librosa.load(file)
+    except ValueError as e:
+        if "Input signal length=0 is too small" in str(e):
+            return 0
+        else:
+            raise e
     return round((len(signal) / rate) * 1000.0)
 
 
