@@ -133,10 +133,7 @@ def test_collect_and_remove_emojis():
         "the emojis from the input text. ."
     )
     encountered_emojis = []
-    assert (
-        speech._collect_and_remove_emojis(text_in, encountered_emojis)
-        == text_out
-    )
+    assert speech._collect_and_remove_emojis(text_in, encountered_emojis) == text_out
 
 
 def test_no_gaps_basic():
