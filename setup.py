@@ -40,7 +40,6 @@ setup(
     install_requires=[
         "aiohttp",
         "deepl",
-        "azure-ai-language-conversations",
         "azure-storage-blob",
         "click",
         "deepgram-sdk",
@@ -57,7 +56,6 @@ setup(
         "google-cloud-tasks",
         "google-cloud-logging",
         "google-cloud-firestore",
-        "azure-cognitiveservices-speech==1.23.0",
         "google-api-python-client",
         "google-auth",
         "google-auth-oauthlib",
