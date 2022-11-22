@@ -2,7 +2,6 @@ import asyncio
 import difflib
 import logging
 import re
-import tempfile
 import xml.etree.ElementTree as ET
 from dataclasses import replace
 from functools import cache
@@ -13,7 +12,6 @@ from typing import Dict, Sequence, Tuple
 from uuid import uuid4
 
 import aiohttp
-import azure.cognitiveservices.speech as azure_tts
 from deepgram import Deepgram
 from google.api_core import exceptions as google_api_exceptions
 from google.cloud import speech as speech_api
@@ -225,13 +223,18 @@ def supported_google_voices() -> Dict[str, Sequence[str]]:
     return {voice.name: voice.language_codes for voice in response.voices}
 
 
-@cache
-def supported_azure_voices() -> Dict[str, Sequence[str]]:
+async def supported_azure_voices() -> Dict[str, Sequence[str]]:
     azure_key, azure_region = env.get_azure_config()
-    config = azure_tts.SpeechConfig(subscription=azure_key, region=azure_region)
-    ms_synthesizer = azure_tts.SpeechSynthesizer(config, None)
-    all_languages = ms_synthesizer.get_voices_async().get()
-    return {v.short_name: v.locale for v in all_languages.voices}
+    headers = {
+        "Ocp-Apim-Subscription-Key": azure_key,
+    }
+    url = f"https://{azure_region}.tts.speech.microsoft.com"
+    async with aiohttp.ClientSession(url, headers=headers) as session:
+        async with session.get("/cognitiveservices/voices/list") as response:
+            if not response.ok:
+                raise RuntimeError(await response.text())
+            voices = await response.json()
+    return {voice["ShortName"]: voice["Locale"] for voice in voices}
 
 
 async def transcribe(
@@ -675,7 +678,7 @@ async def synthesize_text(
         case "Google":
             all_voices = supported_google_voices()
         case "Azure":
-            all_voices = supported_azure_voices()
+            all_voices = await supported_azure_voices()
         case "Deepgram":
             raise ValueError("Deepgram can not be used as TTS provider")
         case never:
@@ -732,53 +735,48 @@ async def synthesize_text(
             )
             return result.audio_content
 
-        def _azure_api_call(ssml_phrase: str) -> bytes:
-            with tempfile.NamedTemporaryFile() as output_file:
-                azure_key, azure_region = env.get_azure_config()
-                speech_config = azure_tts.SpeechConfig(
-                    subscription=azure_key, region=azure_region
-                )
-                speech_config.set_speech_synthesis_output_format(
-                    azure_tts.SpeechSynthesisOutputFormat.Riff44100Hz16BitMonoPcm
-                )
-                audio_config = azure_tts.audio.AudioOutputConfig(
-                    filename=output_file.name
-                )
-                speech_synthesizer = azure_tts.SpeechSynthesizer(
-                    speech_config=speech_config, audio_config=audio_config
-                )
-                result = speech_synthesizer.speak_ssml(ssml_phrase)
-                if result.reason != azure_tts.ResultReason.SynthesizingAudioCompleted:
-                    logger.error(
-                        f"Error synthesizing voice with Azure provider."
-                        f" {result.reason}, {result.cancellation_details}"
-                    )
-                    raise RuntimeError(
-                        f"Error synthesizing voice with Azure. {result.reason}"
-                    )
-
-                with open(output_file.name, "rb") as result_stream:
-                    return result_stream.read()
+        async def _azure_api_call(ssml_phrase: str) -> bytes:
+            azure_key, azure_region = env.get_azure_config()
+            headers = {
+                "X-Microsoft-OutputFormat": "riff-48khz-16bit-mono-pcm",
+                "Content-Type": "application/ssml+xml",
+                "Ocp-Apim-Subscription-Key": azure_key,
+            }
+            url = f"https://{azure_region}.tts.speech.microsoft.com"
+            async with aiohttp.ClientSession(url, headers=headers) as session:
+                async with session.post(
+                    "/cognitiveservices/v1", data=ssml_phrase
+                ) as response:
+                    if not response.ok:
+                        raise RuntimeError(str(response))
+                    return await response.read()
 
         match provider:
             case "Azure":
-                _api_call = _azure_api_call
+                responses = await asyncio.gather(
+                    *[
+                        _azure_api_call(
+                            _wrap_in_ssml(chunk, voice=provider_voice, speech_rate=rate)
+                        )
+                        for chunk in chunks_with_breaks_expanded
+                    ]
+                )
             case "Google":
-                _api_call = _google_api_call
+                responses = await asyncio.gather(
+                    *[
+                        concurrency.run_in_thread_pool(
+                            _google_api_call,
+                            _wrap_in_ssml(
+                                phrase, voice=provider_voice, speech_rate=rate
+                            ),
+                        )
+                        for phrase in chunks_with_breaks_expanded
+                    ]
+                )
             case "Deepgram":
                 raise ValueError("Can not use Deepgram as a TTS provider")
             case never:
                 assert_never(never)
-
-        responses = await asyncio.gather(
-            *[
-                concurrency.run_in_thread_pool(
-                    _api_call,
-                    _wrap_in_ssml(phrase, voice=provider_voice, speech_rate=rate),
-                )
-                for phrase in chunks_with_breaks_expanded
-            ]
-        )
 
         with TemporaryDirectory() as tmp_dir:
             files = [f"{media.new_file(tmp_dir)}.wav" for _ in responses]
