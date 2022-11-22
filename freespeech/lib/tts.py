@@ -376,7 +376,7 @@ def separate_events(events: list[Event]) -> list[list[Event]]:
     for event in events:
         if (
             not blocks
-            or blocks[-1][-1].voice != event.voice
+            or (blocks[-1][-1].voice != event.voice and any(event.chunks))
             or blocks[-1][-1].group != event.group
             or not any(blocks[-1][-1].chunks)
         ):  # silence
