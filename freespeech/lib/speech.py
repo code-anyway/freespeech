@@ -739,7 +739,7 @@ async def synthesize_text(
         async def _azure_api_call(ssml_phrase: str) -> bytes:
             azure_key, azure_region = env.get_azure_config()
             headers = {
-                "X-Microsoft-OutputFormat": "riff-48khz-16bit-mono-pcm",
+                "X-Microsoft-OutputFormat": "riff-44100hz-16bit-mono-pcm",
                 "Content-Type": "application/ssml+xml",
                 "Ocp-Apim-Subscription-Key": azure_key,
             }
