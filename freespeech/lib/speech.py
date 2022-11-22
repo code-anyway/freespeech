@@ -2,6 +2,7 @@ import asyncio
 import difflib
 import logging
 import re
+import tempfile
 import xml.etree.ElementTree as ET
 from dataclasses import replace
 from functools import cache
@@ -12,6 +13,7 @@ from typing import Dict, Sequence, Tuple
 from uuid import uuid4
 
 import aiohttp
+import azure.cognitiveservices.speech as azure_tts
 from deepgram import Deepgram
 from google.api_core import exceptions as google_api_exceptions
 from google.cloud import speech as speech_api
@@ -20,7 +22,7 @@ from google.cloud.speech_v1.types.cloud_speech import LongRunningRecognizeRespon
 from pydantic.dataclasses import dataclass
 
 from freespeech import env
-from freespeech.lib import audio, concurrency, media
+from freespeech.lib import concurrency, media
 from freespeech.lib.storage import obj
 from freespeech.lib.text import (
     capitalize_sentence,
@@ -34,6 +36,7 @@ from freespeech.lib.text import (
 )
 from freespeech.types import (
     CHARACTERS,
+    Audio,
     Character,
     Event,
     Language,
@@ -46,43 +49,6 @@ from freespeech.types import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class AzureEvent:
-    offset: str
-    duration: str
-    offsetInTicks: int
-    durationInTicks: int
-
-
-@dataclass
-class Phrase:
-    lexical: str
-    itn: str
-    maskedITN: str
-    display: str
-
-
-@dataclass
-class CandidateWord(AzureEvent):
-    confidence: float
-    word: str
-
-
-@dataclass
-class CandidatePhrase(Phrase):
-    confidence: float
-    words: list[CandidateWord]
-
-
-@dataclass
-class RecognizedPhrase(AzureEvent):
-    recognitionStatus: Literal["Success"]
-    channel: int
-    nBest: list[CandidatePhrase]
-    speaker: int = 0
-
 
 Normalization = Literal["break_ends_sentence", "extract_breaks_from_sentence"]
 
@@ -223,18 +189,13 @@ def supported_google_voices() -> Dict[str, Sequence[str]]:
     return {voice.name: voice.language_codes for voice in response.voices}
 
 
-async def supported_azure_voices() -> Dict[str, Sequence[str]]:
+@cache
+def supported_azure_voices() -> Dict[str, Sequence[str]]:
     azure_key, azure_region = env.get_azure_config()
-    headers = {
-        "Ocp-Apim-Subscription-Key": azure_key,
-    }
-    url = f"https://{azure_region}.tts.speech.microsoft.com"
-    async with aiohttp.ClientSession(url, headers=headers) as session:
-        async with session.get("/cognitiveservices/voices/list") as response:
-            if not response.ok:
-                raise RuntimeError(await response.text())
-            voices = await response.json()
-    return {voice["ShortName"]: voice["Locale"] for voice in voices}
+    config = azure_tts.SpeechConfig(subscription=azure_key, region=azure_region)
+    ms_synthesizer = azure_tts.SpeechSynthesizer(config, None)
+    all_languages = ms_synthesizer.get_voices_async().get()
+    return {v.short_name: v.locale for v in all_languages.voices}
 
 
 async def transcribe(
@@ -374,53 +335,6 @@ async def _transcribe_google(
     return events
 
 
-def transform_azure_result(
-    phrase: RecognizedPhrase, lang: Language, model: TranscriptionModel
-) -> list[Event]:
-    """Transforms Azure's REST API record into list of Events
-    Documentation: https://learn.microsoft.com/en-us/azure/cognitive-services/speech-service/batch-transcription-get?pivots=rest-api#transcription-result-file  # noqa: E501
-    """
-    time_ms = phrase.offsetInTicks // 10000
-    duration_ms = phrase.durationInTicks // 10000
-    text = phrase.nBest[0].display
-
-    match model:
-        case "default_granular":
-            return [
-                Event(
-                    time_ms=time_ms,
-                    chunks=[sentence],
-                    duration_ms=duration_ms,
-                    voice=Voice(character=CHARACTERS[phrase.speaker]),
-                )
-                for sentence, time_ms, duration_ms in break_phrase(
-                    text=text,
-                    words=[
-                        (
-                            word.word,
-                            word.offsetInTicks // 10000,
-                            word.durationInTicks // 10000,
-                        )
-                        for word in phrase.nBest[0].words
-                    ],
-                    lang=lang,
-                )
-            ]
-        case "default":
-            return [
-                Event(
-                    time_ms=time_ms,
-                    chunks=[text],
-                    duration_ms=duration_ms,
-                    voice=Voice(character=CHARACTERS[phrase.speaker]),
-                )
-            ]
-        case "latest_long" | "general":
-            raise ValueError(f"Azure doesn't support model: '{model}'")
-        case never:
-            assert_never(never)
-
-
 async def _transcribe_azure(file: Path, lang: Language, model: TranscriptionModel):
     uri = await obj.put(file, f"az://freespeech-files/{str(uuid4())}.{file.suffix}")
 
@@ -485,10 +399,85 @@ async def _transcribe_azure(file: Path, lang: Language, model: TranscriptionMode
         async with session.get(content_url) as response:
             result = await response.json()
 
+    @dataclass
+    class AzureEvent:
+        offset: str
+        duration: str
+        offsetInTicks: int
+        durationInTicks: int
+
+    @dataclass
+    class Phrase:
+        lexical: str
+        itn: str
+        maskedITN: str
+        display: str
+
+    @dataclass
+    class CandidateWord(AzureEvent):
+        confidence: float
+        word: str
+
+    @dataclass
+    class CandidatePhrase(Phrase):
+        confidence: float
+        words: list[CandidateWord]
+
+    @dataclass
+    class RecognizedPhrase(AzureEvent):
+        recognitionStatus: Literal["Success"]
+        channel: int
+        nBest: list[CandidatePhrase]
+        speaker: int = 0
+
+    def transform(phrase: RecognizedPhrase) -> list[Event]:
+        """Transforms Azure's REST API record into list of Events
+        Documentation: https://learn.microsoft.com/en-us/azure/cognitive-services/speech-service/batch-transcription-get?pivots=rest-api#transcription-result-file  # noqa: E501
+        """
+        time_ms = phrase.offsetInTicks // 10000
+        duration_ms = phrase.durationInTicks // 10000
+        text = phrase.nBest[0].display
+
+        match model:
+            case "default_granular":
+                return [
+                    Event(
+                        time_ms=time_ms,
+                        chunks=[sentence],
+                        duration_ms=duration_ms,
+                        voice=Voice(character=CHARACTERS[phrase.speaker]),
+                    )
+                    for sentence, time_ms, duration_ms in break_phrase(
+                        text=text,
+                        words=[
+                            (
+                                word.word,
+                                word.offsetInTicks // 10000,
+                                word.durationInTicks // 10000,
+                            )
+                            for word in phrase.nBest[0].words
+                        ],
+                        lang=lang,
+                    )
+                ]
+            case "default":
+                return [
+                    Event(
+                        time_ms=time_ms,
+                        chunks=[text],
+                        duration_ms=duration_ms,
+                        voice=Voice(character=CHARACTERS[phrase.speaker]),
+                    )
+                ]
+            case "latest_long" | "general":
+                raise ValueError(f"Azure doesn't support model: '{model}'")
+            case never:
+                assert_never(never)
+
     # Flatten the result
     return sum(
         [
-            transform_azure_result(RecognizedPhrase(**phrase), lang, model)
+            transform(RecognizedPhrase(**phrase))
             for phrase in result["recognizedPhrases"]
         ],
         [],
@@ -678,7 +667,7 @@ async def synthesize_text(
         case "Google":
             all_voices = supported_google_voices()
         case "Azure":
-            all_voices = await supported_azure_voices()
+            all_voices = supported_azure_voices()
         case "Deepgram":
             raise ValueError("Deepgram can not be used as TTS provider")
         case never:
@@ -735,48 +724,53 @@ async def synthesize_text(
             )
             return result.audio_content
 
-        async def _azure_api_call(ssml_phrase: str) -> bytes:
-            azure_key, azure_region = env.get_azure_config()
-            headers = {
-                "X-Microsoft-OutputFormat": "riff-44100hz-16bit-mono-pcm",
-                "Content-Type": "application/ssml+xml",
-                "Ocp-Apim-Subscription-Key": azure_key,
-            }
-            url = f"https://{azure_region}.tts.speech.microsoft.com"
-            async with aiohttp.ClientSession(url, headers=headers) as session:
-                async with session.post(
-                    "/cognitiveservices/v1", data=ssml_phrase
-                ) as response:
-                    if not response.ok:
-                        raise RuntimeError(str(response))
-                    return await response.read()
+        def _azure_api_call(ssml_phrase: str) -> bytes:
+            with tempfile.NamedTemporaryFile() as output_file:
+                azure_key, azure_region = env.get_azure_config()
+                speech_config = azure_tts.SpeechConfig(
+                    subscription=azure_key, region=azure_region
+                )
+                speech_config.set_speech_synthesis_output_format(
+                    azure_tts.SpeechSynthesisOutputFormat.Riff44100Hz16BitMonoPcm
+                )
+                audio_config = azure_tts.audio.AudioOutputConfig(
+                    filename=output_file.name
+                )
+                speech_synthesizer = azure_tts.SpeechSynthesizer(
+                    speech_config=speech_config, audio_config=audio_config
+                )
+                result = speech_synthesizer.speak_ssml(ssml_phrase)
+                if result.reason != azure_tts.ResultReason.SynthesizingAudioCompleted:
+                    logger.error(
+                        f"Error synthesizing voice with Azure provider."
+                        f" {result.reason}, {result.cancellation_details}"
+                    )
+                    raise RuntimeError(
+                        f"Error synthesizing voice with Azure. {result.reason}"
+                    )
+
+                with open(output_file.name, "rb") as result_stream:
+                    return result_stream.read()
 
         match provider:
             case "Azure":
-                responses = await asyncio.gather(
-                    *[
-                        _azure_api_call(
-                            _wrap_in_ssml(chunk, voice=provider_voice, speech_rate=rate)
-                        )
-                        for chunk in chunks_with_breaks_expanded
-                    ]
-                )
+                _api_call = _azure_api_call
             case "Google":
-                responses = await asyncio.gather(
-                    *[
-                        concurrency.run_in_thread_pool(
-                            _google_api_call,
-                            _wrap_in_ssml(
-                                phrase, voice=provider_voice, speech_rate=rate
-                            ),
-                        )
-                        for phrase in chunks_with_breaks_expanded
-                    ]
-                )
+                _api_call = _google_api_call
             case "Deepgram":
                 raise ValueError("Can not use Deepgram as a TTS provider")
             case never:
                 assert_never(never)
+
+        responses = await asyncio.gather(
+            *[
+                concurrency.run_in_thread_pool(
+                    _api_call,
+                    _wrap_in_ssml(phrase, voice=provider_voice, speech_rate=rate),
+                )
+                for phrase in chunks_with_breaks_expanded
+            ]
+        )
 
         with TemporaryDirectory() as tmp_dir:
             files = [f"{media.new_file(tmp_dir)}.wav" for _ in responses]
@@ -785,19 +779,20 @@ async def synthesize_text(
                     fd.write(response)
             audio_file = await media.concat(files, output_dir)
 
-        audio_duration_ms = audio.duration(audio_file)
+        (audio, *_), _ = media.probe(audio_file)
+        assert isinstance(audio, Audio)
 
         if (
             duration_ms is None
             or retries is None
-            or abs(audio_duration_ms - duration_ms) < SYNTHESIS_ERROR_MS
+            or abs(audio.duration_ms - duration_ms) < SYNTHESIS_ERROR_MS
         ):
             return Path(audio_file), rate
         else:
             logger.warning(
-                f"retrying delta={audio_duration_ms - duration_ms} rate={rate}"
+                f"retrying delta={audio.duration_ms - duration_ms} rate={rate}"
             )
-            rate *= audio_duration_ms / duration_ms
+            rate *= audio.duration_ms / duration_ms
             return await _synthesize_step(rate, retries - 1)
 
     output_file, speech_rate = await _synthesize_step(
@@ -831,13 +826,14 @@ async def synthesize_events(
             lang=lang,
             output_dir=output_dir,
         )
-        audio_duration_ms = audio.duration(clip)
+        (audio, *_), _ = media.probe(clip)
+        assert isinstance(audio, Audio)
 
         if padding_ms < 0:
             logger.warning(f"Negative padding ({padding_ms}) in front of: {text}")
 
         clips += [(padding_ms, clip)]
-        current_time_ms = event.time_ms + audio_duration_ms
+        current_time_ms = event.time_ms + audio.duration_ms
         spans += [("event", event.time_ms, current_time_ms)]
 
         voices += [voice]
