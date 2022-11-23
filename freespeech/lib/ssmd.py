@@ -7,8 +7,11 @@ from typing import Sequence
 from freespeech.lib import text, transcript
 from freespeech.types import Event, Voice, is_character
 
+TIMECODE_PATTERN = (
+    r"(([\d\:\.]+)?\s*(([/#])\s*([\d\:\.]+))?\s*(\((.+?)(@(\d+(\.\d+)?))?\)))"
+)
 timecode_parser = re.compile(
-    r"\s*(([\d\:\.]+)?\s*(([/#])\s*([\d\:\.]+))?\s*(\((.+?)(@(\d+(\.\d+)?))?\)))\s*(.*)$",  # noqa: E501
+    rf"\s*{TIMECODE_PATTERN}\s*(.*)$",  # noqa: E501
     flags=re.M,
 )
 
