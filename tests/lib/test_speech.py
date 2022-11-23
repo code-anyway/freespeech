@@ -757,4 +757,70 @@ def test_break_phrase_missing_sentence():
         ("equal", 417780, 310),
         ("to", 418100, 110),
     ]
-    speech.break_phrase(text, words, lang="en-US")
+    assert speech.break_phrase(text, words, lang="en-US") == [
+        (
+            "The first thing you want to do is identify the hypotenuse, and that's going to be the side opposite the right angle.",  # noqa: E501
+            388660,
+            393400 - 388660 + 590,
+        ),
+        ("We have the right angle here.", 394240, 395300 - 394240 + 330),
+        (
+            "You go opposite the right angle, the longest side, the hypotenuse is right there.",  # noqa: E501
+            395640,
+            401100 - 395640 + 430,
+        ),
+        ("So if we think about the Pythagorean theorem, a ^2", 401540, 4570),
+        (
+            "+ b ^2 is equal to C ^2 12. You could view as C this is the hypotenuse, the hypotenuse.",  # noqa: E501
+            407340,
+            3890,
+        ),
+        ("The C ^2 is the hypotenuse squared.", 414800, 1880),
+        ("So you could say 12 is equal to.", 416690, 1520),
+    ]
+
+
+def test_fix_sentence_boundaries():
+    middle_is_none = [
+        ("Hello world", (0, 1000)),
+        ("42", None),
+        ("42", None),
+        ("The Universe", (1500, 2000)),
+        ("And everything", (2000, 2500)),
+    ]
+    assert speech.fix_sentence_boundaries(
+        middle_is_none, phrase_start_ms=0, phrase_finish_ms=2500
+    ) == [
+        ("Hello world 42 42 The Universe", (0, 2000)),
+        ("And everything", (2000, 2500)),
+    ]
+
+    first_is_none = [
+        ("42", None),
+        ("42", None),
+        ("Hello world", (500, 1000)),
+        ("The Universe", (1500, 2000)),
+        ("And everything", (2000, 2500)),
+    ]
+    assert speech.fix_sentence_boundaries(
+        first_is_none, phrase_start_ms=0, phrase_finish_ms=2500
+    ) == [
+        ("42 42 Hello world", (0, 1000)),
+        ("The Universe", (1500, 2000)),
+        ("And everything", (2000, 2500)),
+    ]
+
+    last_is_none = [
+        ("Hello world", (0, 1000)),
+        ("The Universe", (1500, 2000)),
+        ("And everything", (2000, 2500)),
+        ("42", None),
+        ("42", None),
+    ]
+    assert speech.fix_sentence_boundaries(
+        last_is_none, phrase_start_ms=0, phrase_finish_ms=2500
+    ) == [
+        ("Hello world", (0, 1000)),
+        ("The Universe", (1500, 2000)),
+        ("And everything 42 42", (2000, 2500)),
+    ]

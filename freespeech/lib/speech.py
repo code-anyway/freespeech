@@ -4,7 +4,7 @@ import logging
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import replace
-from functools import cache
+from functools import cache, reduce
 from itertools import groupby
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -925,6 +925,55 @@ def normalize_speech(
     return acc
 
 
+def fix_sentence_boundaries(
+    sentences: list[tuple[str, tuple[int, int] | None]],
+    phrase_start_ms: int,
+    phrase_finish_ms: int,
+) -> list[tuple[str, tuple[int, int]]]:
+    def _reducer(
+        acc: list[tuple[str, tuple[int, int | None]]],
+        next_sentence: tuple[str, tuple[int, int] | None],
+    ) -> list[tuple[str, tuple[int, int | None]]]:
+        sentence, span = next_sentence
+        if span is None:
+            if len(acc) == 0:
+                return [(sentence, (phrase_start_ms, None))]
+            else:
+                prev_sentence, (prev_start, prev_finish) = acc[-1]
+                return acc[:-1] + [(prev_sentence + " " + sentence, (prev_start, None))]
+        else:
+            if len(acc) == 0:
+                return [(sentence, span)]
+            else:
+                prev_sentence, (prev_start, prev_finish) = acc[-1]
+                if prev_finish is None:
+                    return acc[:-1] + [
+                        (prev_sentence + " " + sentence, (prev_start, span[1]))
+                    ]
+                else:
+                    return acc + [(sentence, span)]
+
+    fixed_sentences: list[tuple[str, tuple[int, int | None]]] = reduce(
+        _reducer, sentences, []
+    )
+
+    if len(fixed_sentences) > 0:
+        last_sentence, (last_start, last_finish) = fixed_sentences.pop()
+        if last_finish is None:
+            fixed_sentences += [(last_sentence, (last_start, phrase_finish_ms))]
+        else:
+            fixed_sentences += [(last_sentence, (last_start, last_finish))]
+
+    for _, (_, finish_ms) in fixed_sentences:
+        assert finish_ms is not None, "finish_ms is None"
+
+    return [
+        (s, (start_ms, finish_ms))
+        for s, (start_ms, finish_ms) in fixed_sentences
+        if finish_ms is not None
+    ]
+
+
 def break_phrase(
     text: str,
     words: Sequence[Tuple[str, int, int]],
@@ -939,6 +988,9 @@ def break_phrase(
     Returns:
         Sequence of tuples representing a sentence, its start time and duration.
     """
+    if not words:
+        return []
+
     # reduce each word in text and words down to lemmas to avoid
     # mismatches due to effects of ASR's language model.
     _sentences = sentences(text, lang)
@@ -961,7 +1013,7 @@ def break_phrase(
         autojunk=False,
     )
     matches = [
-        (num, (int(start), int(duration)))
+        (num, (int(start), int(start) + int(duration)))
         for i, j, n in matcher.get_matching_blocks()
         for (_, num), (_, start, duration) in zip(
             display_tokens[i : i + n], lexical_tokens[j : j + n]
@@ -971,14 +1023,25 @@ def break_phrase(
     # Group matches by sentence number. The first and the last item
     # in the group will represent the first and last overlaps with the timed words.
     sentence_timings = {
-        num: (start := timings[0][0], timings[-1][0] + timings[-1][1] - start)
+        num: (start := timings[0][0], timings[-1][1] - start)
         for num, timings in [
-            (num, [(start, duration) for _, (start, duration) in timings])
+            (num, [(start, finish) for _, (start, finish) in timings])
             for num, timings in groupby(matches, key=lambda a: a[0])
         ]
     }
 
-    # Return sentences and their timings.
+    # If timing information is missing for a sentence, use None
+    res = [
+        (sentence, sentence_timings.get(num, None))
+        for num, sentence in enumerate(_sentences)
+    ]
+
+    phrase_start_ms = lexical_tokens[0][1]
+    phrase_end_ms = lexical_tokens[-1][1] + lexical_tokens[-1][2]
+
     return [
-        (sentence, *sentence_timings[num]) for num, sentence in enumerate(_sentences)
+        (sentence, *timing)
+        for sentence, timing in fix_sentence_boundaries(
+            res, phrase_start_ms, phrase_end_ms
+        )
     ]
