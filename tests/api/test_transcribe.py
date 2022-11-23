@@ -22,16 +22,12 @@ async def test_load_subtitles() -> None:
     first, *_, last = result.events
 
     assert first.time_ms == 0
-    assert first.chunks[0].startswith(
-        "The way the work week works is the worst. Waking up on Monday, you've got"
-    )
-    assert first.duration_ms == 41166
+    assert first.chunks[0].startswith("The way the work week works is the worst.")
+    assert first.duration_ms == 3011
     assert first.voice == Voice(character="Ada", pitch=0.0, speech_rate=1.0)
 
-    assert last.time_ms == 114946
+    assert last.time_ms == 146570
     assert last.chunks[0].endswith("[soft brooding electronic music fades slowly]")
-    assert first.duration_ms == 41166
-    assert first.voice == Voice(character="Ada", pitch=0.0, speech_rate=1.0)
 
     assert result.audio
     assert result.audio.startswith("https://")

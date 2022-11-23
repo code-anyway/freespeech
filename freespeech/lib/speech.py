@@ -1045,3 +1045,30 @@ def break_phrase(
             res, phrase_start_ms, phrase_end_ms
         )
     ]
+
+
+def restore_full_sentences(events: list[Event]) -> list[Event]:
+    """Join events to ensure no sentences are split across events."""
+    res: list[Event] = []
+    for event in events:
+        if not res:
+            res.append(event)
+            continue
+
+        prev_event = res.pop()
+        prev_event_text = " ".join(prev_event.chunks).strip()
+        event_text = " ".join(event.chunks).strip()
+        if any(prev_event_text.endswith(p) for p in (".", "!", "?")):
+            res.append(prev_event)
+            res.append(event)
+        else:
+            assert event.duration_ms is not None
+            assert prev_event.duration_ms is not None
+            res.append(
+                replace(
+                    prev_event,
+                    chunks=[prev_event_text + " " + event_text],
+                    duration_ms=prev_event.duration_ms + event.duration_ms,
+                )
+            )
+    return res

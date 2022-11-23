@@ -14,6 +14,7 @@ from freespeech.types import (
     Transcript,
     TranscriptionModel,
     assert_never,
+    platform,
 )
 
 # Events with the gap greater than GAP_MS won't be concatenated.
@@ -89,19 +90,26 @@ async def transcribe(
                     provider=provider,
                 )
         case "Subtitles":
-            events = youtube.get_captions(source, lang=lang)
+            events = speech.restore_full_sentences(
+                list(youtube.get_captions(source, lang=lang))
+            )
         case x:
             assert_never(x)
 
-    # Machine D assumes sentence-level timestamps
+    # Machine D and Subtitles assume sentence-level timestamps
     # we want to preserve them in the output.
-    if backend != "Machine D":
+    if backend not in ("Machine D", "Subtitles"):
         events = speech.normalize_speech(
             events, gap_ms=GAP_MS, length=PHRASE_LENGTH, method="break_ends_sentence"
         )
 
+    title = None
+    if platform(source) == "YouTube":
+        meta = youtube.get_meta(source)
+        title = meta.title
+
     return Transcript(
-        title=None,
+        title=f"{lang}: {title or 'Untitled'}",
         source=Source(method=backend, url=source),
         events=events,
         lang=lang,

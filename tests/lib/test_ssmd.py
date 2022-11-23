@@ -75,8 +75,8 @@ def test_parse_and_render():
 
     assert ssmd.parse(text) == events
 
-    rendered_text = """00:00:00.00 (Alan@1.0) Hello #0.0# world! #1.0#
-00:00:02.00#1.00 (Ada@1.0) There are five pre-conditions for peace.
+    rendered_text = """00:00:00.00 (Alan) Hello #0.0# world! #1.0#
+00:00:02.00#1.00 (Ada) There are five pre-conditions for peace.
 
 00:00:03.00 (Greta@1.2) Hi!
 00:00:04.00 (Greta@1.2)
@@ -186,10 +186,10 @@ def test_no_gaps_basic():
 
     assert (
         ssmd.render(aligned_events)
-        == """00:00:00.00 (Ada@1.0) Hello!
-00:00:01.00 (Ada@1.0) Goodbye! #0.5#
-00:00:02.00 (Ada@1.0) Hi!
-00:00:03.00#1.00 (Ada@1.0) Bye!"""
+        == """00:00:00.00 (Ada) Hello!
+00:00:01.00 (Ada) Goodbye! #0.5#
+00:00:02.00 (Ada) Hi!
+00:00:03.00#1.00 (Ada) Bye!"""
     )
 
 
@@ -248,9 +248,9 @@ def test_no_gaps_with_long_pauses():
 
     assert (
         ssmd.render(aligned_events)
-        == """00:00:00.00 (Ada@1.0) Hello!
-00:00:01.00 (Ada@1.0)
-00:00:02.50 (Ada@1.0) Goodbye!
-00:00:03.00 (Ada@1.0) Hi! #0.5#
-00:00:05.00#1.00 (Ada@1.0) Bye!"""
+        == """00:00:00.00 (Ada) Hello!
+00:00:01.00 (Ada)
+00:00:02.50 (Ada) Goodbye!
+00:00:03.00 (Ada) Hi! #0.5#
+00:00:05.00#1.00 (Ada) Bye!"""
     )

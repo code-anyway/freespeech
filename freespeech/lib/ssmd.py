@@ -158,9 +158,11 @@ def render_block(events: Sequence[Event]) -> str:
             ):
                 time += f"#{event.duration_ms/1000.0:.2f}"
 
-        lines += [
-            f"{time} ({event.voice.character}@{event.voice.speech_rate:.1f}) {event_text}".strip()  # noqa: E501
-        ]
+        if event.voice.speech_rate != 1.0:
+            voice = f"{event.voice.character}@{event.voice.speech_rate:.1f}"
+        else:
+            voice = event.voice.character
+        lines += [f"{time} ({voice}) {event_text}".strip()]  # noqa: E501
 
     return "\n".join(lines)
 
