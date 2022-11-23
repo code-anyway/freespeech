@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import logging
 import logging.config
+from dataclasses import replace
 
 from telethon import Button, TelegramClient, events
 
@@ -75,7 +76,10 @@ async def select_language(event, action: str, message: str):
 
 
 def log_user_action(event, action: str, **kwargs):
-    logger.info(f"User {event.sender_id} ({event.sender.username}) {action} {kwargs}")
+    sender = event.sender
+    logger.info(
+        f"User {event.sender_id} ({sender.username or (sender.first_name + ' ' + sender.last_name)}) {action} {kwargs}"  # noqa: E501
+    )
 
 
 async def estimate_operation_duration(url: str, operation: Operation) -> int:
@@ -200,8 +204,18 @@ async def handle_transcribe(
             link_preview=False,
         )
         log_user_action(event, "transcribe", url=url, lang=lang, backend=backend)
+        t = await transcribe.transcribe(url, lang=lang, backend=backend)
+        # NOTE: Bill seems to be the most popular. Doing this here because changing the
+        # default in the library would break existing code.
+        t = replace(
+            t,
+            events=[
+                replace(event, voice=replace(event.voice, character="Bill"))
+                for event in t.events
+            ],
+        )
         transcript_url = await transcript.save(
-            transcript=await transcribe.transcribe(url, lang=lang, backend=backend),
+            transcript=t,
             platform="Google",
             format="SSMD-NEXT",
             location=None,
