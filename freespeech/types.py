@@ -42,8 +42,10 @@ def platform(url: str) -> TranscriptPlatform | MediaPlatform:
         return "Google"
     elif url.startswith("https://www.notion.so/"):
         return "Notion"
-    elif url.startswith("https://youtu.be/") or url.startswith(
-        "https://www.youtube.com/"
+    elif (
+        url.startswith("https://youtu.be/")
+        or url.startswith("https://www.youtube.com/")
+        or url.startswith("https://youtube.com/")
     ):
         return "YouTube"
     else:
@@ -248,7 +250,7 @@ class Media(Generic[MediaType]):
 @dataclass(frozen=True)
 class Settings:
     original_audio_level: int = 1
-    space_between_events: BlankFillMethod = "Blank"
+    space_between_events: BlankFillMethod = "Fill"
 
 
 @dataclass(frozen=True)
