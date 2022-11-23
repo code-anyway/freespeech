@@ -1,7 +1,6 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-import ffmpeg
 import pytest
 
 from freespeech.api import synthesize
@@ -48,7 +47,7 @@ async def test_synthesize_basic() -> None:
             )
         ],
     )
-    audio = await synthesize.dub(test_ru)
+    audio = await synthesize.dub(test_ru, is_smooth=False)
 
     assert audio
     assert audio.endswith(".wav")
@@ -58,20 +57,19 @@ async def test_synthesize_basic() -> None:
 @pytest.mark.asyncio
 async def test_synthesize() -> None:
     test_doc = "https://docs.google.com/document/d/1Oexfd27oToEWyxj9g7YCp3IYHqjYO8US0RtnoP32fXU/edit#"  # noqa: E501
-    url = await synthesize.dub(test_doc)
+    url = await synthesize.dub(test_doc, is_smooth=False)
     assert url
 
 
 @pytest.mark.asyncio
 async def test_synthesize_crop() -> None:
     test_doc = "https://docs.google.com/document/d/1HpH-ZADbAM8AzluFWO8ZTOkEoRobAvQ13rrCsK6SU-U/edit?usp=sharing"  # noqa: E501
-    url = await synthesize.dub(test_doc)
+    url = await synthesize.dub(test_doc, is_smooth=False)
 
     with TemporaryDirectory() as tmp_dir:
         transcript_str = await obj.get(obj.storage_url(url), dst_dir=tmp_dir)
-        assert float(
-            ffmpeg.probe(transcript_str).get("format", {}).get("duration", None)
-        ) == pytest.approx(11.4, 0.12)
+        (audio_info, *_), _ = media.probe(transcript_str)
+        assert audio_info.duration_ms / 1000.0 == pytest.approx(11.4, 0.12)
 
 
 @pytest.mark.asyncio
@@ -93,7 +91,7 @@ async def test_synthesize_blank(monkeypatch) -> None:
 
     monkeypatch.setattr(speech, "synthesize_events", synthesize_events)
     test_doc = "https://docs.google.com/document/d/1CvjpOs5QEe_mmAc5CEGRVNV68qDjdQipCDb2ge6OIn4/edit?usp=sharing"  # noqa: E501
-    url = await synthesize.dub(test_doc)
+    url = await synthesize.dub(test_doc, is_smooth=False)
 
     with TemporaryDirectory() as tmp_dir:
         transcript_str = await obj.get(obj.storage_url(url), dst_dir=tmp_dir)
@@ -126,7 +124,7 @@ async def test_synthesize_fill(monkeypatch) -> None:
     monkeypatch.setattr(speech, "synthesize_events", synthesize_events)
 
     test_doc = "https://docs.google.com/document/d/11WOfJZi8pqpj7_BLPy0uq9h1R0f_n-dJ11LPOBvPtQA/edit?usp=sharing"  # noqa: E501
-    url = await synthesize.dub(test_doc)
+    url = await synthesize.dub(test_doc, is_smooth=False)
 
     with TemporaryDirectory() as tmp_dir:
         transcript_str = await obj.get(obj.storage_url(url), dst_dir=tmp_dir)
@@ -135,3 +133,11 @@ async def test_synthesize_fill(monkeypatch) -> None:
             hash.file(AUDIO_FILL),
             "dfd8817aebe33652a873fa61d51526062e73e87c0a03523b527dd2ac09edb5ef",
         )  # noqa: E501
+
+
+@pytest.mark.asyncio
+@pytest.mark.skip
+async def test_synthesize_smooth() -> None:
+    test_doc = "https://docs.google.com/document/d/1FcpUuLBv-yOfkJkMo2ltzqyr716b0zN3ftRwlkvbCVs/edit#"  # noqa: E501
+    url = await synthesize.dub(test_doc, is_smooth=True)
+    assert url

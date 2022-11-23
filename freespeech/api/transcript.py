@@ -11,18 +11,11 @@ from freespeech.types import (
     TranscriptFormat,
     TranscriptPlatform,
     assert_never,
+    is_transcript_platform,
+    platform,
 )
 
 router = APIRouter()
-
-
-def _platform(source: str) -> TranscriptPlatform:
-    if source.startswith("https://docs.google.com/document/d/"):
-        return "Google"
-    if source.startswith("https://www.notion.so/"):
-        return "Notion"
-    else:
-        raise ValueError(f"Unsupported url: {source}")
 
 
 @router.get("/transcript")
@@ -38,9 +31,11 @@ async def load(source: str | Path, lang: Language | None = None) -> Transcript:
                 lang=lang,
             )
 
-    platform = _platform(source)
+    transcript_platform = platform(source)
+    if not is_transcript_platform(transcript_platform):
+        raise ValueError(f"Unsupported platform: {transcript_platform}")
 
-    match platform:
+    match transcript_platform:
         case "Google":
             return gdocs.load(source)
         case "Notion":

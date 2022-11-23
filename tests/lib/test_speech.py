@@ -1,11 +1,9 @@
 import json
-import tempfile
 from pathlib import Path
 from typing import Sequence, get_args
 
 import pytest
 
-from freespeech import env
 from freespeech.lib import media, speech
 from freespeech.types import Character, Event, Language, Voice, assert_never
 
@@ -394,8 +392,9 @@ def test_normalize_speech_long() -> None:
         _ = [Event(**item) for item in events_dict]
 
 
-def test_supported_azure_voices() -> None:
-    voices = speech.supported_azure_voices()
+@pytest.mark.asyncio
+async def test_supported_azure_voices() -> None:
+    voices = await speech.supported_azure_voices()
     assert voices["uk-UA-PolinaNeural"] == "uk-UA"
 
 
@@ -405,7 +404,7 @@ async def test_synthesize_azure(tmp_path) -> None:
         time_ms=0,
         duration_ms=5000,
         chunks=["Hello this is Bill speaking #1# Nice to meet you."],
-        voice=Voice("Bill"),
+        voice=Voice(character="Bill"),
     )
 
     _, voices, _ = await speech.synthesize_events(
@@ -419,7 +418,8 @@ async def test_synthesize_azure(tmp_path) -> None:
     assert voice.speech_rate == pytest.approx(0.87, abs=0.02)
 
 
-def test_voices_and_languages_completeness() -> None:
+@pytest.mark.asyncio
+async def test_voices_and_languages_completeness() -> None:
     """
     Ensure that we have a voice for each character/language combination. Otherwise
     this might lead to some errors
@@ -450,46 +450,14 @@ def test_voices_and_languages_completeness() -> None:
                 case "Google":
                     assert language in speech.supported_google_voices()[provider_voice]
                 case "Azure":
-                    assert language in speech.supported_azure_voices()[provider_voice]
+                    assert (
+                        language
+                        in (await speech.supported_azure_voices())[provider_voice]
+                    )
                 case "Deepgram":
                     raise ValueError("Deepgram can not be a ")
                 case never:
                     assert_never(never)
-
-
-@pytest.mark.asyncio
-async def test_azure_speech_quality():
-    azure_key, azure_region = env.get_azure_config()
-    sample_ssml = (
-        '<speak xmlns="http://www.w3.org/2001/10/synthesis" '
-        'xmlns:mstts="http://www.w3.org/2001/mstts" '
-        'xmlns:emo="http://www.w3.org/2009/10/emotionml" '
-        'version="1.0" xml:lang="en-US">'
-        '<voice name="en-US-JennyNeural">'
-        '<prosody rate="0%" pitch="0%"> '
-        "You can replace this text with any text you wish.You can either write in this "
-        "text box or paste your own text here. Enjoy using Text to Speech! "
-        "</prosody> </voice> </speak>"
-    )
-    import azure.cognitiveservices.speech as azure_tts
-
-    with tempfile.NamedTemporaryFile() as output:
-        speech_config = azure_tts.SpeechConfig(
-            subscription=azure_key, region=azure_region
-        )
-        speech_config.set_speech_synthesis_output_format(
-            azure_tts.SpeechSynthesisOutputFormat.Riff44100Hz16BitMonoPcm
-        )
-        audio_config = azure_tts.audio.AudioOutputConfig(filename=output.name)
-        speech_synthesizer = azure_tts.SpeechSynthesizer(
-            speech_config=speech_config, audio_config=audio_config
-        )
-        result = speech_synthesizer.speak_ssml(sample_ssml)
-        assert result.reason == azure_tts.ResultReason.SynthesizingAudioCompleted
-        ((audio, *_), _) = media.probe(output.name)
-        assert audio.num_channels == 1
-        assert audio.sample_rate_hz == 44100
-        assert audio.encoding == "LINEAR16"
 
 
 def test_concat_events() -> None:
@@ -696,3 +664,163 @@ def test_break_phrase():
         speech.break_phrase(text=text, words=words, lang="en-US")
         for text, words in phrases
     ] == expected
+
+
+def test_break_phrase_missing_sentence():
+    text = "The first thing you want to do is identify the hypotenuse, and that's going to be the side opposite the right angle. We have the right angle here. You go opposite the right angle, the longest side, the hypotenuse is right there. So if we think about the Pythagorean theorem, a ^2 + b ^2 is equal to C ^2 12. You could view as C this is the hypotenuse, the hypotenuse. The C ^2 is the hypotenuse squared. So you could say 12 is equal to."  # noqa: E501
+    words = [
+        ("the", 388660, 190),
+        ("first", 388860, 300),
+        ("thing", 389170, 200),
+        ("you", 389380, 110),
+        ("want", 389500, 150),
+        ("to", 389660, 70),
+        ("do", 389740, 90),
+        ("is", 389840, 90),
+        ("identify", 389940, 610),
+        ("the", 390560, 130),
+        ("hypotenuse", 390700, 650),
+        ("and", 391360, 100),
+        ("that's", 391470, 220),
+        ("going", 391700, 180),
+        ("to", 391890, 60),
+        ("be", 391960, 90),
+        ("the", 392060, 130),
+        ("side", 392200, 270),
+        ("opposite", 392480, 500),
+        ("the", 392990, 140),
+        ("right", 393140, 250),
+        ("angle", 393400, 590),
+        ("we", 394240, 170),
+        ("have", 394420, 140),
+        ("the", 394570, 120),
+        ("right", 394700, 210),
+        ("angle", 394920, 370),
+        ("here", 395300, 330),
+        ("you", 395640, 140),
+        ("go", 395790, 240),
+        ("opposite", 396040, 500),
+        ("the", 396550, 120),
+        ("right", 396680, 210),
+        ("angle", 396900, 690),
+        ("the", 397700, 190),
+        ("longest", 397900, 530),
+        ("side", 398440, 570),
+        ("the", 399100, 140),
+        ("hypotenuse", 399250, 880),
+        ("is", 400180, 370),
+        ("right", 400560, 530),
+        ("there", 401100, 430),
+        ("so", 401540, 310),
+        ("if", 401920, 120),
+        ("we", 402050, 100),
+        ("think", 402160, 190),
+        ("about", 402360, 310),
+        ("the", 402680, 290),
+        ("pythagorean", 403900, 700),
+        ("theorem", 404610, 720),
+        ("a", 405800, 310),
+        ("squared", 406180, 690),
+        ("plus", 406880, 450),
+        ("B", 407340, 490),
+        ("squared", 407840, 530),
+        ("is", 408380, 170),
+        ("equal", 408560, 270),
+        ("to", 408840, 250),
+        ("C", 409160, 330),
+        ("squared", 409500, 770),
+        ("twelve", 410340, 510),
+        ("you", 410860, 110),
+        ("could", 410980, 170),
+        ("view", 411160, 250),
+        ("as", 411420, 330),
+        ("C", 411760, 510),
+        ("this", 412280, 190),
+        ("is", 412480, 70),
+        ("the", 412560, 130),
+        ("hypotenuse", 412700, 1040),
+        ("the", 413790, 140),
+        ("hypotenuse", 413940, 810),
+        ("the", 414800, 180),
+        ("C", 414990, 260),
+        ("squared", 415260, 290),
+        ("is", 415560, 60),
+        ("the", 415630, 110),
+        ("hypotenuse", 415750, 620),
+        ("squared", 416380, 300),
+        ("so", 416690, 80),
+        ("you", 416780, 90),
+        ("could", 416880, 170),
+        ("say", 417060, 140),
+        ("twelve", 417210, 420),
+        ("is", 417640, 130),
+        ("equal", 417780, 310),
+        ("to", 418100, 110),
+    ]
+    assert speech.break_phrase(text, words, lang="en-US") == [
+        (
+            "The first thing you want to do is identify the hypotenuse, and that's going to be the side opposite the right angle.",  # noqa: E501
+            388660,
+            393400 - 388660 + 590,
+        ),
+        ("We have the right angle here.", 394240, 395300 - 394240 + 330),
+        (
+            "You go opposite the right angle, the longest side, the hypotenuse is right there.",  # noqa: E501
+            395640,
+            401100 - 395640 + 430,
+        ),
+        ("So if we think about the Pythagorean theorem, a ^2", 401540, 4570),
+        (
+            "+ b ^2 is equal to C ^2 12. You could view as C this is the hypotenuse, the hypotenuse.",  # noqa: E501
+            407340,
+            3890,
+        ),
+        ("The C ^2 is the hypotenuse squared.", 414800, 1880),
+        ("So you could say 12 is equal to.", 416690, 1520),
+    ]
+
+
+def test_fix_sentence_boundaries():
+    middle_is_none = [
+        ("Hello world", (0, 1000)),
+        ("42", None),
+        ("42", None),
+        ("The Universe", (1500, 2000)),
+        ("And everything", (2000, 2500)),
+    ]
+    assert speech.fix_sentence_boundaries(
+        middle_is_none, phrase_start_ms=0, phrase_finish_ms=2500
+    ) == [
+        ("Hello world 42 42 The Universe", (0, 2000)),
+        ("And everything", (2000, 2500)),
+    ]
+
+    first_is_none = [
+        ("42", None),
+        ("42", None),
+        ("Hello world", (500, 1000)),
+        ("The Universe", (1500, 2000)),
+        ("And everything", (2000, 2500)),
+    ]
+    assert speech.fix_sentence_boundaries(
+        first_is_none, phrase_start_ms=0, phrase_finish_ms=2500
+    ) == [
+        ("42 42 Hello world", (0, 1000)),
+        ("The Universe", (1500, 2000)),
+        ("And everything", (2000, 2500)),
+    ]
+
+    last_is_none = [
+        ("Hello world", (0, 1000)),
+        ("The Universe", (1500, 2000)),
+        ("And everything", (2000, 2500)),
+        ("42", None),
+        ("42", None),
+    ]
+    assert speech.fix_sentence_boundaries(
+        last_is_none, phrase_start_ms=0, phrase_finish_ms=2500
+    ) == [
+        ("Hello world", (0, 1000)),
+        ("The Universe", (1500, 2000)),
+        ("And everything 42 42", (2000, 2500)),
+    ]

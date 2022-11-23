@@ -40,12 +40,12 @@ setup(
     install_requires=[
         "aiohttp",
         "deepl",
-        "azure-ai-language-conversations",
         "azure-storage-blob",
         "click",
         "deepgram-sdk",
         "fastapi[all]",
         "ffmpeg-python",
+        "librosa",
         # TODO (astaff): update/remove after https://github.com/pytube/pytube/pull/1282
         # is merged/released,
         "librosa",
@@ -57,7 +57,6 @@ setup(
         "google-cloud-tasks",
         "google-cloud-logging",
         "google-cloud-firestore",
-        "azure-cognitiveservices-speech==1.23.0",
         "google-api-python-client",
         "google-auth",
         "google-auth-oauthlib",
@@ -65,6 +64,7 @@ setup(
         "pydantic",
         "pytz",
         "requests",
+        "soundfile",
         "spacy",
         *[
             f"{lang}_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/{lang}_core_web_sm-3.4.0/{lang}_core_web_sm-3.4.0.tar.gz"
