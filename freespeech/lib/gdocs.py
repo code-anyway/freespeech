@@ -92,6 +92,37 @@ def get_credentials(scopes: List[str]) -> service_account.Credentials:
     return credentials
 
 
+def apply_style(url: str, styles: list[dict]):
+    """Applies style to Google Docs document.
+
+    Args:
+        url: Google Docs document URL.
+        style: A dictionary containing style properties.
+    """
+    try:
+        document_id, *_ = re.findall(r"\/document\/d\/([a-zA-Z0-9-_]+)", url)
+    except ValueError as e:
+        raise ValueError(f"Invalid URL: {url}") from e
+    credentials = get_credentials(scopes=["https://www.googleapis.com/auth/documents"])
+
+    requests = [{"updateTextStyle": style} for style in styles]
+
+    try:
+        with gdocs_client(credentials) as client:
+            documents = client.documents()
+            documents.batchUpdate(
+                documentId=document_id, body={"requests": requests}
+            ).execute()
+    except googleapiclient.errors.HttpError as e:
+        match e.status_code:
+            case 403:
+                raise PermissionError(e.error_details) from e
+            case 404:
+                raise ValueError(f"Couldn't open document: {url}")
+            case _:
+                raise e
+
+
 def extract(url: str) -> Tuple[str, str]:
     """Extracts title and text contents of Google Docs document.
 
@@ -164,10 +195,32 @@ def create(source: Transcript, format: TranscriptFormat) -> str:
                 title=source.title, text=manifest + render_events(source.events)
             )
         case "SSMD-NEXT":
-            return create_from_text(
+            _text = manifest + ssmd.render(list(source.events))
+            url = create_from_text(
                 title=source.title,
-                text=manifest + ssmd.render(list(source.events)),
+                text=_text,
             )
+
+            spans = []
+            for match in re.finditer(ssmd.TIMECODE_PATTERN, _text):
+                spans.append(match.span())
+
+            for match in re.finditer(r"\#\d(\.\d)?\#", _text):
+                spans.append(match.span())
+
+            styles = [
+                {
+                    "range": {"startIndex": start + 1, "endIndex": end + 1},
+                    "textStyle": {"bold": True},
+                    "fields": "bold,italic",
+                }
+                for start, end in spans
+            ]
+
+            if styles:
+                apply_style(url, styles)
+
+            return url
         case "SRT":
             return create_from_text(
                 title=source.title, text=manifest + events_to_srt(source.events)
