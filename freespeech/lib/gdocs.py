@@ -201,21 +201,8 @@ def create(source: Transcript, format: TranscriptFormat) -> str:
                 text=_text,
             )
 
-            spans = []
-            for match in re.finditer(ssmd.TIMECODE_PATTERN, _text):
-                spans.append(match.span())
-
-            for match in re.finditer(r"\#\d(\.\d)?\#", _text):
-                spans.append(match.span())
-
-            styles = [
-                {
-                    "range": {"startIndex": start + 1, "endIndex": end + 1},
-                    "textStyle": {"bold": True},
-                    "fields": "bold,italic",
-                }
-                for start, end in spans
-            ]
+            # Highlight SSMD
+            styles = _build_highlights(_text)
 
             if styles:
                 apply_style(url, styles)
@@ -225,6 +212,49 @@ def create(source: Transcript, format: TranscriptFormat) -> str:
             return create_from_text(
                 title=source.title, text=manifest + events_to_srt(source.events)
             )
+
+
+def _build_highlights(_text):
+    """Builds a list of styles to highlight SSMD in Google Docs."""
+
+    styles = []
+
+    for match in re.finditer(ssmd.TIMECODE_PATTERN, _text):
+        start, end = match.span()
+        styles += [
+            {
+                "range": {"startIndex": start + 1, "endIndex": end + 1},
+                "textStyle": {"bold": True},
+                "fields": "bold,italic",
+            }
+        ]
+
+    for match in re.finditer(r"\#\d(\.\d)?\#", _text):
+        start, end = match.span()
+        styles += [
+            {
+                "range": {"startIndex": start + 1, "endIndex": end + 1},
+                "textStyle": {"bold": True},
+                "fields": "bold,italic",
+            }
+        ]
+
+    for match in re.finditer(r"\[.+\]", _text):
+        start, end = match.span()
+        styles += [
+            {
+                "range": {"startIndex": start + 1, "endIndex": end + 1},
+                "textStyle": {
+                    "fontSize": {"magnitude": 10, "unit": "PT"},
+                    "foregroundColor": {
+                        "color": {"rgbColor": {"blue": 0.5, "green": 0.5, "red": 0.5}}
+                    },
+                },
+                "fields": "foregroundColor,fontSize",
+            }
+        ]
+
+    return styles
 
 
 def create_from_text(title: str | None, text: str) -> str:
