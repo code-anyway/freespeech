@@ -192,6 +192,7 @@ class Event:
     duration_ms: int | None = None
     group: int = 0
     voice: Voice = Voice()
+    comment: str | None = None
 
 
 @dataclass(frozen=True)

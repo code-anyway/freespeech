@@ -29,7 +29,11 @@ def parse_block(s: str, group: int) -> list[Event]:
     """
     events = []
 
-    for matches in [timecode_parser.findall(line) for line in s.split("\n")]:
+    for matches in [
+        timecode_parser.findall(line)
+        for line in s.split("\n")
+        if not line.startswith("[")
+    ]:
         assert len(matches) == 1, "Invalid SSMD format"
         match = matches[0]
         event_text = match[-1]
@@ -165,7 +169,13 @@ def render_block(events: Sequence[Event]) -> str:
             voice = f"{event.voice.character}@{event.voice.speech_rate:.1f}"
         else:
             voice = event.voice.character
-        lines += [f"{time} ({voice}) {event_text}".strip()]  # noqa: E501
+
+        if event.comment:
+            comment = f"\n[{event.comment}]"
+        else:
+            comment = ""
+
+        lines += [f"{time} ({voice}) {event_text}{comment}".strip()]  # noqa: E501
 
     return "\n".join(lines)
 

@@ -254,3 +254,64 @@ def test_no_gaps_with_long_pauses():
 00:00:03.00 (Ada) Hi! #0.5#
 00:00:05.00#1.00 (Ada) Bye!"""
     )
+
+
+def test_render_comments():
+    events = [
+        Event(
+            time_ms=0,
+            chunks=["Hello!"],
+            duration_ms=1000,
+            comment="Comment 1",
+        ),
+        Event(
+            time_ms=1000,
+            chunks=["Goodbye!"],
+            duration_ms=1000,
+        ),
+        Event(
+            time_ms=2000,
+            chunks=["Hi!"],
+            duration_ms=1000,
+            comment="Comment 2",
+        ),
+        Event(
+            time_ms=3000,
+            chunks=["Bye!"],
+            duration_ms=1000,
+        ),
+    ]
+
+    assert (
+        ssmd.render(events)
+        == """00:00:00.00 (Ada) Hello!
+[Comment 1]
+00:00:01.00 (Ada) Goodbye!
+00:00:02.00 (Ada) Hi!
+[Comment 2]
+00:00:03.00#1.00 (Ada) Bye!"""
+    )
+
+    # We are not expecting to restore comments from the rendered text
+    assert ssmd.parse(ssmd.render(events)) == [
+        Event(
+            time_ms=0,
+            chunks=["Hello!"],
+            duration_ms=1000,
+        ),
+        Event(
+            time_ms=1000,
+            chunks=["Goodbye!"],
+            duration_ms=1000,
+        ),
+        Event(
+            time_ms=2000,
+            chunks=["Hi!"],
+            duration_ms=1000,
+        ),
+        Event(
+            time_ms=3000,
+            chunks=["Bye!"],
+            duration_ms=1000,
+        ),
+    ]
