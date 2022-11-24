@@ -258,14 +258,15 @@ async def handle_callback(event):
         raise ValueError(f"Unknown action: {action}")
 
 
+@client.on(events.NewMessage(pattern="/start"))
+async def handle_start(event):
+    await event.reply(
+        f"Welcome to Freespeech! I am here to help you with video transcrition, translation and dubbing.\n{URL_SOLUTION_TEXT}"  # noqa: E501
+    )
+
+
 @client.on(events.NewMessage(pattern=r".*"))
 async def url_handler(event):
-    if event.raw_text == "/start":
-        await event.reply(
-            f"Welcome to Freespeech! I am here to help you with video transcrition, translation and dubbing.\n{URL_SOLUTION_TEXT}"  # noqa: E501
-        )
-        return
-
     urls = [
         url for url in event.raw_text.split(" ") if url.strip().startswith("https://")
     ]
