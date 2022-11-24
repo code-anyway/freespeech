@@ -35,3 +35,4 @@ async def test_translate_srt():
         transcript_ru.events[0].chunks[0]
         == "Вдохновленный романом Астрид Линдгрен фея сказка."
     )
+    assert transcript_ru.title.startswith("ru-RU")

@@ -34,6 +34,7 @@ async def translate(
     ]
     translated = replace(
         source,
+        title=f"{lang} {source.title}",
         events=translated_events,
         lang=lang,
     )
