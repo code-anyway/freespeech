@@ -67,5 +67,7 @@ async def test_transcribe_machine_d() -> None:
         lang="en-US",
         backend="Machine D",
     )
+    assert result.title
+    assert result.title.startswith("en-US")
     assert isinstance(result, Transcript)
     assert len(result.events) == 12

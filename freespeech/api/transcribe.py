@@ -109,7 +109,7 @@ async def transcribe(
         title = meta.title
 
     return Transcript(
-        title=f"{lang}: {title or 'Untitled'}",
+        title=f"{lang}gt {title or 'Untitled'}",
         source=Source(method=backend, url=source),
         events=events,
         lang=lang,
