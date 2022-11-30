@@ -26,12 +26,17 @@ async def translate(
     if isinstance(source, str):
         source = await transcript.load(source)
 
-    translated_events = [
-        replace(translated_event, comment=" ".join(event.chunks))
-        for event, translated_event in zip(
-            source.events, language.translate_events(source.events, source.lang, lang)
-        )
-    ]
+    if source.lang == lang:
+        translated_events = source.events
+    else:
+        translated_events = [
+            replace(translated_event, comment=" ".join(event.chunks))
+            for event, translated_event in zip(
+                source.events,
+                language.translate_events(source.events, source.lang, lang),
+            )
+        ]
+
     translated = replace(
         source,
         title=f"{lang} {source.title}",
