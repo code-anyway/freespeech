@@ -5,6 +5,7 @@ import logging.config
 from dataclasses import replace
 
 from telethon import Button, TelegramClient, events
+from telethon.utils import get_display_name
 
 from freespeech import env
 from freespeech.api import synthesize, transcribe, transcript, translate
@@ -78,7 +79,7 @@ async def select_language(event, action: str, message: str):
 def log_user_action(event, action: str, **kwargs):
     sender = event.sender
     logger.info(
-        f"User {event.sender_id} ({sender.username or (sender.first_name + ' ' + sender.last_name)}) {action} {kwargs}"  # noqa: E501
+        f"User {event.sender_id} ({get_display_name(sender)}) {action} {kwargs}"  # noqa: E501
     )
 
 
