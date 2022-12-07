@@ -71,7 +71,6 @@ async def select_language(event, action: str, message: str):
             Button.inline("FR", data=f"{action};fr-FR".encode("ASCII")),
             Button.inline("DE", data=f"{action};de-DE".encode("ASCII")),
             Button.inline("PT", data=f"{action};pt-PT".encode("ASCII")),
-            Button.inline("RU", data=f"{action};ru-RU".encode("ASCII")),
         ],
     )
 
@@ -260,7 +259,7 @@ async def handle_callback(event):
 
 
 @client.on(events.NewMessage(pattern=r".*"))
-async def url_handler(event):
+async def event_handler(event):
     if event.raw_text == "/start":
         await event.reply(
             f"Welcome to Freespeech! I am here to help you with video transcription, translation and dubbing.\n{URL_SOLUTION_TEXT}"  # noqa: E501
