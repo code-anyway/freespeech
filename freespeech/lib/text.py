@@ -156,7 +156,12 @@ def sentences(s: str, lang: Language) -> Sequence[str]:
     doc = nlp(s)
     senter = nlp.get_pipe("senter")
     sentences = [span.text for span in senter(doc).sents]
-    return sentences
+    return [
+        sentence for sentence in sentences
+        # We want to remove artifacts of the sentence splitter.
+        # For example in fr-FR "Et zéro." produces ["Et zéro", "."]
+        if sentence not in ("", " ", "!", ".", "?")
+    ]
 
 
 def lemmas(s: str, lang: Language) -> Sequence[str]:

@@ -136,3 +136,7 @@ def test_capitalize_sentence() -> None:
     assert text.capitalize_sentence(" ") == " "
     assert text.capitalize_sentence("\t") == "\t"
     assert text.capitalize_sentence("aA") == "AA"
+
+
+def test_sentences() -> None:
+    assert text.sentences("Et zéro.", lang="fr-FR") == ["Et zéro"]
