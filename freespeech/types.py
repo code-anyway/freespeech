@@ -87,8 +87,8 @@ LANGUAGES = [
     "fr-FR",
 ]
 
-Operation = Literal["Transcribe", "Translate", "Synthesize"]
-OPERATIONS = ["Transcribe", "Translate", "Synthesize"]
+Operation = Literal["Transcribe", "Translate", "Synthesize", "Download"]
+OPERATIONS = ["Transcribe", "Translate", "Synthesize", "Download"]
 
 Character = Literal[
     "Alan",  # Alan Turing
