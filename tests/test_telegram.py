@@ -104,7 +104,7 @@ async def test_telegram():
     message = await initiate(url)
     await telegram.dispatch(0, "Dub")
     text, buttons, file = await message.read()
-    assert text == "Sure! I'll dub it in about 54 seconds."
+    assert text.startswith("Sure! I'll dub it in about")
     assert buttons is None
     assert file is None
 
