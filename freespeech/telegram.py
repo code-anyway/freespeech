@@ -342,13 +342,19 @@ async def transcript_operation(
 
     if text == "srt":
         t = await transcript.load(ctx.url)
-        data = remove_pauses(events_to_srt(t.events)).encode("utf-8")
+        data = remove_pauses(
+            events_to_srt([event for event in t.events if "".join(event.chunks)])
+        ).encode("utf-8")
         return Context(state=start), Reply("SRT", data=data)
 
     if text == "txt":
         t = await transcript.load(ctx.url)
         data = remove_pauses(
-            "\n".join(" ".join(chunk for chunk in event.chunks) for event in t.events)
+            "\n".join(
+                text
+                for event in t.events
+                if (text := " ".join(chunk for chunk in event.chunks))
+            )
         ).encode("utf-8")
         return Context(state=start), Reply("Plain text", data=data)
 

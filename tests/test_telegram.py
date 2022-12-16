@@ -69,14 +69,18 @@ async def test_telegram():
     text, buttons, file = await message.read()
     assert text == "SRT"
     assert buttons is None
-    assert isinstance(file, bytes)
+    assert file.decode("utf-8").startswith(
+        "1\n00:00:00,060 --> 00:04:02,320\nfive sound four it's really quite remarkable you probably expected the Roar and Rumble of this rocket launch"  # noqa E501
+    )  # noqa E501
 
     message = await initiate(url)
     await telegram.dispatch(0, "TXT")
     text, buttons, file = await message.read()
     assert text == "Plain text"
     assert buttons is None
-    assert isinstance(file, bytes)
+    assert file.decode("utf-8").startswith(
+        "five sound four it's really quite remarkable you probably expected the Roar and Rumble of this rocket launch"  # noqa E501
+    )  # noqa E501
 
     message = await initiate(url)
     await telegram.dispatch(0, "Translate")
