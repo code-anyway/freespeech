@@ -3,11 +3,12 @@
 import asyncio
 import logging
 import logging.config
-import tempfile
 from dataclasses import dataclass, replace
+import re
 from typing import Awaitable, Callable
 
 from telethon import Button, TelegramClient, events
+from telethon.utils import get_display_name
 from telethon.tl.custom.message import Message
 
 from freespeech import env
@@ -52,12 +53,6 @@ logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
 
 
-api_id = env.get_telegram_api_id()
-api_hash = env.get_telegram_api_hash()
-client = TelegramClient("/tmp/freespeechbot", api_id, api_hash).start(
-    bot_token=env.get_telegram_bot_token()
-)
-
 URL_SOLUTION_TEXT = (
     "Please send me a link to a YouTube video or Google Docs transcript."
 )
@@ -76,68 +71,38 @@ class Context:
 @dataclass(frozen=True)
 class Reply:
     message: str
-    file: str | None = None
+    data: bytes | None = None
     buttons: list[str] | None = None
 
 
 context: dict[int, Context] = {}
 
 
-def log_user_action(action: str, **kwargs):
-    logger.info(f"{action} {kwargs}")  # noqa: E501
+def log_user_action(ctx: Context, action: str, **kwargs):
+    sender_id = ctx.message.sender_id if ctx.message else "Unknown"
+    sender = ctx.message.sender if ctx.message else None
+    logger.info(f"User {sender_id} ({get_display_name(sender) if sender else 'Unknown'}) {action} {kwargs}")  # noqa: E501
 
 
 def to_language(lang: str) -> Language | None:
     """Converts human readable language name to BCP 47 tag."""
-    lang.strip().lower()
-    if lang in ("russian", "русский", "ru-RU"):
+    lang = lang.strip().lower()
+    if lang in ("ru", "russian", "русский", "ru-RU"):
         return "ru-RU"
-    elif lang in ("ukrainian", "українська", "украинский" "uk-UA"):
+    elif lang in ("ua", "ukrainian", "українська", "украинский" "uk-UA"):
         return "uk-UA"
-    elif lang in ("english", "английский", "en-US"):
+    elif lang in ("en", "english", "английский", "en-US"):
         return "en-US"
-    elif lang in ("spanish", "испанский", "español", "es-ES"):
+    elif lang in ("es", "spanish", "испанский", "español", "es-ES"):
         return "es-ES"
-    elif lang in ("french", "французский", "français", "fr-FR"):
+    elif lang in ("fr", "french", "французский", "français", "fr-FR"):
         return "fr-FR"
-    elif lang in ("german", "немецкий", "deutsch", "de-DE"):
+    elif lang in ("de", "german", "немецкий", "deutsch", "de-DE"):
         return "de-DE"
-    elif lang in ("portuguese", "португальский", "português", "pt-PT"):
+    elif lang in ("pt", "portuguese", "португальский", "português", "pt-PT"):
         return "pt-PT"
     else:
         return None
-
-
-async def _dub(url: str):
-    media_url = await synthesize.dub(await transcript.load(source=url), is_smooth=True)
-    return f"Here you are: {media_url}"
-
-
-async def _translate(url: str, lang: Language):
-    transcript_url = await translate.translate(
-        source=url, lang=lang, format="SSMD-NEXT", platform="Google"
-    )
-    return f"Here you are: {transcript_url}. Paste this link into this chat to dub."
-
-
-async def _transcribe(url: str, lang: Language, backend: SpeechToTextBackend) -> str:
-    t = await transcribe.transcribe(url, lang=lang, backend=backend)
-    # NOTE: Bill seems to be the most popular. Doing this here because changing the
-    # default in the library would break existing code.
-    t = replace(
-        t,
-        events=[
-            replace(event, voice=replace(event.voice, character="Bill"))
-            for event in t.events
-        ],
-    )
-    transcript_url = await transcript.save(
-        transcript=t,
-        platform="Google",
-        format="SSMD-NEXT",
-        location=None,
-    )
-    return f"Here you are: {transcript_url}. Now you can paste this link into this chat to translate or dub."  # noqa: E501
 
 
 async def estimate_operation_duration(url: str, operation: Operation) -> int | None:
@@ -204,18 +169,18 @@ def seconds_to_human_readable(seconds: int | None) -> str:
     return res.strip()
 
 
-async def send_message(ctx: Context, reply: Reply) -> None:
-    assert ctx.message is not None
-
+async def send_message(message: Message | None, reply: Reply):
+    assert message is not None
     _buttons = [
         Button.inline(button, data=button.encode("ASCII"))
         for button in reply.buttons or []
     ]
-    file = reply.file if reply.file is not None else []
-    await ctx.message.reply(
+    await message.reply(
         message=reply.message,
-        buttons=_buttons,
-        file=file,
+        buttons=_buttons or None,
+        file=reply.data,
+        force_document=False,
+        link_preview=False,
     )
 
 
@@ -224,7 +189,7 @@ async def schedule(ctx: Context, task: Awaitable, operation: Operation) -> str:
 
     async def execute_and_notify():
         try:
-            log_user_action(action=operation, ctx=ctx)
+            log_user_action(ctx, action=operation, context=ctx)
             message = await task
         except (ValueError, NotImplementedError, PermissionError) as e:
             message = str(e)
@@ -232,7 +197,7 @@ async def schedule(ctx: Context, task: Awaitable, operation: Operation) -> str:
             logger.exception(e)
             message = "Something went wrong. Please try again later."
 
-        await send_message(ctx, Reply(message))
+        await send_message(ctx.message, Reply(message))
 
     asyncio.create_task(execute_and_notify())
 
@@ -241,12 +206,47 @@ async def schedule(ctx: Context, task: Awaitable, operation: Operation) -> str:
     )
 
 
-def start(ctx: Context, message: Message) -> tuple[Context, Reply | None]:
-    text = message.raw_text or ""
+async def _dub(url: str):
+    media_url = await synthesize.dub(await transcript.load(source=url), is_smooth=True)
+    return f"Here you are: {media_url}"
+
+
+async def _translate(url: str, lang: Language):
+    transcript_url = await translate.translate(
+        source=url, lang=lang, format="SSMD-NEXT", platform="Google"
+    )
+    return f"Here you are: {transcript_url}. Paste this link into this chat to dub."
+
+
+async def _transcribe(url: str, lang: Language, backend: SpeechToTextBackend) -> str:
+    t = await transcribe.transcribe(url, lang=lang, backend=backend)
+    # NOTE: Bill seems to be the most popular. Doing this here because changing the
+    # default in the library would break existing code.
+    t = replace(
+        t,
+        events=[
+            replace(event, voice=replace(event.voice, character="Bill"))
+            for event in t.events
+        ],
+    )
+    transcript_url = await transcript.save(
+        transcript=t,
+        platform="Google",
+        format="SSMD-NEXT",
+        location=None,
+    )
+    return f"Here you are: {transcript_url}. Now you can paste this link into this chat to translate or dub."  # noqa: E501
+
+
+async def start(ctx: Context, message: Message | str) -> tuple[Context, Reply | None]:
+    if not isinstance(message, str):
+        text = str(message.raw_text)
+    else:
+        text = message
     urls = [url for url in text.split(" ") if url.strip().startswith("https://")]
 
     if not urls:
-        return ctx, Reply(f"No links found in your message. {URL_SOLUTION_TEXT}")
+        return ctx, Reply(f"{URL_SOLUTION_TEXT}")
 
     url = urls[0]
 
@@ -256,15 +256,16 @@ def start(ctx: Context, message: Message) -> tuple[Context, Reply | None]:
         logger.exception(e)
         return ctx, Reply(str(e))
 
+    # assert isinstance(message, Message)
     ctx = replace(ctx, url=url, message=message)
     match _platform:
         case "YouTube" | "GCS":
-            return replace(ctx, operation=media_operation), Reply(
+            return replace(ctx, state=media_operation), Reply(
                 "Create transcript using Subtitles or Speech Recognition?",
                 buttons=["Subtitles", "Speech Recognition"],
             )
         case "Google" | "Notion":
-            return replace(ctx, operation=transcript_operation), Reply(
+            return replace(ctx, state=transcript_operation), Reply(
                 "Would you like to translate, dub, or download the transcript as SRT or TXT?",  # noqa: E501
                 buttons=["Translate", "Dub", "SRT", "TXT"],
             )
@@ -273,12 +274,15 @@ def start(ctx: Context, message: Message) -> tuple[Context, Reply | None]:
 
 
 async def media_operation(
-    ctx: Context, message: Message
+    ctx: Context, message: Message | str
 ) -> tuple[Context, Reply | None]:
-    text = message.raw_text or ""
+    if not isinstance(message, str):
+        text = str(message.raw_text)
+    else:
+        text = message
 
     if text in ("Subtitles", "Speech Recognition"):
-        ctx = replace(ctx, method=text)
+        ctx = replace(ctx, method="Machine D" if text == "Speech Recognition" else text)
 
     if (lang := to_language(text)) is not None:
         ctx = replace(ctx, from_lang=lang)
@@ -295,20 +299,23 @@ async def media_operation(
         )
 
     if ctx.url and ctx.from_lang and ctx.method:
-        duration = schedule(
+        duration = await schedule(
             ctx, _transcribe(ctx.url, ctx.from_lang, ctx.method), "Transcribe"
         )
         return Context(state=start), Reply(
-            f"Sure! Give me {duration} to transcribe {ctx.url} in {ctx.from_lang} using {ctx.method}.",  # noqa: E501
+            f"Sure! Give me {duration} to transcribe it in {ctx.from_lang} using {ctx.method}.",  # noqa: E501
         )
 
     return ctx, None
 
 
 async def transcript_operation(
-    ctx: Context, message: Message
+    ctx: Context, message: Message | str
 ) -> tuple[Context, Reply | None]:
-    text = message.raw_text or ""
+    if not isinstance(message, str):
+        text = str(message.raw_text)
+    else:
+        text = message
     text = text.strip().lower()
 
     if text == "translate":
@@ -325,72 +332,74 @@ async def transcript_operation(
         return Context(state=start), Reply("Please send me a link.")
 
     if text == "dub":
-        duration = schedule(ctx, _dub(ctx.url), "Synthesize")
-        return Context(state=start), Reply(
-            f"Sure! I'll dub {ctx.url} in about {duration}."
-        )
+        duration = await schedule(ctx, _dub(ctx.url), "Synthesize")
+        return Context(state=start), Reply(f"Sure! I'll dub it in about {duration}.")
+
+    def remove_pauses(s: str) -> str:
+        return re.sub(r"#\d+(\.\d+)?#", "", s)
 
     if text == "srt":
         t = await transcript.load(ctx.url)
-        with tempfile.TemporaryFile("w") as f:
-            f.write(events_to_srt(t.events))
-            f.flush()
-            return Context(state=start), Reply("SRT", file=f.name)
+        data = remove_pauses(events_to_srt(t.events)).encode("utf-8")
+        return Context(state=start), Reply("SRT", data=data)
 
     if text == "txt":
         t = await transcript.load(ctx.url)
-        with tempfile.TemporaryFile("w") as f:
-            f.write(
-                "\n".join(
-                    " ".join(chunk for chunk in event.chunks) for event in t.events
-                )
-            )
-            f.flush()
-            return Context(state=start), Reply("Plain text", file=f.name)
+        data = remove_pauses("\n".join(
+            " ".join(chunk for chunk in event.chunks) for event in t.events
+        )).encode("utf-8")
+        return Context(state=start), Reply("Plain text", data=data)
 
     if ctx.url and ctx.to_lang:
-        duration = schedule(ctx, _translate(ctx.url, ctx.to_lang), "Translate")
+        duration = await schedule(ctx, _translate(ctx.url, ctx.to_lang), "Translate")
         return Context(state=start), Reply(
-            f"Sure! I'll dub {ctx.url} in about {duration}."
+            f"Sure! I'll translate it in about {duration}."
         )
 
     return ctx, None
 
 
-async def dispatch(message: Message):
-    sender_id: int = message.sender_id  # type: ignore
-
+async def dispatch(sender_id: int, message: Message | str):
     if sender_id not in context:
         context[sender_id] = Context(state=start)
 
     ctx = context[sender_id]
-    context[sender_id], reply = ctx.state(ctx, message)
+    context[sender_id], reply = await ctx.state(ctx, message)
     if reply:
-        await send_message(ctx, reply)
-
-
-@client.on(events.NewMessage(pattern=r".*"))
-async def event_handler(event):
-    if event.raw_text == "/start":
-        await event.reply(
-            f"Welcome to Freespeech! I am here to help you with video transcription, translation and dubbing.\n{URL_SOLUTION_TEXT}"  # noqa: E501
-        )
-        return
-
-    if event.raw_text == "/reset":
-        context[event.sender_id] = Context(state=start)
-        await event.reply("Alright! Let's start over again.")
-        return
-
-    await dispatch(event)
-
-
-@client.on(events.CallbackQuery())
-async def handle_callback(event):
-    await dispatch(event)
+        msg = context[sender_id].message or ctx.message
+        if msg is not None:
+            await send_message(msg, reply)
+        else:
+            await message.reply(reply.message)  # type: ignore
 
 
 if __name__ == "__main__":
     logger.info("Starting Telegram client")
-    client.start()
-    client.run_until_disconnected()
+    api_id = env.get_telegram_api_id()
+    api_hash = env.get_telegram_api_hash()
+
+    with TelegramClient("/tmp/freespeechbot", api_id, api_hash).start(
+        bot_token=env.get_telegram_bot_token()
+    ) as client:
+
+        @client.on(events.NewMessage(pattern=r".*"))
+        async def event_handler(event):
+            if event.raw_text == "/start":
+                await event.reply(
+                    f"Welcome to Freespeech! I am here to help you with video transcription, translation and dubbing.\n{URL_SOLUTION_TEXT}"  # noqa: E501
+                )
+                return
+
+            if event.raw_text == "/reset":
+                context[event.sender_id] = Context(state=start)
+                await event.reply("Alright! Let's start over again.")
+                return
+
+            await dispatch(event.sender_id, event)
+
+        @client.on(events.CallbackQuery())
+        async def handle_callback(event):
+            await dispatch(event.sender_id, event.data.decode("ASCII"))
+
+        client.start()
+        client.run_until_disconnected()
