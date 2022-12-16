@@ -3,13 +3,13 @@
 import asyncio
 import logging
 import logging.config
-from dataclasses import dataclass, replace
 import re
+from dataclasses import dataclass, replace
 from typing import Awaitable, Callable
 
 from telethon import Button, TelegramClient, events
-from telethon.utils import get_display_name
 from telethon.tl.custom.message import Message
+from telethon.utils import get_display_name
 
 from freespeech import env
 from freespeech.api import synthesize, transcribe, transcript, translate
@@ -81,7 +81,9 @@ context: dict[int, Context] = {}
 def log_user_action(ctx: Context, action: str, **kwargs):
     sender_id = ctx.message.sender_id if ctx.message else "Unknown"
     sender = ctx.message.sender if ctx.message else None
-    logger.info(f"User {sender_id} ({get_display_name(sender) if sender else 'Unknown'}) {action} {kwargs}")  # noqa: E501
+    logger.info(
+        f"User {sender_id} ({get_display_name(sender) if sender else 'Unknown'}) {action} {kwargs}"  # noqa: E501
+    )  # noqa: E501
 
 
 def to_language(lang: str) -> Language | None:
@@ -345,9 +347,9 @@ async def transcript_operation(
 
     if text == "txt":
         t = await transcript.load(ctx.url)
-        data = remove_pauses("\n".join(
-            " ".join(chunk for chunk in event.chunks) for event in t.events
-        )).encode("utf-8")
+        data = remove_pauses(
+            "\n".join(" ".join(chunk for chunk in event.chunks) for event in t.events)
+        ).encode("utf-8")
         return Context(state=start), Reply("Plain text", data=data)
 
     if ctx.url and ctx.to_lang:

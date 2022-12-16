@@ -57,7 +57,7 @@ async def test_telegram():
         text, buttons, file = await message.read()
         assert (
             text
-            == "Would you like to translate, dub, or download the transcript as SRT or TXT?"
+            == "Would you like to translate, dub, or download the transcript as SRT or TXT?"  # noqa E501
         )  # noqa E501
         assert [button.text for button in buttons] == ["Translate", "Dub", "SRT", "TXT"]
         assert file is None
