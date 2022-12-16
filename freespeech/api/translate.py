@@ -2,7 +2,7 @@ from dataclasses import replace
 
 from fastapi import APIRouter
 
-from freespeech.lib import language
+from freespeech.lib import concurrency, language
 from freespeech.types import (
     Language,
     Transcript,
@@ -33,7 +33,9 @@ async def translate(
             replace(translated_event, comment=" ".join(event.chunks))
             for event, translated_event in zip(
                 source.events,
-                language.translate_events(source.events, source.lang, lang),
+                await concurrency.run_in_thread_pool(
+                    language.translate_events, source.events, source.lang, lang
+                ),
             )
         ]
 
