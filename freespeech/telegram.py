@@ -6,8 +6,9 @@ import logging.config
 import re
 from dataclasses import dataclass, replace
 from typing import Awaitable, Callable
+from uuid import uuid4
 
-from telethon import Button, TelegramClient, events
+from telethon import Button, TelegramClient, events, hints
 from telethon.tl.custom.message import Message
 from telethon.utils import get_display_name
 
@@ -23,7 +24,7 @@ from freespeech.types import (
     platform,
 )
 
-logging_handler = ["google" if env.is_in_cloud_run() else "console"]
+logging_handler = ["google", "console"]
 
 LOGGING_CONFIG = {
     "version": 1,
@@ -61,6 +62,8 @@ URL_SOLUTION_TEXT = (
 @dataclass(frozen=True)
 class Context:
     state: Callable
+    user_id: int
+    client: TelegramClient
     message: Message | None = None
     from_lang: Language | None = None
     to_lang: Language | None = None
@@ -71,19 +74,35 @@ class Context:
 @dataclass(frozen=True)
 class Reply:
     message: str
-    data: bytes | None = None
+    file: hints.FileLike | None = None
     buttons: list[str] | None = None
 
 
 context: dict[int, Context] = {}
 
 
-def log_user_action(ctx: Context, action: str, **kwargs):
+def context_to_dict(ctx: Context) -> dict:
+    return {
+        "labels": {"interface": "telegram"},
+        "json_fields": {
+            "state": ctx.state.__name__,
+            "user_id": ctx.user_id,
+            "message": ctx.message.message if ctx and ctx.message else None,
+            "from_lang": ctx.from_lang,
+            "to_lang": ctx.to_lang,
+            "method": ctx.method,
+            "url": ctx.url,
+        },
+    }
+
+
+def log_user_action(ctx: Context, action: str):
     sender_id = ctx.message.sender_id if ctx.message else "Unknown"
     sender = ctx.message.sender if ctx.message else None
     logger.info(
-        f"User {sender_id} ({get_display_name(sender) if sender else 'Unknown'}) {action} {kwargs}"  # noqa: E501
-    )  # noqa: E501
+        f"User {sender_id} ({get_display_name(sender) if sender else 'Unknown'}) {action}",  # noqa: E501
+        extra=context_to_dict(ctx),
+    )
 
 
 def to_language(lang: str) -> Language | None:
@@ -171,19 +190,47 @@ def seconds_to_human_readable(seconds: int | None) -> str:
     return res.strip()
 
 
-async def send_message(message: Message | None, reply: Reply):
-    assert message is not None
+async def send_message(
+    client: TelegramClient, recipient_id: int, reply_to: Message | None, reply: Reply
+):
     _buttons = [
         Button.inline(button, data=button.encode("ASCII"))
         for button in reply.buttons or []
     ]
-    await message.reply(
-        message=reply.message,
-        buttons=_buttons or None,
-        file=reply.data,
-        force_document=False,
-        link_preview=False,
-    )
+    if reply_to:
+        if reply.file:
+            await reply_to.reply(
+                message=reply.message,
+                buttons=_buttons or None,
+                file=reply.file,
+                force_document=False,
+                link_preview=False,
+            )
+        else:
+            await reply_to.reply(
+                message=reply.message,
+                buttons=_buttons or None,
+                force_document=False,
+                link_preview=False,
+            )
+    else:
+        if reply.file:
+            await client.send_file(
+                recipient_id,
+                reply.file,
+                caption=reply.message,
+                buttons=_buttons or None,
+                force_document=False,
+                link_preview=False,
+            )
+        else:
+            await client.send_message(
+                recipient_id,
+                message=reply.message,
+                buttons=_buttons or None,
+                force_document=False,
+                link_preview=False,
+            )
 
 
 async def schedule(ctx: Context, task: Awaitable, operation: Operation) -> str:
@@ -191,7 +238,7 @@ async def schedule(ctx: Context, task: Awaitable, operation: Operation) -> str:
 
     async def execute_and_notify():
         try:
-            log_user_action(ctx, action=operation, context=ctx)
+            log_user_action(ctx, action=operation)
             message = await task
         except (ValueError, NotImplementedError, PermissionError) as e:
             message = str(e)
@@ -199,7 +246,12 @@ async def schedule(ctx: Context, task: Awaitable, operation: Operation) -> str:
             logger.exception(e)
             message = "Something went wrong. Please try again later."
 
-        await send_message(ctx.message, Reply(message))
+        await send_message(
+            client=ctx.client,
+            recipient_id=ctx.user_id,
+            reply_to=ctx.message,
+            reply=Reply(message),
+        )
 
     asyncio.create_task(execute_and_notify())
 
@@ -275,6 +327,10 @@ async def start(ctx: Context, message: Message | str) -> tuple[Context, Reply | 
             assert_never(x)
 
 
+def reset(ctx: Context) -> Context:
+    return Context(state=start, user_id=ctx.user_id, client=ctx.client)
+
+
 async def media_operation(
     ctx: Context, message: Message | str
 ) -> tuple[Context, Reply | None]:
@@ -304,7 +360,7 @@ async def media_operation(
         duration = await schedule(
             ctx, _transcribe(ctx.url, ctx.from_lang, ctx.method), "Transcribe"
         )
-        return Context(state=start), Reply(
+        return reset(ctx), Reply(
             f"Sure! Give me {duration} to transcribe it in {ctx.from_lang} using {ctx.method}.",  # noqa: E501
         )
 
@@ -331,54 +387,64 @@ async def transcript_operation(
         ctx = replace(ctx, to_lang=lang)
 
     if ctx.url is None:
-        return Context(state=start), Reply("Please send me a link.")
+        return reset(ctx), Reply("Please send me a link.")
 
     if text == "dub":
         duration = await schedule(ctx, _dub(ctx.url), "Synthesize")
-        return Context(state=start), Reply(f"Sure! I'll dub it in about {duration}.")
+        return reset(ctx), Reply(f"Sure! I'll dub it in about {duration}.")
 
     def remove_pauses(s: str) -> str:
         return re.sub(r"#\d+(\.\d+)?#", "", s)
 
     if text == "srt":
         t = await transcript.load(ctx.url)
-        data = remove_pauses(
-            events_to_srt([event for event in t.events if "".join(event.chunks)])
-        ).encode("utf-8")
-        return Context(state=start), Reply("SRT", data=data)
+        filename = f"/tmp/{uuid4()}.srt"
+        with open(filename, "wb") as f:
+            data = remove_pauses(
+                events_to_srt([event for event in t.events if "".join(event.chunks)])
+            ).encode("utf-8")
+            f.write(data)
+
+        return reset(ctx), Reply("SRT", file=filename)
 
     if text == "txt":
         t = await transcript.load(ctx.url)
-        data = remove_pauses(
-            "\n".join(
-                text
-                for event in t.events
-                if (text := " ".join(chunk for chunk in event.chunks))
-            )
-        ).encode("utf-8")
-        return Context(state=start), Reply("Plain text", data=data)
+        filename = f"/tmp/{uuid4()}.txt"
+        with open(filename, "wb") as f:
+            data = remove_pauses(
+                "\n".join(
+                    text
+                    for event in t.events
+                    if (text := " ".join(chunk for chunk in event.chunks))
+                )
+            ).encode("utf-8")
+            f.write(data)
+
+        return reset(ctx), Reply("Plain text", file=filename)
 
     if ctx.url and ctx.to_lang:
         duration = await schedule(ctx, _translate(ctx.url, ctx.to_lang), "Translate")
-        return Context(state=start), Reply(
-            f"Sure! I'll translate it in about {duration}."
-        )
+        return reset(ctx), Reply(f"Sure! I'll translate it in about {duration}.")
 
     return ctx, None
 
 
-async def dispatch(sender_id: int, message: Message | str):
+async def dispatch(client: TelegramClient, sender_id: int, message: Message | str):
     if sender_id not in context:
-        context[sender_id] = Context(state=start)
+        context[sender_id] = Context(state=start, user_id=sender_id, client=client)
 
     ctx = context[sender_id]
     context[sender_id], reply = await ctx.state(ctx, message)
     if reply:
-        msg = context[sender_id].message or ctx.message
-        if msg is not None:
-            await send_message(msg, reply)
+        reply_to = context[sender_id].message or ctx.message
+        if reply_to is not None:
+            await send_message(client, sender_id, reply_to, reply)
         else:
-            await message.reply(reply.message)  # type: ignore
+            if isinstance(message, Message):
+                await send_message(client, sender_id, message, reply)
+            else:
+                logger.warning("No message to reply to. Text: %s", reply.message)
+                await send_message(client, sender_id, None, reply)
 
 
 if __name__ == "__main__":
@@ -399,15 +465,17 @@ if __name__ == "__main__":
                 return
 
             if event.raw_text == "/reset":
-                context[event.sender_id] = Context(state=start)
+                context[event.sender_id] = Context(
+                    state=start, user_id=event.sender_id, client=client
+                )
                 await event.reply("Alright! Let's start over again.")
                 return
 
-            await dispatch(event.sender_id, event)
+            await dispatch(client, event.sender_id, event)
 
         @client.on(events.CallbackQuery())
         async def handle_callback(event):
-            await dispatch(event.sender_id, event.data.decode("ASCII"))
+            await dispatch(client, event.sender_id, event.data.decode("ASCII"))
 
         client.start()
         client.run_until_disconnected()
