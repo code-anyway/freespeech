@@ -40,6 +40,8 @@ def platform(url: str) -> TranscriptPlatform | MediaPlatform:
 
     if url.startswith("https://docs.google.com/document/d/"):
         return "Google"
+    elif url.startswith("gs://"):
+        return "GCS"
     elif url.startswith("https://www.notion.so/"):
         return "Notion"
     elif (

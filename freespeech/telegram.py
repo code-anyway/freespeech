@@ -3,17 +3,22 @@
 import asyncio
 import logging
 import logging.config
+import os
 import re
+import tempfile
+import uuid
 from dataclasses import dataclass, replace
 from typing import Awaitable, Callable
 
 from telethon import Button, TelegramClient, events
 from telethon.tl.custom.message import Message
+from telethon.tl.types import MessageMediaDocument
 from telethon.utils import get_display_name
 
 from freespeech import env
 from freespeech.api import synthesize, transcribe, transcript, translate
 from freespeech.lib import youtube
+from freespeech.lib.storage import obj
 from freespeech.lib.transcript import events_to_srt
 from freespeech.types import (
     Language,
@@ -54,7 +59,8 @@ logger = logging.getLogger(__name__)
 
 
 URL_SOLUTION_TEXT = (
-    "Please send me a link to a YouTube video or Google Docs transcript."
+    "Please send me a link to a YouTube video or Google Docs",
+    " transcript or upload a video here directly.",
 )
 
 
@@ -247,6 +253,25 @@ async def start(ctx: Context, message: Message | str) -> tuple[Context, Reply | 
         text = message
     urls = [url for url in text.split(" ") if url.strip().startswith("https://")]
 
+    # Case when a video file is uploaded directly to the bot
+    if (
+        not urls
+        and isinstance(message.media, MessageMediaDocument)
+        and message.media.document.mime_type.startswith("video/")
+    ):
+        video: bytes = await client.download_media(message.message, bytes)
+        extension = message.media.document.mime_type.split("/")[-1]
+
+        with tempfile.NamedTemporaryFile(
+            delete=True, prefix=str(uuid.uuid4()), suffix=f".{extension}"
+        ) as temp:
+            temp.write(video)
+            gs_url = await obj.put(
+                temp.name,
+                f"{env.get_storage_url()}/media/{os.path.basename(temp.name)}",
+            )
+            urls = [gs_url]
+
     if not urls:
         return ctx, Reply(f"{URL_SOLUTION_TEXT}")
 
@@ -261,10 +286,15 @@ async def start(ctx: Context, message: Message | str) -> tuple[Context, Reply | 
     # assert isinstance(message, Message)
     ctx = replace(ctx, url=url, message=message)
     match _platform:
-        case "YouTube" | "GCS":
+        case "YouTube":
             return replace(ctx, state=media_operation), Reply(
                 "Create transcript using Subtitles or Speech Recognition?",
                 buttons=["Subtitles", "Speech Recognition"],
+            )
+        case "GCS":
+            return replace(ctx, state=media_operation), Reply(
+                "Create transcript using Speech Recognition?",
+                buttons=["Speech Recognition"],
             )
         case "Google" | "Notion":
             return replace(ctx, state=transcript_operation), Reply(
