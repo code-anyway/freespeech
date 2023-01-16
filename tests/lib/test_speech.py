@@ -50,7 +50,7 @@ async def test_transcribe(tmp_path) -> None:
 
     voice = Voice(character="Alan", pitch=0.0, speech_rate=1.0)
     event = Event(
-        time_ms=971, duration_ms=2006, chunks=["one, two three,"], voice=voice
+        time_ms=971, duration_ms=2006, chunks=["One, two three,"], voice=voice
     )
     assert t_en == [event]
 
