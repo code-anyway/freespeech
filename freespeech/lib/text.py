@@ -25,6 +25,8 @@ def _nlp(lang: Language):
             nlp = spacy.load("uk_core_news_sm")
         case "ru-RU":
             nlp = spacy.load("ru_core_news_sm")
+        case "sv-SE":
+            nlp = spacy.load("sv_core_news_sm")
         case never:
             # (astaff, 20221109): when adding a new language make sure
             # to install the spacy model for it in setup.py.

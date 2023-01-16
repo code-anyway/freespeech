@@ -104,6 +104,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "es-MX": ("Azure", "es-MX-LarissaNeural"),
         "es-ES": ("Google", "es-ES-Wavenet-D"),
         "fr-FR": ("Azure", "fr-FR-YvetteNeural"),
+        "sv-SE": ("Azure", "sv-SE-SofieNeural"),
     },
     "Grace": {
         "en-US": ("Google", "en-US-Wavenet-C"),
@@ -116,6 +117,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "es-MX": ("Azure", "es-MX-RenataNeural"),
         "es-ES": ("Google", "es-ES-Wavenet-C"),
         "fr-FR": ("Azure", "fr-FR-JacquelineNeural"),
+        "sv-SE": ("Azure", "sv-SE-SofieNeural"),
     },
     "Alan": {
         "en-US": ("Google", "en-US-Wavenet-I"),
@@ -128,6 +130,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "es-MX": ("Azure", "es-MX-GerardoNeural"),
         "es-ES": ("Google", "es-ES-Wavenet-B"),
         "fr-FR": ("Azure", "fr-FR-HenriNeural"),
+        "sv-SE": ("Azure", "sv-SE-MattiasNeural"),
     },
     "Alonzo": {
         "en-US": ("Google", "en-US-Wavenet-D"),
@@ -140,6 +143,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "es-MX": ("Azure", "es-MX-CecilioNeural"),
         "es-ES": ("Google", "es-ES-Standard-B"),
         "fr-FR": ("Azure", "fr-FR-YvesNeural"),
+        "sv-SE": ("Azure", "sv-SE-MattiasNeural"),
     },
     "Bill": {
         "en-US": ("Azure", "en-US-ChristopherNeural"),
@@ -152,6 +156,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "es-MX": ("Azure", "es-MX-JorgeNeural"),
         "es-ES": ("Azure", "es-ES-AlvaroNeural"),
         "fr-FR": ("Azure", "fr-FR-ClaudeNeural"),
+        "sv-SE": ("Azure", "sv-SE-MattiasNeural"),
     },
     "Melinda": {
         "ru-RU": ("Azure", "ru-RU-DariyaNeural"),
@@ -164,6 +169,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "es-MX": ("Azure", "es-MX-CarlotaNeural"),
         "es-ES": ("Azure", "es-ES-ElviraNeural"),
         "fr-FR": ("Azure", "fr-FR-DeniseNeural"),
+        "sv-SE": ("Azure", "sv-SE-HilleviNeural"),
     },
     "Greta": {
         "ru-RU": ("Azure", "ru-RU-SvetlanaNeural"),
@@ -176,6 +182,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "es-MX": ("Azure", "es-MX-NuriaNeural"),
         "es-ES": ("Azure", "es-ES-ElviraNeural"),
         "fr-FR": ("Azure", "fr-FR-EloiseNeural"),
+        "sv-SE": ("Azure", "sv-SE-HilleviNeural"),
     },
 }
 
