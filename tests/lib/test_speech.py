@@ -60,7 +60,7 @@ async def test_transcribe(tmp_path) -> None:
 
     assert event.time_ms == 971
     assert event.duration_ms == pytest.approx(2006, abs=ABSOLUTE_ERROR_MS)
-    assert event.chunks == ["one, two three,"]
+    assert event.chunks == ["One, two three,"]
 
 
 @pytest.mark.asyncio
