@@ -1,18 +1,42 @@
 import asyncio
+from typing import List, Tuple
 
 import pytest
 
 from freespeech import telegram
 
 
+class Media:
+    def __init__(self, mime_type):
+        self.document = Document(mime_type)
+
+
+class Document:
+    def __init__(self, mime_type):
+        self.mime_type = mime_type
+
+
+class SubMessage:
+    def __init__(self, src: str):
+        self.src = src
+
+    async def download_media(self, type):
+        with open(self.src, "rb") as file:
+            return file.read()
+
+
 class Message(object):
-    def __init__(self, text):
+    def __init__(self, text, submessage: SubMessage | None = None, mime_type: str = ""):
         self.raw_text = text
-        self.replies = []
+        self.replies: List[Tuple[Message, List[str], bytes]] = []
         self.sender_id = 0
         self.sender = None
+        self.media = None if mime_type == "" else Media(mime_type)
+        self.message = submessage
 
-    async def reply(self, message, buttons, file, force_document, link_preview):
+    async def reply(
+        self, message, buttons=None, file=None, force_document=None, link_preview=None
+    ):
         self.replies.append((message, buttons, file))
         return self
 
@@ -20,6 +44,19 @@ class Message(object):
         while not self.replies:
             await asyncio.sleep(0.1)
         return self.replies.pop()
+
+
+async def initiate(url):
+    message = Message(url)
+    await telegram.dispatch(0, message)
+    text, buttons, file = await message.read()
+    assert (
+        text
+        == "Would you like to translate, dub, or download the transcript as SRT or TXT?"  # noqa E501
+    )  # noqa E501
+    assert [button.text for button in buttons] == ["Translate", "Dub", "SRT", "TXT"]
+    assert file is None
+    return message
 
 
 @pytest.mark.asyncio
@@ -50,18 +87,6 @@ async def test_telegram():
     assert text.startswith("Here you are: https://docs.google.com/document/d/")
     assert buttons is None
     assert file is None
-
-    async def initiate(url):
-        message = Message(url)
-        await telegram.dispatch(0, message)
-        text, buttons, file = await message.read()
-        assert (
-            text
-            == "Would you like to translate, dub, or download the transcript as SRT or TXT?"  # noqa E501
-        )  # noqa E501
-        assert [button.text for button in buttons] == ["Translate", "Dub", "SRT", "TXT"]
-        assert file is None
-        return message
 
     url = text[len("Here you are: ") :]
     message = await initiate(url)
@@ -110,5 +135,95 @@ async def test_telegram():
 
     text, buttons, file = await message.read()
     assert text.startswith("Here you are: https://")
+    assert buttons is None
+    assert file is None
+
+
+@pytest.mark.asyncio
+async def test_telegram_direct_upload_audio():
+    # Test flow with audio file
+    AUDIO_SRC = "tests/lib/data/media/2sec.wav"
+    message = Message("", SubMessage(AUDIO_SRC), mime_type="audio/wav")
+
+    await telegram.dispatch(0, message)
+    text, buttons, file = await message.read()
+    assert text == "Create transcript using Speech Recognition?"
+    assert [button.text for button in buttons] == ["Yes"]
+    assert file is None
+
+    await telegram.dispatch(0, "Yes")
+    text, buttons, file = await message.read()
+    assert text == "Please select or send the language."
+    assert [button.text for button in buttons] == ["EN", "UA", "ES", "FR", "DE", "PT"]
+    assert file is None
+
+    await telegram.dispatch(0, "EN")
+    text, buttons, file = await message.read()
+    assert text == "Sure! Give me some time to transcribe it in en-US using Machine D."
+    assert buttons is None
+    assert file is None
+
+    text, buttons, file = await message.read()
+    assert text.startswith("Here you are: https://docs.google.com/document/d/")
+    assert buttons is None
+    assert file is None
+
+
+@pytest.mark.asyncio
+async def test_telegram_direct_upload_video():
+    # Test flow with video file
+    VIDEO_SRC = "tests/lib/data/media/2sec.mp4"
+    message = Message("", SubMessage(VIDEO_SRC), mime_type="video/mp4")
+
+    await telegram.dispatch(0, message)
+    text, buttons, file = await message.read()
+    assert text == "Create transcript using Speech Recognition?"
+    assert [button.text for button in buttons] == ["Yes"]
+    assert file is None
+
+    await telegram.dispatch(0, "Yes")
+    text, buttons, file = await message.read()
+    assert text == "Please select or send the language."
+    assert [button.text for button in buttons] == ["EN", "UA", "ES", "FR", "DE", "PT"]
+    assert file is None
+
+    await telegram.dispatch(0, "EN")
+    text, buttons, file = await message.read()
+    assert (
+        text == "Sure! Give me some time to transcribe it in en-US using Machine D."
+    )  # noqa E501
+    assert buttons is None
+    assert file is None
+
+    text, buttons, file = await message.read()
+    assert text.startswith("Here you are: https://docs.google.com/document/d/")
+    assert buttons is None
+    assert file is None
+
+    url = text[len("Here you are: ") :]
+    message = await initiate(url)
+    await telegram.dispatch(0, "Dub")
+    text, buttons, file = await message.read()
+    assert text.startswith("Sure! I'll dub it in about")
+    assert buttons is None
+    assert file is None
+
+    text, buttons, file = await message.read()
+    assert text.startswith("Here you are: https://")
+    assert buttons is None
+    assert file is None
+
+
+@pytest.mark.asyncio
+async def test_telegram_direct_upload_nonsense():
+    # Test flow with unsupported mime_type
+    message = Message("", SubMessage(""), mime_type="nonsense/mime")
+
+    await telegram.dispatch(0, message)
+    text, buttons, file = await message.read()
+    assert (
+        text
+        == "Please send me a link to a YouTube video or Google Docs transcript or upload a video/audio here directly."  # noqa: E501
+    )
     assert buttons is None
     assert file is None
