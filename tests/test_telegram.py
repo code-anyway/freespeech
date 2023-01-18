@@ -1,4 +1,5 @@
 import asyncio
+from typing import List, Tuple
 
 import pytest
 
@@ -27,7 +28,7 @@ class SubMessage:
 class Message(object):
     def __init__(self, text, submessage: SubMessage | None = None, mime_type: str = ""):
         self.raw_text = text
-        self.replies = []
+        self.replies: List[Tuple[Message, List[str], bytes]] = []
         self.sender_id = 0
         self.sender = None
         self.media = None if mime_type == "" else Media(mime_type)
