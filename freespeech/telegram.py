@@ -12,7 +12,6 @@ from typing import Awaitable, Callable
 
 from telethon import Button, TelegramClient, events
 from telethon.tl.custom.message import Message
-from telethon.tl.types import MessageMediaDocument
 from telethon.utils import get_display_name
 
 from freespeech import env
@@ -58,10 +57,7 @@ logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
 
 
-URL_SOLUTION_TEXT = (
-    "Please send me a link to a YouTube video or Google Docs",
-    " transcript or upload a video here directly.",
-)
+URL_SOLUTION_TEXT = "Please send me a link to a YouTube video or Google Docs transcript or upload a video/audio here directly."  # noqa: E501
 
 
 @dataclass(frozen=True)
@@ -209,8 +205,10 @@ async def schedule(ctx: Context, task: Awaitable, operation: Operation) -> str:
 
     asyncio.create_task(execute_and_notify())
 
-    return seconds_to_human_readable(
-        await estimate_operation_duration(ctx.url, operation)
+    return (
+        seconds_to_human_readable(await estimate_operation_duration(ctx.url, operation))
+        if platform(ctx.url) != "GCS"
+        else "some time"
     )
 
 
@@ -253,19 +251,26 @@ async def start(ctx: Context, message: Message | str) -> tuple[Context, Reply | 
         text = message
     urls = [url for url in text.split(" ") if url.strip().startswith("https://")]
 
-    # Case when a video file is uploaded directly to the bot
-    if (
-        not urls
-        and isinstance(message.media, MessageMediaDocument)
-        and message.media.document.mime_type.startswith("video/")
-    ):
-        video: bytes = await client.download_media(message.message, bytes)
+    def _is_video_or_audio(message: Message | str) -> bool:
+        return (
+            hasattr(message, "media")
+            and hasattr(message.media, "document")
+            and hasattr(message.media.document, "mime_type")
+            and (
+                message.media.document.mime_type.startswith("video/")
+                or message.media.document.mime_type.startswith("audio/")
+            )
+        )
+
+    # Case when a video or an audio file is uploaded directly to the bot
+    if not urls and _is_video_or_audio(message):
+        media: bytes = await message.message.download_media(bytes)
         extension = message.media.document.mime_type.split("/")[-1]
 
         with tempfile.NamedTemporaryFile(
             delete=True, prefix=str(uuid.uuid4()), suffix=f".{extension}"
         ) as temp:
-            temp.write(video)
+            temp.write(media)
             gs_url = await obj.put(
                 temp.name,
                 f"{env.get_storage_url()}/media/{os.path.basename(temp.name)}",
@@ -294,7 +299,7 @@ async def start(ctx: Context, message: Message | str) -> tuple[Context, Reply | 
         case "GCS":
             return replace(ctx, state=media_operation), Reply(
                 "Create transcript using Speech Recognition?",
-                buttons=["Speech Recognition"],
+                buttons=["Yes"],
             )
         case "Google" | "Notion":
             return replace(ctx, state=transcript_operation), Reply(
@@ -313,8 +318,10 @@ async def media_operation(
     else:
         text = message
 
-    if text in ("Subtitles", "Speech Recognition"):
-        ctx = replace(ctx, method="Machine D" if text == "Speech Recognition" else text)
+    if text in ("Subtitles", "Speech Recognition", "Yes"):
+        ctx = replace(
+            ctx, method="Machine D" if text in ("Speech Recognition", "Yes") else text
+        )
 
     if (lang := to_language(text)) is not None:
         ctx = replace(ctx, from_lang=lang)

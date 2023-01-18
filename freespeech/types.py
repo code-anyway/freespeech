@@ -35,7 +35,7 @@ def is_media_platform(val: str) -> TypeGuard[MediaPlatform]:
 
 
 def platform(url: str) -> TranscriptPlatform | MediaPlatform:
-    if not url or not url.startswith("https://"):
+    if not url or not url.startswith(("https://", "gs://")):
         raise ValueError("Invalid URL")
 
     if url.startswith("https://docs.google.com/document/d/"):
