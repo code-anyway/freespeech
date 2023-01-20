@@ -75,6 +75,7 @@ Language = Literal[
     "es-ES",
     "de-DE",
     "fr-FR",
+    "sv-SE",
 ]
 LANGUAGES = [
     "en-US",
@@ -87,6 +88,7 @@ LANGUAGES = [
     "es-ES",
     "de-DE",
     "fr-FR",
+    "sv-SE",
 ]
 
 Operation = Literal["Transcribe", "Translate", "Synthesize"]
