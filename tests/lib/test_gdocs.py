@@ -30,7 +30,9 @@ def test_extract():
 
 def test_load():
     expected_transcript = replace(
-        EXPECTED_TRANSCRIPT, title="Google Docs with speechrate integration test"
+        EXPECTED_TRANSCRIPT,
+        title="Google Docs with speechrate integration test",
+        settings=replace(EXPECTED_TRANSCRIPT.settings, original_audio_level=1),
     )
     url = "https://docs.google.com/document/d/1zzvy4wBE96quSWP3VT7P_rj8b7gg7STEoLSNGSiZ_jM/edit?usp=sharing"  # noqa: E501
     transcript = gdocs.load(url)

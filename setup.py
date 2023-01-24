@@ -58,7 +58,7 @@ setup(
         "google-cloud-tasks",
         "google-cloud-logging",
         "google-cloud-firestore",
-        "azure-cognitiveservices-speech==1.23.0",
+        "azure-cognitiveservices-speech==1.24.2",
         "google-api-python-client",
         "google-auth",
         "google-auth-oauthlib",

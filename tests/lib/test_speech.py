@@ -51,7 +51,7 @@ async def test_transcribe(tmp_path) -> None:
 
     voice = Voice(character="Alan", pitch=0.0, speech_rate=1.0)
     event = Event(
-        time_ms=971, duration_ms=2006, chunks=["one, two three,"], voice=voice
+        time_ms=971, duration_ms=2006, chunks=["One, two three,"], voice=voice
     )
     assert t_en == [event]
 
@@ -59,7 +59,7 @@ async def test_transcribe(tmp_path) -> None:
 
     assert event.time_ms == 971
     assert event.duration_ms == pytest.approx(2006, abs=ABSOLUTE_ERROR_MS)
-    assert event.chunks == ["one, two three,"]
+    assert event.chunks == ["One, two three,"]
 
 
 @pytest.mark.asyncio

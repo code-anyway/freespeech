@@ -12,5 +12,6 @@ filterwarnings = [
     'ignore:unclosed transport <_SelectorSocketTransport:ResourceWarning',
     'ignore:unclosed <socket.socket:ResourceWarning',
     'ignore:unclosed <ssl.SSLSocket',
+    "ignore:'cgi' is deprecated and slated for removal in Python 3.13:DeprecationWarning",
 ]
 asyncio_mode = "strict"
