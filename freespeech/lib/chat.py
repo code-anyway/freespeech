@@ -219,7 +219,7 @@ async def intent(
         entities["language"] = ["fr-FR"]
 
     if "srt" in text.lower().split(" "):
-        entities["method"] = ["SRT"]
+        entities["method"] = ["srt"]
 
     return command, entities
 
