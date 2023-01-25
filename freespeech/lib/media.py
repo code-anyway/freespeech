@@ -25,6 +25,8 @@ def ffprobe_to_audio_encoding(encoding: str) -> AudioEncoding:
             return "LINEAR16"
         case "aac":
             return "AAC"
+        case "mp3":
+            return "MP3"
         case invalid_encoding:
             raise ValueError(f"Invalid encoding: {invalid_encoding}")
 
