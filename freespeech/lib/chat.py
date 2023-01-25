@@ -218,6 +218,9 @@ async def intent(
         logger.warn(f"Overriding NLU response: Found 'french' in '{text}'. 'fr-FR'")
         entities["language"] = ["fr-FR"]
 
+    if "srt" in text.lower().split(" "):
+        entities["method"] = ["SRT"]
+
     return command, entities
 
 
