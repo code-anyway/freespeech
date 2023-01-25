@@ -94,7 +94,7 @@ async def test_translate(mock_client, monkeypatch) -> None:
 async def test_synthesize(mock_client, monkeypatch) -> None:
     monkeypatch.setattr(client, "create", mock_client)
     session = mock_client()
-    test_doc = "https://docs.google.com/document/d/1Oexfd27oToEWyxj9g7YCp3IYHqjYO8US0RtnoP32fXU/edit#"  # noqa: E501
+    test_doc = "https://docs.google.com/document/d/1KqFqS10uwISTCSi3PIZdJC0DbFK9-f6jpohhou4X6FQ/edit#"  # noqa: E501
 
     test_message = f"Dub {test_doc}"
 
