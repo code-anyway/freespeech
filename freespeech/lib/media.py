@@ -294,7 +294,7 @@ def mix_spans(
 
     bundle = []
     for t, start, end in spans:
-        if end < start:
+        if end <= start:
             continue
 
         real_trim = trim_audio(original, start, end)
