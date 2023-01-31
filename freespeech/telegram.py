@@ -93,19 +93,30 @@ def to_language(lang: str) -> Language | None:
     lang = lang.strip().lower()
     if lang in ("ru", "russian", "русский", "ru-RU"):
         return "ru-RU"
-    elif lang in ("ua", "ukrainian", "українська", "украинский" "uk-UA"):
+    elif lang in ("ua", "ukrainian", "українська", "украинский" "uk-ua"):
         return "uk-UA"
-    elif lang in ("en", "english", "английский", "en-US"):
+    elif lang in ("en", "english", "английский", "en-us"):
         return "en-US"
-    elif lang in ("es", "spanish", "испанский", "español", "es-ES"):
+    elif lang in ("es", "spanish", "испанский", "español", "es-es"):
         return "es-ES"
-    elif lang in ("fr", "french", "французский", "français", "fr-FR"):
+    elif lang in ("fr", "french", "французский", "français", "fr-fr"):
         return "fr-FR"
-    elif lang in ("de", "german", "немецкий", "deutsch", "de-DE"):
+    elif lang in ("de", "german", "немецкий", "deutsch", "de-de"):
         return "de-DE"
-    elif lang in ("pt", "portuguese", "португальский", "português", "pt-PT"):
+    elif lang in ("pt", "portuguese", "португальский", "português", "pt-pt"):
         return "pt-PT"
-    elif lang in ("se", "sv", "swedish", "шведский", "svenska", "sv-SE"):
+    elif lang in (
+        "br",
+        "brasilian",
+        "бразильский",
+        "brasileira",
+        "brasileiro",
+        "pt-br",
+    ):  # noqa: E501
+        return "pt-BR"
+    elif lang in ("tr", "turkish", "tr-tr", "турецкий", "türkçe"):
+        return "tr-TR"
+    elif lang in ("se", "sv", "swedish", "шведский", "svenska", "sv-se"):
         return "sv-SE"
     else:
         return None
@@ -335,8 +346,8 @@ async def media_operation(
 
     if ctx.from_lang is None:
         return ctx, Reply(
-            "Please select or send the language.",
-            buttons=["EN", "UA", "ES", "FR", "DE", "PT"],
+            "Please select the language. Or send it as a message.",
+            buttons=["EN", "UA", "ES", "FR", "DE", "PT", "TR"],
         )
 
     if ctx.url and ctx.from_lang and ctx.method:
@@ -362,8 +373,8 @@ async def transcript_operation(
     if text == "translate":
         if ctx.to_lang is None:
             return ctx, Reply(
-                "Please select or send the language.",
-                buttons=["EN", "UA", "ES", "FR", "DE", "PT"],
+                "Please select the language. Or send it as a message.",
+                buttons=["EN", "UA", "ES", "FR", "DE", "PT", "TR"],
             )
 
     if (lang := to_language(text)) is not None:
