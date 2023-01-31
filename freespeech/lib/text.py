@@ -154,6 +154,9 @@ def sentences(s: str, lang: Language) -> Sequence[str]:
     Returns:
         Sequence of strings representing sentences.
     """
+    if lang == "tr-TR":
+        return split_sentences(s)
+
     nlp = _nlp(lang)
     doc = nlp(s)
     senter = nlp.get_pipe("senter")
@@ -174,6 +177,9 @@ def lemmas(s: str, lang: Language) -> Sequence[str]:
     Returns:
         Sequence of strings representing lemmas.
     """
+    if lang == "tr-TR":
+        return [lemma for lemma in s.split() if lemma]
+
     nlp = _nlp(lang)
     lemmatizer = nlp.get_pipe("lemmatizer")
     return [token.lemma_ for token in lemmatizer(nlp(s))]
