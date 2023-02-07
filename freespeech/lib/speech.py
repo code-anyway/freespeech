@@ -678,7 +678,6 @@ async def synthesize_text(
     lang: Language,
     output_dir: Path | str,
 ) -> Tuple[Path, Voice]:
-
     character = voice.character
     if character not in VOICES:
         raise ValueError(

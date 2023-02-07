@@ -152,7 +152,6 @@ def translate_deep_l(text: str, source: str, target: str) -> str:
 def translate_events(
     events: Sequence[Event], source: str, target: str
 ) -> Sequence[Event]:
-
     if deep_l_supported(source, target):
         logger.info(f"Translating chunk with DeepL, language pair {source} to {target}")
         translate_func = translate_deep_l
