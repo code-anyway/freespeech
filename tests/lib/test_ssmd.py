@@ -315,3 +315,17 @@ def test_render_comments():
             duration_ms=1000,
         ),
     ]
+
+
+def test_render_block_newlines():
+    events = [
+        Event(
+            time_ms=0,
+            chunks=["Hello\nWorld."],
+            duration_ms=1000,
+            group=0,
+            voice=Voice(character="Ada", pitch=0.0, speech_rate=1.0),
+            comment=None,
+        )
+    ]
+    assert ssmd.render_block(events) == "00:00:00.00#1.00 (Ada) Hello World."

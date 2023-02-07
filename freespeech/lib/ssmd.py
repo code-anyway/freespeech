@@ -4,7 +4,7 @@ from dataclasses import replace
 from functools import reduce
 from typing import Sequence
 
-from freespeech.lib import text, transcript
+from freespeech.lib import transcript
 from freespeech.types import Event, Voice, is_character
 
 TIMECODE_PATTERN = (
@@ -158,7 +158,7 @@ def render_block(events: Sequence[Event]) -> str:
             else ""
         )
         event_text = " ".join(event.chunks)
-        event_text = text.remove_symbols(event_text, "\n")
+        event_text = re.sub("\n+", " ", event_text)
         if event.duration_ms is not None:
             if next_event == event or (
                 next_event.time_ms - event.time_ms != event.duration_ms
