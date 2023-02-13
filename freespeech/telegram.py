@@ -8,7 +8,7 @@ import re
 import tempfile
 import uuid
 from dataclasses import dataclass, replace
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, Literal
 
 from telethon import Button, TelegramClient, events
 from telethon.tl.custom.message import Message
@@ -60,6 +60,9 @@ logger = logging.getLogger(__name__)
 URL_SOLUTION_TEXT = "Please send me a link to a YouTube video or Google Docs transcript or upload a video/audio here directly."  # noqa: E501
 
 
+ParagraphSize = Literal["Small", "Medium", "Large", "Auto"]
+
+
 @dataclass(frozen=True)
 class Context:
     state: Callable
@@ -68,6 +71,7 @@ class Context:
     to_lang: Language | None = None
     method: SpeechToTextBackend | None = None
     url: str | None = None
+    size: ParagraphSize | None = None
 
 
 @dataclass(frozen=True)
@@ -237,16 +241,35 @@ async def _translate(url: str, lang: Language):
     return f"Here you are: {transcript_url}. Paste this link into this chat to dub."
 
 
-async def _transcribe(url: str, lang: Language, backend: SpeechToTextBackend) -> str:
+async def _transcribe(
+    url: str,
+    lang: Language,
+    backend: SpeechToTextBackend,
+    size: ParagraphSize,
+) -> str:
     t = await transcribe.transcribe(url, lang=lang, backend=backend)
     # NOTE: Bill seems to be the most popular. Doing this here because changing the
     # default in the library would break existing code.
+    events = [
+        replace(event, voice=replace(event.voice, character="Bill"))
+        for event in t.events
+    ]
+
+    match (size):
+        case "Small":
+            window_size_ms = 0
+        case "Medium":
+            window_size_ms = 30_000
+        case "Large":
+            window_size_ms = 60_000
+        case "Auto":
+            window_size_ms = 0
+        case x:
+            assert_never(x)
+
     t = replace(
         t,
-        events=[
-            replace(event, voice=replace(event.voice, character="Bill"))
-            for event in t.events
-        ],
+        events=transcript.compress(events, window_size_ms=window_size_ms),
     )
     transcript_url = await transcript.save(
         transcript=t,
@@ -339,6 +362,9 @@ async def media_operation(
     if (lang := to_language(text)) is not None:
         ctx = replace(ctx, from_lang=lang)
 
+    if text in ("Small", "Medium", "Large", "Auto"):
+        ctx = replace(ctx, size=text)
+
     if ctx.method is None:
         return ctx, Reply(
             "Please select a method.", buttons=["Subtitles", "Speech Recognition"]
@@ -350,9 +376,15 @@ async def media_operation(
             buttons=["EN", "UA", "ES", "FR", "DE", "PT", "TR"],
         )
 
-    if ctx.url and ctx.from_lang and ctx.method:
+    if ctx.size is None:
+        return ctx, Reply(
+            "What size do you want timed paragraphs to be?",
+            buttons=["Small", "Medium", "Large", "Auto"],
+        )
+
+    if ctx.url and ctx.from_lang and ctx.method and ctx.size:
         duration = await schedule(
-            ctx, _transcribe(ctx.url, ctx.from_lang, ctx.method), "Transcribe"
+            ctx, _transcribe(ctx.url, ctx.from_lang, ctx.method, ctx.size), "Transcribe"
         )
         return Context(state=start), Reply(
             f"Sure! Give me {duration} to transcribe it in {ctx.from_lang} using {ctx.method}.",  # noqa: E501

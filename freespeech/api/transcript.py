@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from freespeech.lib import gdocs, notion
 from freespeech.lib.transcript import srt_to_events
 from freespeech.types import (
+    Event,
     Language,
     Source,
     Transcript,
@@ -63,3 +64,38 @@ async def save(
             return gdocs.create(transcript, format=format)
         case x:
             assert_never(x)
+
+
+def compress(events: list[Event], window_size_ms: int) -> list[Event]:
+    """Compresses a list of events by merging events that are within
+    `window_size_ms` of each other.
+
+    Args:
+        events (list[Event]): List of events to compress.
+        window_size_ms (int): Window size in milliseconds.
+
+    Returns:
+        list[Event]: Compressed list of events.
+    """
+
+    if not events:
+        return []
+
+    compressed = [events[0]]
+    for event in events[1:]:
+        if not event.duration_ms:
+            raise ValueError("Event duration must be set.")
+
+        last = compressed.pop()
+        if event.time_ms - last.time_ms < window_size_ms and event.voice == last.voice:
+            compressed.append(
+                Event(
+                    time_ms=last.time_ms,
+                    duration_ms=event.time_ms + event.duration_ms - last.time_ms,
+                    chunks=[f"{' '.join(last.chunks)} {' '.join(event.chunks)}"],
+                    voice=last.voice,
+                )
+            )
+        else:
+            compressed += [last, event]
+    return compressed
