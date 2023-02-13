@@ -40,9 +40,12 @@ class Message(object):
         self.replies.append((message, buttons, file))
         return self
 
-    async def read(self):
+    async def read(self, timeout_sec=5):
         while not self.replies:
             await asyncio.sleep(0.1)
+            timeout_sec -= 0.1
+            if timeout_sec <= 0:
+                raise TimeoutError("No reply received")
         return self.replies.pop()
 
 
@@ -84,6 +87,12 @@ async def test_telegram():
     assert file is None
 
     await telegram.dispatch(0, "EN")
+
+    text, buttons, file = await message.read()
+    assert text == "What size do you want timed paragraphs to be?"
+    assert [button.text for button in buttons] == ["Small", "Medium", "Large", "Auto"]
+    await telegram.dispatch(0, "Small")
+
     text, buttons, file = await message.read()
     assert (
         text == "Sure! Give me 35 seconds to transcribe it in en-US using Subtitles."
@@ -91,7 +100,7 @@ async def test_telegram():
     assert buttons is None
     assert file is None
 
-    text, buttons, file = await message.read()
+    text, buttons, file = await message.read(timeout_sec=40)
     assert text.startswith("Here you are: https://docs.google.com/document/d/")
     assert buttons is None
     assert file is None
@@ -136,7 +145,7 @@ async def test_telegram():
     assert buttons is None
     assert file is None
 
-    text, buttons, file = await message.read()
+    text, buttons, file = await message.read(timeout_sec=20)
     assert text.startswith("Here you are: https://docs.google.com/document/d/")
     assert buttons is None
     assert file is None
@@ -149,7 +158,7 @@ async def test_telegram():
     assert buttons is None
     assert file is None
 
-    text, buttons, file = await message.read()
+    text, buttons, file = await message.read(timeout_sec=60)
     assert text.startswith("Here you are: https://")
     assert buttons is None
     assert file is None
@@ -183,11 +192,16 @@ async def test_telegram_direct_upload_audio():
 
     await telegram.dispatch(0, "EN")
     text, buttons, file = await message.read()
+    assert text == "What size do you want timed paragraphs to be?"
+    assert [button.text for button in buttons] == ["Small", "Medium", "Large", "Auto"]
+    await telegram.dispatch(0, "Small")
+
+    text, buttons, file = await message.read()
     assert text == "Sure! Give me some time to transcribe it in en-US using Machine D."
     assert buttons is None
     assert file is None
 
-    text, buttons, file = await message.read()
+    text, buttons, file = await message.read(timeout_sec=60)
     assert text.startswith("Here you are: https://docs.google.com/document/d/")
     assert buttons is None
     assert file is None
@@ -221,13 +235,18 @@ async def test_telegram_direct_upload_video():
 
     await telegram.dispatch(0, "EN")
     text, buttons, file = await message.read()
+    assert text == "What size do you want timed paragraphs to be?"
+    assert [button.text for button in buttons] == ["Small", "Medium", "Large", "Auto"]
+    await telegram.dispatch(0, "Small")
+
+    text, buttons, file = await message.read()
     assert (
         text == "Sure! Give me some time to transcribe it in en-US using Machine D."
     )  # noqa E501
     assert buttons is None
     assert file is None
 
-    text, buttons, file = await message.read()
+    text, buttons, file = await message.read(timeout_sec=60)
     assert text.startswith("Here you are: https://docs.google.com/document/d/")
     assert buttons is None
     assert file is None
@@ -240,7 +259,7 @@ async def test_telegram_direct_upload_video():
     assert buttons is None
     assert file is None
 
-    text, buttons, file = await message.read()
+    text, buttons, file = await message.read(timeout_sec=60)
     assert text.startswith("Here you are: https://")
     assert buttons is None
     assert file is None
