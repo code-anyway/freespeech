@@ -162,8 +162,16 @@ async def get_interval(
         outline = [event.duration_ms]
 
     with TemporaryDirectory() as tmp_dir:
-        clips = [
-            audio.strip(
+        clips: list[str] = []
+        for chunk in outline:
+            # Skip pauses.
+            if isinstance(chunk, int):
+                continue
+
+            if not text.has_text(chunk):
+                continue
+
+            clip = audio.strip(
                 (
                     await speech.synthesize_text(
                         text=chunk,
@@ -174,12 +182,12 @@ async def get_interval(
                     )
                 )[0]
             )
-            if isinstance(chunk, str)
-            else chunk
-            for chunk in outline
-        ]
 
-        speech_ms = sum(audio.duration(clip) for clip in clips if isinstance(clip, str))
+            # Skip empty clips.
+            if audio.duration(clip) > 0:
+                clips.append(clip)
+
+        speech_ms = sum(audio.duration(clip) for clip in clips)
 
         if event.duration_ms:
             silence_ms = event.duration_ms - speech_ms
@@ -283,6 +291,9 @@ async def synthesize_intervals(
     for interval in intervals:
         for item in interval.outline:
             if isinstance(item, str):
+                if not text.has_text(item):
+                    continue
+
                 clips += [
                     audio.strip(
                         str(
