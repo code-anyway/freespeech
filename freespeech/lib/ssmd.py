@@ -31,10 +31,12 @@ def parse_block(s: str, group: int) -> list[Event]:
 
     for matches in [
         timecode_parser.findall(line)
-        for line in s.split("\n")
+        # Not that not only \n is a new line character in SSMD
+        # Things like \r, \x0b and \x0c are also new line characters
+        for line in s.splitlines()
         if not line.startswith("[")
     ]:
-        assert len(matches) == 1, "Invalid SSMD format"
+        assert len(matches) == 1, f"Invalid SSMD format: {matches}"
         match = matches[0]
         event_text = match[-1]
         character_str = match[-5]

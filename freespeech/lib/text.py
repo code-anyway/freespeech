@@ -185,3 +185,15 @@ def lemmas(s: str, lang: Language) -> Sequence[str]:
     nlp = _nlp(lang)
     lemmatizer = nlp.get_pipe("lemmatizer")
     return [token.lemma_ for token in lemmatizer(nlp(s))]
+
+
+def has_text(
+    s: str,
+) -> bool:
+    """Check if string contains text.
+    Args:
+        s: input string.
+    Returns:
+        True if string contains text, False otherwise.
+    """
+    return bool(re.search(r"\w", s))
