@@ -46,9 +46,6 @@ def merge(a: Interval, b: Interval) -> Interval:
             + _silence(b.outline) * b.silence_scale
         ) / silence_ms
 
-    if a.character != b.character:
-        raise ValueError("character in a and b should be the same")
-
     return Interval(
         speech_ms=speech_ms,
         rate=rate,
@@ -209,6 +206,8 @@ async def get_interval(
 
 def average_rate(intervals: list[Interval]) -> float:
     total_speech_ms = sum(interval.speech_ms for interval in intervals)
+    if total_speech_ms == 0:
+        return 1.0
     return (
         sum(interval.rate * interval.speech_ms for interval in intervals)
         / total_speech_ms
