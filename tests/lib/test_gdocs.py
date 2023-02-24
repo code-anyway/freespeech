@@ -57,3 +57,8 @@ def test_long_transcript():
 
     assert transcript.source.url == "https://www.youtube.com/watch?v=U93QRMcQU5Y"
     assert len(transcript.events) == 14
+
+    # special characters
+    url = "https://docs.google.com/document/d/1GHW_-c3A-YQfUJxtt8GVKGTXR-Mt-rZASMQW0zjbUWg/edit?usp=sharing"  # noqa: E501
+    transcript = gdocs.load(url=url)
+    assert len(transcript.events) == 26
