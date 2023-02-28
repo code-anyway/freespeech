@@ -155,7 +155,7 @@ async def estimate_operation_duration(url: str, operation: Operation) -> int | N
 
     match operation:
         case "Transcribe":
-            return round(metric / 2581)
+            return round(metric / 1000 + metric / 2581)
         case "Translate":
             return round(metric / 102.679)
         case "Synthesize":
