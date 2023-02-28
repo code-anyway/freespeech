@@ -95,7 +95,7 @@ async def test_telegram():
 
     text, buttons, file = await message.read()
     assert (
-        text == "Sure! Give me 35 seconds to transcribe it in en-US using Subtitles."
+        text == "Sure! Give me 2 minutes to transcribe it in en-US using Subtitles."
     )  # noqa E501
     assert buttons is None
     assert file is None
