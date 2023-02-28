@@ -17,6 +17,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
+from freespeech.lib import concurrency
 from freespeech.types import Event, Language, Meta
 
 logger = logging.getLogger(__name__)
@@ -208,6 +209,14 @@ def download(
         )
 
     return Path(audio_file), Path(video_file)
+
+
+async def download_async(
+    url: str,
+    output_dir: str | PathLike,
+    max_retries: int = 0,
+) -> tuple[Path, Path | None]:
+    return await concurrency.run_in_thread_pool(download, url, output_dir, max_retries)
 
 
 def get_meta(url: str) -> Meta:

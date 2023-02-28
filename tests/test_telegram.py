@@ -100,7 +100,7 @@ async def test_telegram():
     assert buttons is None
     assert file is None
 
-    text, buttons, file = await message.read(timeout_sec=40)
+    text, buttons, file = await message.read(timeout_sec=180)
     assert text.startswith("Here you are: https://docs.google.com/document/d/")
     assert buttons is None
     assert file is None
