@@ -24,6 +24,7 @@ RUN mkdir /root/freespeech && \
 COPY freespeech /root/freespeech/freespeech/
 COPY setup.py /root/freespeech/
 COPY README.md /root/freespeech/
+COPY run.sh /root/freespeech/
 RUN cd /root/freespeech && pip install .
 
 VOLUME ["/root/.config", "/root/id/"]
