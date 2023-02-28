@@ -372,7 +372,7 @@ async def media_operation(
 
     if ctx.from_lang is None:
         return ctx, Reply(
-            "Please select the language. Or send it as a message.",
+            "Please select *source* language. Or send it as a message.",
             buttons=["EN", "UA", "ES", "FR", "DE", "PT", "TR"],
         )
 
@@ -405,7 +405,7 @@ async def transcript_operation(
     if text == "translate":
         if ctx.to_lang is None:
             return ctx, Reply(
-                "Please select the language. Or send it as a message.",
+                "Please select *target* language. Or send it as a message.",
                 buttons=["EN", "UA", "ES", "FR", "DE", "PT", "TR"],
             )
 
