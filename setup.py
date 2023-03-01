@@ -49,7 +49,7 @@ setup(
         # TODO (astaff): update/remove after https://github.com/pytube/pytube/pull/1282
         # is merged/released,
         "librosa",
-        "yt-dlp",
+        "pytube @ git+https://github.com/brilliant-ember/pytube.git@a3c96b92a517d7e2978a45112cbf11993271c010#egg=pytube-12.0.1",  # noqa E501
         "google-cloud-texttospeech",
         "google-cloud-translate",
         "google-cloud-storage",
@@ -75,6 +75,7 @@ setup(
         "telethon",
         "types-requests",
         "spacy",
+        "yt-dlp",
     ],
     extras_require={
         "docs": [
