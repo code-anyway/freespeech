@@ -35,7 +35,7 @@ async def ingest(source: str) -> tuple[str | None, str | None]:
         return obj.public_url(source), obj.public_url(source)
 
     with tempfile.TemporaryDirectory() as tempdir:
-        audio, video = await youtube.download_async(
+        audio, video = await youtube.download(
             source, tempdir, max_retries=MAX_RETRIES
         )
         audio_url = (

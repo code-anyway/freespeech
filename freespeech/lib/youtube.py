@@ -1,8 +1,10 @@
+import asyncio
 import html
 import http.client
 import json
 import logging
 import random
+import re
 import time
 import xml.etree.ElementTree as ET
 from os import PathLike
@@ -17,7 +19,6 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
-from freespeech.lib import concurrency
 from freespeech.types import Event, Language, Meta
 
 logger = logging.getLogger(__name__)
@@ -154,69 +155,41 @@ def upload(video_file, meta_file, credentials_file):
     )
 
 
-def download(
+async def download(
     url: str,
     output_dir: str | PathLike,
     max_retries: int = 0,
 ) -> tuple[Path, Path | None]:
-    """Downloads YouTube video from URL into output_dir.
+    # Download and merge the best video-only format and the best audio-only format,
+    # or download the best combined format if video-only format is not available.
+    # more here: https://github.com/yt-dlp/yt-dlp#format-selection-examples
+    pipeline = "bv+ba/b"
+    output_prefix = str(Path(output_dir) / f"{uuid4()}")
+    command = f"""yt-dlp \
+        -f \"{pipeline}\" \
+        -o \"{output_prefix}.%(ext)s\" \
+        --external-downloader aria2c \
+        --external-downloader-args '-c -j 3 -x 3 -s 3 -k 1M' \
+        {url}"""
 
-    Args:
-        url: Video URL (i.e. "https://youtu.be/bhRaND9jiOA")
-        output_dir: directory where video and audio files will be created.
-
-    Returns:
-        Audio and video files.
-    """
-    yt = pytube.YouTube(url)
-    filtered = yt.streams.filter(only_audio=True)
-    *_, audio = filtered.order_by("abr")
-    audio_file = audio.download(
-        output_path=output_dir,
-        filename=f"{uuid4()}.{audio.subtype}",
-        max_retries=max_retries,
+    proc = await asyncio.create_subprocess_shell(
+        command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
+    stdout, stderr = await proc.communicate()
 
-    video_streams = []
-    for resolution in ("1080p", "720p", "360p"):
-        video_streams = list(
-            yt.streams.filter(resolution=resolution, mime_type="video/mp4")
-        )
-        if video_streams:
-            break
-        else:
-            logger.warning(f"Resolution {resolution} is not available for {url}")
+    if proc.returncode != 0:
+        raise RuntimeError(f"yt-dlp failed with code {proc.returncode}: {stderr!r}")
 
-    video_file = None
-    for stream in video_streams:
-        try:
-            video_file = stream.download(
-                output_path=output_dir,
-                filename=f"{uuid4()}.{stream.subtype}",
-                max_retries=max_retries,
-            )
-            break
-        except http.client.IncompleteRead as e:
-            # Some streams won't download.
-            logger.warning(f"Incomplete read for stream {stream} of {url}: {str(e)}")
-        except KeyError as e:
-            # Some have content-length missing.
-            logger.warning(f"Missing key for {stream} of {url}: {str(e)}")
+    logger.info(f"yt-dlp output: {stdout!r}")
 
-    if video_file is None:
-        raise RuntimeError(
-            f"Unable to download video stream for {url}. Candidates: {video_streams}"
-        )
+    # extract path from the result
+    res = re.search(r"Merging formats into \"(.*)\"", stdout.decode(), flags=re.M)
+    if res is None:
+        raise RuntimeError(f"Could find output file in stdout: {stdout!r}")
 
-    return Path(audio_file), Path(video_file)
+    output = Path(res.group(1))
 
-
-async def download_async(
-    url: str,
-    output_dir: str | PathLike,
-    max_retries: int = 0,
-) -> tuple[Path, Path | None]:
-    return await concurrency.run_in_thread_pool(download, url, output_dir, max_retries)
+    return output, output
 
 
 def get_meta(url: str) -> Meta:
