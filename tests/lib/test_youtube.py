@@ -53,7 +53,7 @@ async def test_download_local(tmp_path):
         tmp_path,
     )
 
-    meta = youtube.get_meta(VIDEO_URL)
+    meta = await youtube.get_meta(VIDEO_URL)
 
     assert meta.title == "Announcer's test"
     assert meta.description == VIDEO_DESCRIPTION

@@ -172,6 +172,19 @@ async def download(
         --external-downloader-args '-c -j 3 -x 3 -s 3 -k 1M' \
         {url}"""
 
+    stdout = await run(command)
+
+    # extract path from the result
+    res = re.search(r"Merging formats into \"(.*)\"", stdout, flags=re.M)
+    if res is None:
+        raise RuntimeError(f"Could find output file in stdout: {stdout}")
+
+    output = Path(res.group(1))
+
+    return output, output
+
+
+async def run(command: str) -> str:
     proc = await asyncio.create_subprocess_shell(
         command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
@@ -182,24 +195,19 @@ async def download(
 
     logger.info(f"yt-dlp output: {stdout!r}")
 
-    # extract path from the result
-    res = re.search(r"Merging formats into \"(.*)\"", stdout.decode(), flags=re.M)
-    if res is None:
-        raise RuntimeError(f"Could find output file in stdout: {stdout!r}")
-
-    output = Path(res.group(1))
-
-    return output, output
+    return stdout.decode()
 
 
-def get_meta(url: str) -> Meta:
-    yt = pytube.YouTube(url)
-    duration_ms = yt.length * 1000
+async def get_meta(url: str) -> Meta:
+    command = f"""yt-dlp --dump-json {url}"""
+    stdout = await run(command)
+    meta = json.loads(stdout)
+
     return Meta(
-        title=yt.title,
-        description=yt.description,
-        tags=yt.keywords,
-        duration_ms=duration_ms,
+        title=meta["title"],
+        description=meta["description"],
+        tags=meta["tags"],
+        duration_ms=int(meta["duration"]) * 1000,
     )
 
 

@@ -105,7 +105,7 @@ async def transcribe(
 
     title = None
     if platform(source) == "YouTube":
-        meta = youtube.get_meta(source)
+        meta = await youtube.get_meta(source)
         title = meta.title
 
     return Transcript(
