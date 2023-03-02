@@ -74,7 +74,7 @@ async def test_telegram():
 
     await telegram.dispatch(0, "Subtitles")
     text, buttons, file = await message.read()
-    assert text == "Please select the language. Or send it as a message."
+    assert text == "Please select *source* language. Or send it as a message."
     assert [button.text for button in buttons] == [
         "EN",
         "UA",
@@ -127,7 +127,7 @@ async def test_telegram():
     message = await initiate(url)
     await telegram.dispatch(0, "Translate")
     text, buttons, file = await message.read()
-    assert text == "Please select the language. Or send it as a message."
+    assert text == "Please select *target* language. Or send it as a message."
     assert [button.text for button in buttons] == [
         "EN",
         "UA",
@@ -178,7 +178,7 @@ async def test_telegram_direct_upload_audio():
 
     await telegram.dispatch(0, "Yes")
     text, buttons, file = await message.read()
-    assert text == "Please select the language. Or send it as a message."
+    assert text == "Please select *source* language. Or send it as a message."
     assert [button.text for button in buttons] == [
         "EN",
         "UA",
@@ -221,7 +221,7 @@ async def test_telegram_direct_upload_video():
 
     await telegram.dispatch(0, "Yes")
     text, buttons, file = await message.read()
-    assert text == "Please select the language. Or send it as a message."
+    assert text == "Please select *source* language. Or send it as a message."
     assert [button.text for button in buttons] == [
         "EN",
         "UA",
