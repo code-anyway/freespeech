@@ -193,7 +193,7 @@ async def run(command: str) -> str:
     if proc.returncode != 0:
         raise RuntimeError(f"yt-dlp failed with code {proc.returncode}: {stderr!r}")
 
-    logger.info(f"yt-dlp output: {stdout!r}")
+    logger.debug(f"yt-dlp output: {stdout!r}")
 
     return stdout.decode()
 
