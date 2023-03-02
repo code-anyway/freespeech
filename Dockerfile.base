@@ -2,7 +2,8 @@ FROM python:3.10-buster
 
 # Install service-specific packages
 RUN apt-get update -qqy && apt-get install -qqy \
-    ffmpeg
+    ffmpeg \
+    aria2
 
 COPY cert/lets-encrypt-r3.pem /usr/local/share/ca-certificates/lets-encrypt-r3.crt
 RUN update-ca-certificates
