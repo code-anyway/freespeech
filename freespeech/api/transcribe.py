@@ -35,9 +35,7 @@ async def ingest(source: str) -> tuple[str | None, str | None]:
         return obj.public_url(source), obj.public_url(source)
 
     with tempfile.TemporaryDirectory() as tempdir:
-        audio, video = await youtube.download_async(
-            source, tempdir, max_retries=MAX_RETRIES
-        )
+        audio, video = await youtube.download(source, tempdir, max_retries=MAX_RETRIES)
         audio_url = (
             await obj.put(audio, f"{env.get_storage_url()}/media/{Path(audio).name}")
             if audio
@@ -107,7 +105,7 @@ async def transcribe(
 
     title = None
     if platform(source) == "YouTube":
-        meta = youtube.get_meta(source)
+        meta = await youtube.get_meta(source)
         title = meta.title
 
     return Transcript(

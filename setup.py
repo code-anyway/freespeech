@@ -75,6 +75,7 @@ setup(
         "telethon",
         "types-requests",
         "spacy",
+        "yt-dlp",
     ],
     extras_require={
         "docs": [

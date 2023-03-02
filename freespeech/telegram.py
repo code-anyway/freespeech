@@ -140,7 +140,7 @@ async def estimate_operation_duration(url: str, operation: Operation) -> int | N
 
     match _platform:
         case "YouTube":
-            metric = youtube.get_meta(url).duration_ms
+            metric = (await youtube.get_meta(url)).duration_ms
         case "Google" | "Notion":
             metric = len(
                 " ".join(
