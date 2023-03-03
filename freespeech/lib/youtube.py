@@ -167,6 +167,7 @@ async def download(
     output_prefix = str(Path(output_dir) / f"{uuid4()}")
     command = f"""yt-dlp \
         -f \"{pipeline}\" \
+        --merge-output-format webm \
         -o \"{output_prefix}.%(ext)s\" \
         --external-downloader aria2c \
         --external-downloader-args '-c -j 3 -x 3 -s 3 -k 1M' \
