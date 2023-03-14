@@ -163,7 +163,17 @@ async def download(
     # Download and merge the best video-only format and the best audio-only format,
     # or download the best combined format if video-only format is not available.
     # more here: https://github.com/yt-dlp/yt-dlp#format-selection-examples
-    pipeline = "bv[ext=webm]+ba/b"
+
+    audio = await _download_media(url, output_dir, pipeline="ba")
+    video = await _download_media(url, output_dir, pipeline="bv[ext=mp4]")
+
+    return audio, video
+
+
+async def _download_media(url: str, output_dir: str | PathLike, pipeline: str) -> Path:
+    """
+    Download the media using the given pipeline.
+    """
     output_prefix = str(Path(output_dir) / f"{uuid4()}")
     command = f"""yt-dlp \
         -f \"{pipeline}\" \
@@ -175,13 +185,12 @@ async def download(
     stdout = await run(command)
 
     # extract path from the result
-    res = re.search(r"Merging formats into \"(.*)\"", stdout, flags=re.M)
+    res = re.search(r"Destination: (.*)", stdout, flags=re.M)
     if res is None:
         raise RuntimeError(f"Could find output file in stdout: {stdout}")
 
     output = Path(res.group(1))
-
-    return output, output
+    return output
 
 
 async def run(command: str) -> str:

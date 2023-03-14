@@ -15,4 +15,4 @@ async def test_ingest_youtube_short() -> None:
 
     assert video
     assert video.startswith("gs://")
-    assert video.endswith(".webm")
+    assert video.endswith(".mp4")

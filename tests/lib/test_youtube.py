@@ -61,7 +61,7 @@ async def test_download_local(tmp_path):
 
     assert Path(audio_file).suffix == ".webm"
     assert video_file is not None, "video file should be downloaded"
-    assert Path(video_file).suffix == ".webm"
+    assert Path(video_file).suffix == ".mp4"
 
     captions = youtube.get_captions(VIDEO_URL, "en-US")
 
