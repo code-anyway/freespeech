@@ -35,7 +35,7 @@ async def test_load_subtitles() -> None:
 
     assert result.video
     assert result.video.startswith("https://")
-    assert result.video.endswith(".webm")
+    assert result.video.endswith(".mp4")
 
 
 @pytest.mark.asyncio
