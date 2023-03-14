@@ -163,7 +163,7 @@ async def download(
     # Download and merge the best video-only format and the best audio-only format,
     # or download the best combined format if video-only format is not available.
     # more here: https://github.com/yt-dlp/yt-dlp#format-selection-examples
-    pipeline = "bv+ba/b"
+    pipeline = "bv[ext=webm]+ba/b"
     output_prefix = str(Path(output_dir) / f"{uuid4()}")
     command = f"""yt-dlp \
         -f \"{pipeline}\" \
