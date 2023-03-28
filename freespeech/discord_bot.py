@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import asyncio
+import io
 import logging
 import logging.config
 import re
@@ -22,6 +23,34 @@ from freespeech.types import (
     platform,
 )
 
+logging_handler = ["google" if env.is_in_cloud_run() else "console"]
+
+LOGGING_CONFIG = {
+    "version": 1,
+    "formatters": {
+        "brief": {"format": "%(message)s"},
+        "default": {
+            "format": "%(asctime)s %(levelname)-8s %(name)-15s %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "default",
+            "stream": "ext://sys.stdout",
+        },
+        "google": {"class": "google.cloud.logging.handlers.StructuredLogHandler"},
+    },
+    "loggers": {
+        "discord": {"level": logging.INFO, "handlers": logging_handler},
+        "freespeech": {"level": logging.INFO, "handlers": logging_handler},
+        "aiohttp": {"level": logging.INFO, "handlers": logging_handler},
+        "__main__": {"level": logging.INFO, "handlers": logging_handler},
+    },
+}
+
+logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
 
 
@@ -55,6 +84,7 @@ class Button(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         assert self.label is not None, "Button label is None"
+        await interaction.response.defer()
         await dispatch(interaction.user.id, self.label)
 
 
@@ -166,13 +196,26 @@ def seconds_to_human_readable(seconds: int | None) -> str:
 
 async def send_message(message: Message | None, reply: Reply):
     assert message is not None
-    _buttons = [Button(label=button) for button in reply.buttons or []]
+    buttons = [Button(label=button) for button in reply.buttons or []]
+    if buttons:
+        view = discord.ui.View()
+        for button in buttons:
+            view.add_item(button)
+    else:
+        view = None
+
+    # create in-memory file out of reply.data
+    if reply.data and ((extension := reply.message.lower()) in ("srt", "txt")):
+        file = discord.File(
+            fp=io.BytesIO(reply.data), filename=f"subtitles.{extension}"
+        )
+    else:
+        file = None
+
     await message.reply(
-        message=reply.message,
-        buttons=_buttons or None,
-        file=reply.data,
-        force_document=False,
-        link_preview=False,
+        content=reply.message,
+        view=view,
+        file=file,
     )
 
 
@@ -382,7 +425,7 @@ async def transcript_operation(
                 if (text := " ".join(chunk for chunk in event.chunks))
             )
         ).encode("utf-8")
-        return Context(state=start), Reply("Plain text", data=data)
+        return Context(state=start), Reply("txt", data=data)
 
     if ctx.url and ctx.to_lang:
         duration = await schedule(ctx, _translate(ctx.url, ctx.to_lang), "Translate")
@@ -425,6 +468,17 @@ if __name__ == "__main__":
         if message.author == client.user:
             return
 
+        if not client.user:
+            return
+
+        mention_ids = [user.id for user in message.mentions]
+        print(mention_ids)
+        # ignore messages that don't mention the bot or are not DMs
+        if (client.user.id not in mention_ids) and not isinstance(
+            message.channel, discord.DMChannel
+        ):
+            return
+
         if message.content == "/start":
             await message.reply(
                 f"Welcome to Freespeech! I am here to help you with video transcription, translation and dubbing.\n{URL_SOLUTION_TEXT}"  # noqa: E501
@@ -438,4 +492,4 @@ if __name__ == "__main__":
 
         await dispatch(message.author.id, message)
 
-    client.run(bot_token)
+    client.run(bot_token, log_handler=None)
