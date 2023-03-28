@@ -44,7 +44,6 @@ setup(
         "click",
         "deepgram-sdk",
         "discord.py",
-        "discord-components",
         "fastapi[all]",
         "ffmpeg-python",
         "librosa",
