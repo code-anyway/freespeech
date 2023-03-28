@@ -43,6 +43,8 @@ setup(
         "azure-storage-blob",
         "click",
         "deepgram-sdk",
+        "discord.py",
+        "discord-components",
         "fastapi[all]",
         "ffmpeg-python",
         "librosa",
@@ -67,10 +69,10 @@ setup(
         "soundfile",
         "spacy",
         *[
-            f"{lang}_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/{lang}_core_web_sm-3.4.0/{lang}_core_web_sm-3.4.0.tar.gz"
+            f"{lang}_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/{lang}_core_web_sm-3.4.0/{lang}_core_web_sm-3.4.0.tar.gz"  # noqa E501
             for lang in ("en", )],
         *[
-            f"{lang}_core_news_sm @ https://github.com/explosion/spacy-models/releases/download/{lang}_core_news_sm-3.4.0/{lang}_core_news_sm-3.4.0.tar.gz"
+            f"{lang}_core_news_sm @ https://github.com/explosion/spacy-models/releases/download/{lang}_core_news_sm-3.4.0/{lang}_core_news_sm-3.4.0.tar.gz"  # noqa E501
             for lang in ("es", "uk", "pt", "ru", "de", "fr", "sv")],
         "telethon",
         "types-requests",
