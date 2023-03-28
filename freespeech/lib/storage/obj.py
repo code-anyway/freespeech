@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 from azure.storage.blob import BlobServiceClient
 from google.api_core import exceptions as google_api_exceptions
 from google.cloud import storage  # type: ignore
+from google.cloud.storage.retry import DEFAULT_RETRY
 
 from freespeech import env
 from freespeech.lib import concurrency
@@ -125,9 +126,16 @@ async def get(src: url, dst_dir: str | PathLike) -> str:
 
 
 def _gs_copy_from_local(src: Path, dst: GoogleStorageObject):
+    # Customize retry with a deadline of 500 seconds (default=120 seconds).
+    retry = DEFAULT_RETRY.with_deadline(600.0)
+    # Customize retry with an initial wait time of 1.5 (default=1.0).
+    # Customize retry with a wait time multiplier per iteration of 1.2 (default=2.0).
+    # Customize retry with a maximum wait time of 45.0 (default=60.0).
+    retry = retry.with_delay(initial=1.5, multiplier=1.2, maximum=60.0)
+
     try:
         with google_storage_client() as storage:
-            bucket = storage.bucket(dst.bucket)
+            bucket = storage.get_bucket(dst.bucket, retry=retry)
             blob = bucket.blob(dst.obj)
             mime_type, encoding = mimetypes.guess_type(src)
             blob.content_type = mime_type
