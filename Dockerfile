@@ -28,6 +28,7 @@ COPY README.md /root/freespeech/
 RUN cd /root/freespeech && pip install .
 
 COPY run.sh /root/freespeech/
+COPY run_discord.sh /root/freespeech/
 
 VOLUME ["/root/.config", "/root/id/"]
 WORKDIR "/root/freespeech"
