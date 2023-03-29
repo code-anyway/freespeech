@@ -106,7 +106,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "fr-FR": ("Azure", "fr-FR-YvetteNeural"),
         "sv-SE": ("Azure", "sv-SE-SofieNeural"),
         "tr-TR": ("Azure", "tr-TR-EmelNeural"),
-        "it-IT": ("Azure", "it-IT-IsabellaNeural"),
+        "it-IT": ("Azure", "it-IT-FabiolaNeural"),
     },
     "Grace": {
         "en-US": ("Google", "en-US-Wavenet-C"),
@@ -121,7 +121,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "fr-FR": ("Azure", "fr-FR-JacquelineNeural"),
         "sv-SE": ("Azure", "sv-SE-SofieNeural"),
         "tr-TR": ("Azure", "tr-TR-EmelNeural"),
-        "it-IT": ("Azure", "it-IT-ElsaNeural"),
+        "it-IT": ("Azure", "it-IT-PalmiraNeural"),
     },
     "Alan": {
         "en-US": ("Google", "en-US-Wavenet-I"),
@@ -151,7 +151,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "fr-FR": ("Azure", "fr-FR-YvesNeural"),
         "sv-SE": ("Azure", "sv-SE-MattiasNeural"),
         "tr-TR": ("Azure", "tr-TR-AhmetNeural"),
-        "it-IT": ("Azure", "it-IT-LisandroNeural"),
+        "it-IT": ("Azure", "it-IT-RinaldoNeural"),
     },
     "Bill": {
         "en-US": ("Azure", "en-US-ChristopherNeural"),
@@ -166,7 +166,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "fr-FR": ("Azure", "fr-FR-ClaudeNeural"),
         "sv-SE": ("Azure", "sv-SE-MattiasNeural"),
         "tr-TR": ("Azure", "tr-TR-AhmetNeural"),
-        "it-IT": ("Azure", "it-IT-GianniNeural"),
+        "it-IT": ("Azure", "it-IT-LisandroNeural"),
     },
     "Melinda": {
         "ru-RU": ("Azure", "ru-RU-DariyaNeural"),
@@ -181,7 +181,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "fr-FR": ("Azure", "fr-FR-DeniseNeural"),
         "sv-SE": ("Azure", "sv-SE-HilleviNeural"),
         "tr-TR": ("Azure", "tr-TR-EmelNeural"),
-        "it-IT": ("Azure", "it-IT-PalmiraNeural"),
+        "it-IT": ("Azure", "it-IT-ElsaNeural"),
     },
     "Greta": {
         "ru-RU": ("Azure", "ru-RU-SvetlanaNeural"),
