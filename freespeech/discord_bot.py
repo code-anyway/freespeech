@@ -126,6 +126,8 @@ def to_language(lang: str) -> Language | None:
         return "tr-TR"
     elif lang in ("se", "sv", "swedish", "шведский", "svenska", "sv-se"):
         return "sv-SE"
+    elif lang in ("it", "italian", "итальянский", "italiano", "it-it"):
+        return "it-IT"
     else:
         return None
 
@@ -360,7 +362,7 @@ async def media_operation(
     if ctx.from_lang is None:
         return ctx, Reply(
             "Please select *source* language. Or send it as a message.",
-            buttons=["EN", "UA", "ES", "FR", "DE", "PT", "TR"],
+            buttons=["EN", "UA", "ES", "FR", "DE", "PT", "TR", "IT"],
         )
 
     if ctx.size is None:
@@ -393,7 +395,7 @@ async def transcript_operation(
         if ctx.to_lang is None:
             return ctx, Reply(
                 "Please select *target* language. Or send it as a message.",
-                buttons=["EN", "UA", "ES", "FR", "DE", "PT", "TR"],
+                buttons=["EN", "UA", "ES", "FR", "DE", "PT", "TR", "IT"],
             )
 
     if (lang := to_language(text)) is not None:
