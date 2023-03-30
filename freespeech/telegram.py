@@ -141,7 +141,7 @@ async def estimate_operation_duration(url: str, operation: Operation) -> int | N
     _platform = platform(url)
 
     match _platform:
-        case "YouTube":
+        case "YouTube" | "Other":
             metric = (await youtube.get_meta(url)).duration_ms
         case "Google" | "Notion":
             metric = len(
@@ -152,8 +152,8 @@ async def estimate_operation_duration(url: str, operation: Operation) -> int | N
             )
         case "GCS":
             raise NotImplementedError("GCS is not supported yet")
-        case _platform:
-            assert_never(_platform)
+        case never:
+            assert_never(never)
 
     match operation:
         case "Transcribe":
@@ -329,7 +329,7 @@ async def start(ctx: Context, message: Message | str) -> tuple[Context, Reply | 
     # assert isinstance(message, Message)
     ctx = replace(ctx, url=url, message=message)
     match _platform:
-        case "YouTube":
+        case "YouTube" | "Other":
             return replace(ctx, state=media_operation), Reply(
                 "Create transcript using Subtitles or Speech Recognition?",
                 buttons=["Subtitles", "Speech Recognition"],

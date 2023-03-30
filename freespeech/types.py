@@ -26,8 +26,8 @@ def is_transcript_platform(val: str) -> TypeGuard[TranscriptPlatform]:
     return val in TRANSCRIPT_PLATFORMS
 
 
-MediaPlatform = Literal["YouTube", "GCS"]
-MEDIA_PLATFORMS = ["YouTube", "GCS"]
+MediaPlatform = Literal["YouTube", "Other", "GCS"]
+MEDIA_PLATFORMS = ["YouTube", "Other", "GCS"]
 
 
 def is_media_platform(val: str) -> TypeGuard[MediaPlatform]:
@@ -51,9 +51,7 @@ def platform(url: str) -> TranscriptPlatform | MediaPlatform:
     ):
         return "YouTube"
     else:
-        raise ValueError(
-            f"Unsupported url: {url}. Supported platforms are: {', '.join(TRANSCRIPT_PLATFORMS + MEDIA_PLATFORMS)}"  # noqa: E501
-        )
+        return "Other"
 
 
 TranscriptFormat = Literal["SRT", "SSMD", "SSMD-NEXT"]
