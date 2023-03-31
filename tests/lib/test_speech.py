@@ -149,7 +149,7 @@ async def test_synthesize_google_transcribe_azure(tmp_path) -> None:
     )
 
     (first, second) = await speech.transcribe(
-        downmixed_local, lang="en-US", provider="Azure", model="default"
+        downmixed_local, lang="en-US", provider="Azure", model="default_granular"
     )
     assert first.chunks == ["Testing quite a long sentence."]
     assert second.chunks == ["Hello."]
