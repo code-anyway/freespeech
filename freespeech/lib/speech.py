@@ -217,6 +217,9 @@ SPEECH_RATE_MAXIMUM = 1.5
 # Number of retries when iteratively adjusting speaking rate.
 SYNTHESIS_RETRIES = 10
 
+# Number of retries when makeing a request to speech API.
+API_RETRIES = 3
+
 # Speech-to-text API call timeout.
 # Upper limit is 480 minutes
 # Details: https://cloud.google.com/speech-to-text/docs/async-recognize#speech_transcribe_async_gcs-python  # noqa: E501
@@ -678,7 +681,7 @@ def text_to_chunks(
     )
 
 
-async def synthesize_text(
+async def _synthesize_text(
     text: str,
     duration_ms: int | None,
     voice: Voice,
@@ -829,6 +832,25 @@ async def synthesize_text(
     return output_file, Voice(
         speech_rate=speech_rate, character=voice.character, pitch=voice.pitch
     )
+
+
+async def synthesize_text(
+    text: str,
+    duration_ms: int | None,
+    voice: Voice,
+    lang: Language,
+    output_dir: Path | str,
+) -> Tuple[Path, Voice]:
+    for retry in range(API_RETRIES):
+        try:
+            return await _synthesize_text(text, duration_ms, voice, lang, output_dir)
+        except (ConnectionAbortedError, aiohttp.ServerDisconnectedError):
+            sleep_time = 2**retry * 2.0
+            logger.warning(
+                f"Connection error, retrying in {sleep_time} seconds ({retry}/{API_RETRIES})"  # noqa: E501
+            )
+            await asyncio.sleep(sleep_time)
+    raise RuntimeError(f"Unable to connect to TTS API after {API_RETRIES} retries")
 
 
 async def synthesize_events(
