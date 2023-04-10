@@ -20,7 +20,7 @@ from google.cloud.speech_v1.types.cloud_speech import LongRunningRecognizeRespon
 from pydantic.dataclasses import dataclass
 
 from freespeech import env
-from freespeech.lib import concurrency, media
+from freespeech.lib import concurrency, elevenlabs, media
 from freespeech.lib.storage import obj
 from freespeech.lib.text import (
     capitalize_sentence,
@@ -92,7 +92,7 @@ MAX_CHUNK_LENGTH = 1000  # Google Speech API Limit
 # Let's give voices real names and map them to API-specific names
 # https://docs.microsoft.com/en-us/azure/cognitive-services/speech-service/language-support
 # https://cloud.google.com/text-to-speech/docs/voices
-VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
+VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
     "Ada": {
         "en-US": ("Google", "en-US-Wavenet-F"),
         "ru-RU": ("Google", "ru-RU-Wavenet-E"),
@@ -198,6 +198,21 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str]]] = {
         "tr-TR": ("Azure", "tr-TR-EmelNeural"),
         "it-IT": ("Azure", "it-IT-PierinaNeural"),
     },
+    "Volodymyr": {
+        "en-US": ("ElevenLabs", "Volodymyr"),
+        "ru-RU": None,
+        "pt-PT": None,
+        "pt-BR": None,
+        "de-DE": None,
+        "es-US": None,
+        "uk-UA": None,
+        "es-MX": None,
+        "es-ES": None,
+        "fr-FR": None,
+        "sv-SE": None,
+        "tr-TR": None,
+        "it-IT": None,
+    },
 }
 
 GOOGLE_CLOUD_ENCODINGS = {
@@ -292,6 +307,8 @@ async def transcribe(
             return await _transcribe_deepgram(file, lang, model)
         case "Azure":
             return await _transcribe_azure(file, lang, model)
+        case "ElevenLabs":
+            raise NotImplementedError("Can't transcribe with ElevenLabs")
         case never:
             assert_never(never)
 
@@ -697,12 +714,22 @@ async def _synthesize_text(
     if lang not in VOICES[character]:
         raise ValueError(f"Unsupported lang {lang} for {voice}\n")
 
-    provider, provider_voice = VOICES[character][lang]
+    provider_and_voice = VOICES[character][lang]
+
+    if not provider_and_voice:
+        raise ValueError(f"No provider for {voice} in {lang}")
+
+    provider, provider_voice = provider_and_voice
     match provider:
         case "Google":
             all_voices = supported_google_voices()
         case "Azure":
             all_voices = await supported_azure_voices()
+        case "ElevenLabs":
+            speech = await elevenlabs.synthesize(
+                text, voice.character, voice.speech_rate, Path(output_dir)
+            )
+            return speech, voice
         case "Deepgram":
             raise ValueError("Deepgram can not be used as TTS provider")
         case never:
@@ -797,6 +824,8 @@ async def _synthesize_text(
                         for phrase in chunks_with_breaks_expanded
                     ]
                 )
+            case "ElevenLabs":
+                raise ValueError("Can do adaptive rate synthesis with ElevenLabs")
             case "Deepgram":
                 raise ValueError("Can not use Deepgram as a TTS provider")
             case never:

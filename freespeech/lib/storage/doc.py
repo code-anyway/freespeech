@@ -45,7 +45,9 @@ async def query(
     order: Tuple[field, QueryOrder] | None = None,
     limit: int | None = None,
 ) -> List[Dict[str, Any]]:
-    query = client.collection(coll).where(attr, op, value)
+    query = client.collection(coll).where(
+        field_path=attr, op_string=op, value=value, filter=None
+    )
 
     # https://github.com/astaff/freespeech/issues/1 will resolve this
     # query = query.order_by(field, direction=direction) if order else query
