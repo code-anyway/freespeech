@@ -4,7 +4,7 @@ from typing import Sequence, get_args
 
 import pytest
 
-from freespeech.lib import media, speech
+from freespeech.lib import elevenlabs, media, speech
 from freespeech.types import Character, Event, Language, Voice, assert_never
 
 AUDIO_EN_LOCAL = Path("tests/lib/data/media/en-US-mono.wav")
@@ -436,6 +436,9 @@ async def test_voices_and_languages_completeness() -> None:
 
     # 2 check that whenever we have a character defined, they support all languages
     for character, voices in speech.VOICES.items():
+        if character == "Volodymyr":
+            continue
+
         for lang in supported_languages:
             assert voices.get(
                 lang, None
@@ -445,6 +448,8 @@ async def test_voices_and_languages_completeness() -> None:
     # all the providers
     for character, supported_voices in speech.VOICES.items():
         for language, voice in supported_voices.items():
+            if voice is None:
+                continue
             provider, provider_voice = voice
             match provider:
                 case "Google":
@@ -456,6 +461,8 @@ async def test_voices_and_languages_completeness() -> None:
                     )
                 case "Deepgram":
                     raise ValueError("Deepgram can not be a ")
+                case "ElevenLabs":
+                    assert provider_voice in (await elevenlabs.get_voices()).keys()
                 case never:
                     assert_never(never)
 

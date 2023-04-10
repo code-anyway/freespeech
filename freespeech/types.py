@@ -5,7 +5,7 @@ from pydantic.dataclasses import dataclass
 url = str
 AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC", "MP3"]
 VideoEncoding = Literal["H264", "HEVC", "AV1", "VP9"]
-ServiceProvider = Literal["Google", "Deepgram", "Azure"]
+ServiceProvider = Literal["Google", "Deepgram", "Azure", "ElevenLabs"]
 TranscriptionModel = Literal["default", "latest_long", "general", "default_granular"]
 
 SpeechToTextBackend = Literal[
@@ -106,6 +106,7 @@ Character = Literal[
     "Bill",  # Bill Gates
     "Melinda",  # Melinda Gates
     "Greta",  # Greta Thunberg
+    "Volodymyr",  # Volodymyr Zelenskyy
 ]
 CHARACTERS: List[Character] = [
     "Alan",
@@ -115,6 +116,7 @@ CHARACTERS: List[Character] = [
     "Bill",
     "Melinda",
     "Greta",
+    "Volodymyr",
 ]
 
 Method = Literal[SpeechToTextBackend, TranscriptFormat]

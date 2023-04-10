@@ -20,6 +20,7 @@ jobs:
       FREESPEECH_STORAGE_BUCKET: freespeech-tests
       NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
       DEEP_L_KEY: ${{ secrets.DEEP_L_KEY }}
+      ELEVENLABS_KEY: ${{ secrets.ELEVENLABS_KEY }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       # following key is required, but for integration tests it is required to have the
       # externally accessible public endpoint which we don't have in this scenarios
@@ -61,4 +62,5 @@ jobs:
         -e NOTION_TOKEN \
         -e PYTEST_ADDOPTS \
         -e DEEP_L_KEY \
+        -e ELEVENLABS_KEY \
         freespeech-test:latest "make test"

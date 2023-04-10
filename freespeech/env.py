@@ -213,6 +213,16 @@ def get_deep_l_key() -> str:
     return key
 
 
+@functools.cache
+def get_elevenlabs_key() -> str:
+    key = os.environ.get("ELEVENLABS_KEY", None)
+
+    if not key:
+        raise RuntimeError("Need a ELEVENLABS_KEY key for dubbing with ElevenLabs")
+
+    return key
+
+
 def get_transcript_service_url() -> str:
     url = os.environ.get("FREESPEECH_TRANSCRIPT_SERVICE_URL", None)
 
