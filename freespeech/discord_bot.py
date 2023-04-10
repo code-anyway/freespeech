@@ -474,7 +474,6 @@ if __name__ == "__main__":
             return
 
         mention_ids = [user.id for user in message.mentions]
-        print(mention_ids)
         # ignore messages that don't mention the bot or are not DMs
         if (client.user.id not in mention_ids) and not isinstance(
             message.channel, discord.DMChannel

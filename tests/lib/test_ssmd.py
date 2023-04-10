@@ -85,7 +85,6 @@ def test_parse_and_render():
     assert ssmd.parse(rendered_text) == events
 
     url = gdocs.create(Transcript(events=events, lang="en-US"), "SSMD-NEXT")
-    print(url)
     transcript = gdocs.load(url)
     assert transcript.events == events
 
