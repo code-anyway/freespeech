@@ -873,7 +873,12 @@ async def synthesize_text(
     for retry in range(API_RETRIES):
         try:
             return await _synthesize_text(text, duration_ms, voice, lang, output_dir)
-        except (ConnectionAbortedError, aiohttp.ServerDisconnectedError):
+        except (
+            ConnectionAbortedError,
+            aiohttp.ServerDisconnectedError,
+            aiohttp.ClientOSError,
+            asyncio.TimeoutError,
+        ):
             sleep_time = 2**retry * 2.0
             logger.warning(
                 f"Connection error, retrying in {sleep_time} seconds ({retry}/{API_RETRIES})"  # noqa: E501
