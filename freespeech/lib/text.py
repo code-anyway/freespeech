@@ -29,10 +29,8 @@ def _nlp(lang: Language):
             nlp = spacy.load("sv_core_news_sm")
         case "it-IT":
             nlp = spacy.load("it_core_news_sm")
-        case "tr-TR":
-            raise NotImplementedError("tr-TR is not supported yet")
-        case "ar-SA":
-            nlp = spacy.blank("xx")
+        case "tr-TR" | "ar-SA":
+            raise NotImplementedError(f"{lang} is not supported yet")
         case never:
             # (astaff, 20221109): when adding a new language make sure
             # to install the spacy model for it in setup.py.
@@ -160,7 +158,7 @@ def sentences(s: str, lang: Language) -> Sequence[str]:
     Returns:
         Sequence of strings representing sentences.
     """
-    if lang == "tr-TR":
+    if lang in ("tr-TR", "ar-SA"):
         return split_sentences(s)
 
     nlp = _nlp(lang)
@@ -183,7 +181,7 @@ def lemmas(s: str, lang: Language) -> Sequence[str]:
     Returns:
         Sequence of strings representing lemmas.
     """
-    if lang == "tr-TR":
+    if lang in ("tr-TR", "ar-SA"):
         return [lemma for lemma in s.split() if lemma]
 
     nlp = _nlp(lang)
