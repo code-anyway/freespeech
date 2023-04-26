@@ -91,7 +91,7 @@ async def transcribe(
                 )
         case "Subtitles":
             events = speech.restore_full_sentences(
-                list(youtube.get_captions(source, lang=lang))
+                list(await youtube.get_captions(source, lang=lang))
             )
         case x:
             assert_never(x)

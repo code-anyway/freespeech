@@ -1,24 +1,23 @@
 import asyncio
-import html
 import http.client
 import json
 import logging
 import random
 import re
 import time
-import xml.etree.ElementTree as ET
 from os import PathLike
 from pathlib import Path
-from typing import Dict, Sequence, Tuple
+from tempfile import TemporaryDirectory
+from typing import Sequence
 from uuid import uuid4
 
 import httplib2
-import pytube
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
+from freespeech.lib import transcript
 from freespeech.types import Event, Language, Meta
 
 logger = logging.getLogger(__name__)
@@ -220,83 +219,28 @@ async def get_meta(url: str) -> Meta:
     )
 
 
-def get_captions(url: str, lang: Language) -> Sequence[Event]:
-    yt = pytube.YouTube(url)
-    xml_captions = [(caption.code, caption.xml_captions) for caption in yt.captions]
-
-    captions = convert_captions(xml_captions)
-    if lang not in captions:
-        raise ValueError(f"{url} has no captions for {lang}")
-
-    return captions[lang]
+def parse_captions(srt: str) -> Sequence[Event]:
+    return transcript.vtt_to_events(srt)
 
 
-def _language_tag(lang: str) -> str | None:
-    match lang:
-        case "en" | "en-US" | "a.en" | "en-GB":
-            return "en-US"
-        case "uk":
-            return "uk-UA"
-        case "ru" | "a.ru":
-            return "ru-RU"
-        case "pt":
-            return "pt-PT"
-        case "de":
-            return "de-DE"
-        case "es":
-            return "es-US"
-        case "fr":
-            return "fr-FR"
-        case unsupported_language:
-            logger.warning(f"Unsupported caption language: {unsupported_language}")
-            return None
+async def get_captions(url: str, lang: Language) -> Sequence[Event]:
+    with TemporaryDirectory() as tmpdir:
+        command = f"""yt-dlp --skip-download --write-sub --sub-lang {lang} --skip-download --output {Path(tmpdir) / "captions"} {url}"""  # noqa: E501
+        stdout = await run(command)
 
+        if "There's no subtitles for the requested languages" in stdout:
+            raise RuntimeError(f"No captions found for {lang} in {url}")
 
-def parse(xml: str) -> Sequence[Event]:
-    """Parses YouTube XML captions and generates a sequence of speech Events."""
+        # extract captions path from the result
+        match = re.search(r"Destination: (.*)", stdout, flags=re.M)
+        if match is None:
+            raise RuntimeError(f"Could find output file in stdout: {stdout}")
 
-    def _extract_text(element):
-        inner = "".join([s.text for s in element.findall("s") or []])
-        return inner or element.text or ""
+        output = Path(match.group(1))
 
-    body = ET.fromstring(xml).find("body")
-    assert body is not None
+        logger.debug(f"yt-dlp output: {stdout!r}")
 
-    raw_events = [
-        (
-            int(child.attrib["t"]),
-            int(duration)
-            if (duration := child.attrib.get("d", None)) is not None
-            else None,
-            [html.unescape(_extract_text(child))],
-        )
-        for child in body.findall("p") or []
-    ]
+        with open(output) as fd:
+            captions = list(parse_captions(fd.read()))
 
-    return [
-        Event(
-            time_ms=time_ms,
-            duration_ms=duration_ms
-            if duration_ms is not None
-            else next_time_ms - time_ms,
-            chunks=chunks,
-        )
-        for (time_ms, duration_ms, chunks), (next_time_ms, _, _) in zip(
-            raw_events, raw_events[1:] + [(0, None, [])]
-        )
-    ]
-
-
-def convert_captions(captions: Sequence[Tuple[str, str]]) -> Dict[str, Sequence[Event]]:
-    """Converts YouTube captions for each language into speech Events."""
-
-    auto_captions = [(lang, xml) for lang, xml in captions if lang.startswith("a.")]
-    normal_captions = [
-        (lang, xml) for lang, xml in captions if not lang.startswith("a.")
-    ]
-
-    return {
-        language_tag: parse(xml_captions)
-        for code, xml_captions in auto_captions + normal_captions
-        if (language_tag := _language_tag(code))
-    }
+    return captions

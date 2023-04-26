@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 import pytest
@@ -63,73 +62,28 @@ async def test_download_local(tmp_path):
     assert video_file is not None, "video file should be downloaded"
     assert Path(video_file).suffix == ".mp4"
 
-    captions = youtube.get_captions(VIDEO_URL, "en-US")
+    captions = await youtube.get_captions(VIDEO_URL, "en-US")
 
     assert captions[0] == Event(
         time_ms=480,
-        duration_ms=6399,
-        chunks=["one hand two ducks three squawking geese"],
+        duration_ms=7040,
+        chunks=[
+            "one hen two ducks three squawking geese four  limerick oysters five corpulent porpoises  "  # noqa
+        ],
     )
 
     assert hash.file(audio_file)
     assert hash.file(video_file)
 
 
-def test_convert_captions():
-    with open("tests/lib/data/youtube/captions_en.xml") as fd:
-        en = "\n".join(fd.readlines())
+@pytest.mark.asyncio
+async def test_get_captions():
+    captions = await youtube.get_captions(VIDEO_URL, "en-US")
 
-    with open("tests/lib/data/youtube/captions_ru.xml") as fd:
-        ru = "\n".join(fd.readlines())
-
-    t = youtube.convert_captions([("en", en), ("ru", ru)])
-
-    with open("tests/lib/data/youtube/transcript_en_US.json", encoding="utf-8") as fd:
-        expected_en_US = [Event(**item) for item in json.load(fd)]
-
-    with open("tests/lib/data/youtube/transcript_ru_RU.json", encoding="utf-8") as fd:
-        expected_ru_RU = [Event(**item) for item in json.load(fd)]
-
-    assert expected_en_US == t["en-US"]
-    assert expected_ru_RU == t["ru-RU"]
-
-
-def test_convert_captiions_with_no_duration():
-    with open("tests/lib/data/youtube/captions_missing_duration_en.xml") as fd:
-        en = "\n".join(fd.readlines())
-    t = youtube.convert_captions([("en", en)])
-    expected = {
-        "en-US": [
-            Event(time_ms=10, duration_ms=3000, chunks=["Every human"]),
-            Event(time_ms=3010, duration_ms=1000, chunks=["Foo"]),
-        ]
-    }
-    assert t == expected
-
-
-def test_auto_captions():
-    with open("tests/lib/data/youtube/captions_en.xml") as fd:
-        en = "\n".join(fd.readlines())
-
-    with open("tests/lib/data/youtube/auto-captions.xml") as fd:
-        a_en = "\n".join(fd.readlines())
-
-    with open("tests/lib/data/youtube/transcript_en_US.json", encoding="utf-8") as fd:
-        expected_en_US = [Event(**item) for item in json.load(fd)]
-
-    with open("tests/lib/data/youtube/auto-captions.json", encoding="utf-8") as fd:
-        expected_a_en_US = [
-            Event(
-                **item,
-            )
-            for item in json.load(fd)
-        ]
-
-    t = youtube.convert_captions([("a.en", a_en)])
-    assert t["en-US"] == expected_a_en_US
-
-    t = youtube.convert_captions([("en", en), ("a.en", a_en)])
-    assert t["en-US"] == expected_en_US, "regular captions should override automatic"
-
-    t = youtube.convert_captions([("a.en", a_en), ("en", en)])
-    assert t["en-US"] == expected_en_US, "regular captions should override automatic"
+    assert captions[0] == Event(
+        time_ms=480,
+        duration_ms=7040,
+        chunks=[
+            "one hen two ducks three squawking geese four  limerick oysters five corpulent porpoises  "  # noqa
+        ],
+    )

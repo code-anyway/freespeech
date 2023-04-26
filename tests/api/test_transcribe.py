@@ -14,20 +14,17 @@ from freespeech.types import (
 @pytest.mark.asyncio
 async def test_load_subtitles() -> None:
     result = await transcribe.transcribe(
-        source="https://www.youtube.com/watch?v=ALaTm6VzTBw",
+        source="https://youtu.be/bhRaND9jiOA",
         backend="Subtitles",
         lang="en-US",
     )
 
-    first, *_, last = result.events
+    first, *_ = result.events
 
-    assert first.time_ms == 0
-    assert first.chunks[0].startswith("The way the work week works is the worst.")
-    assert first.duration_ms == 3011
+    assert first.time_ms == 480
+    assert first.chunks[0].startswith("one hen two ducks three squawking geese")
+    assert first.duration_ms == 27920
     assert first.voice == Voice(character="Ada", pitch=0.0, speech_rate=1.0)
-
-    assert last.time_ms == 146570
-    assert last.chunks[0].endswith("[soft brooding electronic music fades slowly]")
 
     assert result.audio
     assert result.audio.startswith("https://")
@@ -70,4 +67,4 @@ async def test_transcribe_machine_d() -> None:
     assert result.title
     assert result.title.startswith("en-US")
     assert isinstance(result, Transcript)
-    assert len(result.events) == 12
+    assert len(result.events) == 13

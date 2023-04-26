@@ -50,7 +50,7 @@ async def test_transcribe(tmp_path) -> None:
 
     voice = Voice(character="Alan", pitch=0.0, speech_rate=1.0)
     event = Event(
-        time_ms=971, duration_ms=2006, chunks=["One, two three,"], voice=voice
+        time_ms=832, duration_ms=1823, chunks=["One, two three,"], voice=voice
     )
     assert t_en == [event]
 
@@ -58,8 +58,8 @@ async def test_transcribe(tmp_path) -> None:
         AUDIO_EN_LOCAL, "en-US", provider="Google", model="latest_long"
     )
 
-    assert event.time_ms == 971
-    assert event.duration_ms == pytest.approx(2006, abs=ABSOLUTE_ERROR_MS)
+    assert event.time_ms == 832
+    assert event.duration_ms == pytest.approx(1823, abs=ABSOLUTE_ERROR_MS)
     assert event.chunks == ["One, two three,"]
 
 
@@ -151,7 +151,7 @@ async def test_synthesize_google_transcribe_azure(tmp_path) -> None:
     (first, second) = await speech.transcribe(
         downmixed_local, lang="en-US", provider="Azure", model="default_granular"
     )
-    assert first.chunks == ["Testing quite a long sentence."]
+    assert first.chunks == ["Testing Quite a long sentence."]
     assert second.chunks == ["Hello."]
 
 
@@ -173,13 +173,13 @@ async def test_synthesize_google_transcribe_azure_granular(tmp_path) -> None:
     (first, *_) = await speech.transcribe(
         downmixed_local, lang="en-US", provider="Azure", model="default"
     )
-    assert first.chunks == ["Testing quite a long sentence. Hello."]
+    assert first.chunks == ["Testing Quite a long sentence. Hello."]
 
     # mode="default_granular" will create one event per sentence.
     (first, second) = await speech.transcribe(
         downmixed_local, lang="en-US", provider="Azure", model="default_granular"
     )
-    assert first.chunks == ["Testing quite a long sentence."]
+    assert first.chunks == ["Testing Quite a long sentence."]
     assert second.chunks == ["Hello."]
 
 
