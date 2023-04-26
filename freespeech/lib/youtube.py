@@ -224,12 +224,30 @@ def parse_captions(srt: str) -> Sequence[Event]:
 
 
 async def get_captions(url: str, lang: Language) -> Sequence[Event]:
+    try:
+        captions = await _get_captions(url, lang)
+    except ValueError:
+        # try short language code
+        short_lang = str(lang)[:2]
+        try:
+            logger.warning(
+                f"{url} doesn't have captions for {lang}, trying {short_lang}"
+            )  # noqa: E501
+            captions = await _get_captions(url, short_lang)
+        except ValueError:
+            raise RuntimeError(
+                f"Could not find captions for {lang} or {short_lang} in {url}"
+            )
+    return captions
+
+
+async def _get_captions(url: str, lang: str):
     with TemporaryDirectory() as tmpdir:
         command = f"""yt-dlp --skip-download --write-sub --sub-lang {lang} --skip-download --output {Path(tmpdir) / "captions"} {url}"""  # noqa: E501
         stdout = await run(command)
 
         if "There's no subtitles for the requested languages" in stdout:
-            raise RuntimeError(f"No captions found for {lang} in {url}")
+            raise ValueError(f"No captions found for {lang} in {url}")
 
         # extract captions path from the result
         match = re.search(r"Destination: (.*)", stdout, flags=re.M)
@@ -242,5 +260,4 @@ async def get_captions(url: str, lang: Language) -> Sequence[Event]:
 
         with open(output) as fd:
             captions = list(parse_captions(fd.read()))
-
     return captions
