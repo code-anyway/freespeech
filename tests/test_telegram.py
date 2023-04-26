@@ -64,7 +64,7 @@ async def initiate(url):
 
 @pytest.mark.asyncio
 async def test_telegram():
-    message = Message("https://www.youtube.com/watch?v=306gVIj3LsM")
+    message = Message("https://youtu.be/bhRaND9jiOA")
 
     await telegram.dispatch(0, message)
     text, buttons, file = await message.read()
@@ -95,7 +95,7 @@ async def test_telegram():
 
     text, buttons, file = await message.read()
     assert (
-        text == "Sure! Give me 2 minutes to transcribe it in en-US using Subtitles."
+        text == "Sure! Give me 40 seconds to transcribe it in en-US using Subtitles."
     )  # noqa E501
     assert buttons is None
     assert file is None
@@ -112,7 +112,7 @@ async def test_telegram():
     assert text == "SRT"
     assert buttons is None
     assert file.decode("utf-8").startswith(
-        "1\n00:00:00,060 --> 00:04:02,320\nfive sound four it's really quite remarkable you probably expected the Roar and Rumble of this rocket launch"  # noqa E501
+        "1\n00:00:00,480 --> 00:00:28,400\none hen two ducks three squawking geese"  # noqa E501
     )  # noqa E501
 
     message = await initiate(url)
@@ -121,7 +121,7 @@ async def test_telegram():
     assert text == "Plain text"
     assert buttons is None
     assert file.decode("utf-8").startswith(
-        "five sound four it's really quite remarkable you probably expected the Roar and Rumble of this rocket launch"  # noqa E501
+        "one hen two ducks three squawking geese"  # noqa E501
     )  # noqa E501
 
     message = await initiate(url)
@@ -141,7 +141,7 @@ async def test_telegram():
 
     await telegram.dispatch(0, "Russian")  # try full language name
     text, buttons, file = await message.read()
-    assert text == "Sure! I'll translate it in about 11 seconds."
+    assert text == "Sure! I'll translate it in about 3 seconds."
     assert buttons is None
     assert file is None
 

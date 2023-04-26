@@ -324,6 +324,42 @@ def srt_to_events(text: str) -> Sequence[Event]:
     return result
 
 
+def remove_special_characters(line: str) -> str:
+    """Removes special characters from line."""
+
+    return line.replace("&nbsp;", " ").replace("&amp;", "&")
+
+
+def vtt_to_events(text: str) -> Sequence[Event]:
+    """Generates sequence of Events from subtitles stored in .vtt format.
+
+    Args:
+        text: content of .vtt file.
+
+    Returns:
+        Speech events parsed from .vtt.
+    """
+    if not text.endswith("\n"):
+        text += "\n"
+    parser = re.compile(r"([\d\:\.]+)\s*-->\s*([\d\:\.]+)\n((.+\n)+)")
+    match = parser.findall(text)
+
+    result = [
+        Event(
+            time_ms=(start_ms := to_milliseconds(start)),
+            duration_ms=(to_milliseconds(finish) - start_ms),
+            chunks=[
+                " ".join(
+                    [remove_special_characters(line) for line in text.split("\n")[:-1]]
+                )  # there is an extra newline in .vtt format # noqa: E501
+            ],
+        )
+        for start, finish, text, _ in match
+    ]
+
+    return result
+
+
 def events_to_srt(events: Sequence[Event]) -> str:
     text = ""
     for i, e in enumerate(events):
