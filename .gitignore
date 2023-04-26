@@ -158,3 +158,4 @@ cython_debug/
 .gitconfig
 .ssh/
 .vscode-server/
+shell.nix

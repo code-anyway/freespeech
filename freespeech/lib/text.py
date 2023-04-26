@@ -31,6 +31,8 @@ def _nlp(lang: Language):
             nlp = spacy.load("it_core_news_sm")
         case "tr-TR":
             raise NotImplementedError("tr-TR is not supported yet")
+        case "ar-SA":
+            nlp = spacy.blank("xx")
         case never:
             # (astaff, 20221109): when adding a new language make sure
             # to install the spacy model for it in setup.py.
