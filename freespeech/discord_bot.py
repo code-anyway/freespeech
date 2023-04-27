@@ -330,6 +330,10 @@ async def start(ctx: Context, message: Message | str) -> tuple[Context, Reply | 
                 "Create transcript using Speech Recognition?",
                 buttons=["Yes"],
             )
+        case "Twitter":
+            return replace(ctx, state=media_operation), Reply(
+                "Create transcript using Speech Recognition?", buttons=["Yes"]
+            )
         case "Google" | "Notion":
             return replace(ctx, state=transcript_operation), Reply(
                 "Would you like to translate, dub, or download the transcript as SRT or TXT?",  # noqa: E501
