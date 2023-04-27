@@ -158,6 +158,8 @@ async def estimate_operation_duration(url: str, operation: Operation) -> int | N
             )
         case "GCS":
             raise NotImplementedError("GCS is not supported yet")
+        case "Twitter":
+            return None
         case _platform:
             assert_never(_platform)
 
