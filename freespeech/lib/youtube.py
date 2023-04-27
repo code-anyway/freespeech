@@ -18,7 +18,7 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
 from freespeech.lib import transcript
-from freespeech.types import Event, Language, Meta
+from freespeech.types import Event, Language, Meta, platform
 
 logger = logging.getLogger(__name__)
 
@@ -163,8 +163,14 @@ async def download(
     # or download the best combined format if video-only format is not available.
     # more here: https://github.com/yt-dlp/yt-dlp#format-selection-examples
 
-    audio = await _download_media(url, output_dir, pipeline="ba")
-    video = await _download_media(url, output_dir, pipeline="bv[ext=mp4]")
+    audio, video = None, None
+    match platform(url):
+        case "Twitter":
+            audio = await _download_media(url, output_dir, pipeline="b")
+            video = await _download_media(url, output_dir, pipeline="b")
+        case _:
+            audio = await _download_media(url, output_dir, pipeline="ba")
+            video = await _download_media(url, output_dir, pipeline="bv[ext=mp4]")
 
     return audio, video
 
