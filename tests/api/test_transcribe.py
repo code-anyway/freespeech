@@ -5,10 +5,10 @@ import pytest
 from freespeech.api import transcribe
 from freespeech.types import (
     SPEECH_BACKENDS,
+    Event,
     Transcript,
     Voice,
     is_speech_to_text_backend,
-    Event,
 )
 
 
