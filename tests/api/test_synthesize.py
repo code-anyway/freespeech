@@ -128,7 +128,9 @@ async def test_synthesize_fill(monkeypatch) -> None:
 
     with TemporaryDirectory() as tmp_dir:
         transcript_str = await obj.get(obj.storage_url(url), dst_dir=tmp_dir)
-        downmixed_audio = await media.multi_channel_audio_to_mono(transcript_str, ".")
+        downmixed_audio = await media.multi_channel_audio_to_mono(
+            transcript_str, tmp_dir
+        )
         assert hash.file(downmixed_audio) in (
             hash.file(AUDIO_FILL),
             "dfd8817aebe33652a873fa61d51526062e73e87c0a03523b527dd2ac09edb5ef",
