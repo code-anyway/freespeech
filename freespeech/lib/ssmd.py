@@ -20,6 +20,100 @@ timecode_parser = re.compile(
 MAXIMUM_GAP_MS = 1400
 
 
+def parse_transcript(transcript_text):
+    transcript_text = transcript_text.replace(
+        "\u2028", " "
+    )  # Replace line separator with space
+    lines = transcript_text.strip().splitlines()
+
+    # Parse optional meta-information
+    metadata = {}
+    transcript = []
+
+    for line in lines.copy():
+        if line.startswith("language:"):
+            metadata["lang"] = line.split("language:")[1].strip()
+        elif line.startswith("origin:"):
+            metadata["origin"] = line.split("origin:")[1].strip()
+        else:
+            break
+
+        lines.pop(0)
+
+    # Parse transcript
+    timestamp_regex = r"\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?"
+    speaker_regex = r"\(([A-Za-z]+)\)"
+
+    i = 0
+    while i < len(lines):
+        comment_lines = []
+        text_lines = []
+
+        # Parsing comment
+        if "[" in lines[i]:
+            while "]" not in lines[i]:
+                comment_lines.append(lines[i])
+                i += 1
+
+            if lines[i].count("]") > 1:
+                return "Invalid transcript format."
+            comment_lines.append(lines[i])
+            comment = "\n".join([line.strip("[]") for line in comment_lines])
+            i += 1
+        else:
+            comment = None
+
+        # Parsing time, speaker, and text
+        time_match = re.match(timestamp_regex, lines[i])
+        if time_match:
+            time = time_match.group()
+            line = lines[i][len(time) :].strip()
+        else:
+            time = None
+            line = lines[i]
+
+        speaker_match = re.match(speaker_regex, line)
+        if speaker_match:
+            speaker = speaker_match.group(1)
+            line = line[len(speaker) + 2 :].strip()
+        else:
+            speaker = None
+
+        fixed = (time is not None) and (i > 0 and lines[i - 1].strip() == "")
+
+        text_lines.append(line)
+        i += 1
+
+        # Multi-line text
+        while i < len(lines) and not (
+            lines[i].startswith("[")
+            or re.match(timestamp_regex, lines[i])
+            or re.match(speaker_regex, lines[i])
+        ):
+            text_lines.append(lines[i])
+            i += 1
+
+        entry = {
+            "time": time,
+            "speaker": speaker,
+            "text": (" ".join(text_lines)).strip(),
+            "fixed": fixed,
+        }
+
+        if comment and (transcript):
+            transcript[-1]["comment"] = comment
+
+        if (
+            entry.get("text", None)
+            or entry.get("comment", None)
+            or entry.get("speaker")
+            or entry.get("time")
+        ):
+            transcript.append(entry)
+
+    return {"transcript": transcript, **metadata}
+
+
 def parse_block(s: str, group: int) -> list[Event]:
     """Parses single SSMD block and extracts speech events.
     Args:
