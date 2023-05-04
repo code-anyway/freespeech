@@ -4,40 +4,58 @@ import sys
 sys.path.append("../")
 
 import asyncio
+import logging
+import logging.config
 from dataclasses import replace
-from typing import Literal
 
 import streamlit as st
 
+from freespeech import env
 from freespeech.api import synthesize, transcribe, transcript, translate
-from freespeech.lib import youtube
 from freespeech.types import (
     LANGUAGES,
-    MEDIA_PLATFORMS,
-    TRANSCRIPT_PLATFORMS,
-    Language,
-    Operation,
-    SpeechToTextBackend,
     assert_never,
+    is_media_platform,
+    is_transcript_platform,
     platform,
 )
 
-ParagraphSize = Literal["Small", "Medium", "Large", "Auto"]
-from freespeech.types import (
-    Language,
-    Operation,
-    SpeechToTextBackend,
-    assert_never,
-    platform,
-)
+logging_handler = ["google" if env.is_in_cloud_run() else "console"]
+
+LOGGING_CONFIG = {
+    "version": 1,
+    "formatters": {
+        "brief": {"format": "%(message)s"},
+        "default": {
+            "format": "%(asctime)s %(levelname)-8s %(name)-15s %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "default",
+            "stream": "ext://sys.stdout",
+        },
+        "google": {"class": "google.cloud.logging.handlers.StructuredLogHandler"},
+    },
+    "loggers": {
+        "discord": {"level": logging.INFO, "handlers": logging_handler},
+        "freespeech": {"level": logging.INFO, "handlers": logging_handler},
+        "aiohttp": {"level": logging.INFO, "handlers": logging_handler},
+        "__main__": {"level": logging.INFO, "handlers": logging_handler},
+    },
+}
+
+logging.config.dictConfig(LOGGING_CONFIG)
+logger = logging.getLogger(__name__)
 
 
-async def _transcribe(
-    url: str,
-    lang: Language,
-    backend: SpeechToTextBackend,
-    size: ParagraphSize,
-) -> str:
+def log_user_action(action: str, **kwargs):
+    logger.info(f"{action} {kwargs}")
+
+
+async def _transcribe(url, lang, backend, size) -> str:
     t = await transcribe.transcribe(url, lang=lang, backend=backend)
     # NOTE: Bill seems to be the most popular. Doing this here because changing the
     # default in the library would break existing code.
@@ -71,88 +89,8 @@ async def _transcribe(
     return transcript_url
 
 
-async def estimate_operation_duration(url: str, operation: Operation) -> int | None:
-    """Return estimated duration of an operation for a video or transcript in seconds.
-
-    Args:
-        url (str): URL of a video or transcript.
-        operation (Operation): Operation to estimate duration for.
-
-    Returns:
-        Estimated duration in seconds.
-    """
-    _platform = platform(url)
-
-    match _platform:
-        case "YouTube":
-            metric = (await youtube.get_meta(url)).duration_ms
-        case "Google" | "Notion":
-            metric = len(
-                " ".join(
-                    " ".join(event.chunks)
-                    for event in (await transcript.load(url)).events
-                )
-            )
-        case "GCS":
-            raise NotImplementedError("GCS is not supported yet")
-        case "Twitter":
-            return None
-        case _platform:
-            assert_never(_platform)
-
-    match operation:
-        case "Transcribe":
-            return round(metric / 1000 + metric / 2581)
-        case "Translate":
-            return round(metric / 102.679)
-        case "Synthesize":
-            return round(metric / 25)
-        case x:
-            assert_never(x)
-
-
-def seconds_to_human_readable(seconds: int | None) -> str:
-    """Convert seconds to human readable format.
-
-    Args:
-        seconds (int): Seconds to convert.
-
-    Returns:
-        Human readable format.
-    """
-    if seconds is None:
-        return ""
-    hours = seconds // 3600
-    minutes = (seconds % 3600) // 60
-    seconds = seconds % 60
-
-    res = ""
-    if hours:
-        res += f" {hours} hour{'s' if hours > 1 else ''}"
-    if minutes:
-        res += f" {minutes} minute{'s' if minutes > 1 else ''}"
-    if not res:
-        res += f" {seconds} second{'s' if seconds > 1 else ''}"
-
-    return res.strip()
-
-
-def platform_info(url):
-    try:
-        if not url:
-            return "unfilled"
-        if platform(url) in MEDIA_PLATFORMS:
-            return "video"
-        if platform(url) in TRANSCRIPT_PLATFORMS:
-            return "transcript"
-    except ValueError as ve:
-        st.text("Sorry! The link may be malformed or the platform is unsupported.")
-        return ""
-    return ""
-
-
 def transcribe_dialogue():
-    language = st.selectbox(
+    source_language = st.selectbox(
         "My source is in:",
         options=LANGUAGES,
     )
@@ -166,66 +104,140 @@ def transcribe_dialogue():
         "I want the transcribed paragraphs to be:",
         options=["Auto", "Large", "Medium", "Small"],
     )
-    return (language, method, paragraph_size)
+    return (source_language, method, paragraph_size)
 
 
-def translate_flow():
-    url = st.text_input(
-        "Please paste a link to the transcript/video (make sure to hit Enter)"
-    )
-    _platform_info = platform_info(url)
-    if not _platform_info:
-        return lambda: None
-    match _platform_info:
-        case "video":
-            language, method, paragraph_size = transcribe_dialogue()
-            target_language = st.selectbox(
-                "I want my result to be in:",
-                options=LANGUAGES,
+def translate_flow(start_button):
+    END = (False, lambda: None)
+
+    url = st.text_input("Please paste a link to the transcript/video and hit Enter")
+    if not url:
+        return END
+
+    async def default_action():
+        return None
+
+    action = default_action
+
+    if is_media_platform(platform(url)):
+        source_language, method, paragraph_size = transcribe_dialogue()
+        target_language = st.selectbox(
+            "I want my result to be in:",
+            options=LANGUAGES,
+        )
+
+        if not all([source_language, method, paragraph_size, target_language]):
+            return END
+
+        async def action():
+            log_user_action(
+                "Translate video",
+                url=url,
+                source_language=source_language,
+                method=method,
+                paragraph_size=paragraph_size,
+                target_language=target_language,
             )
-            if not all([language, method, paragraph_size, target_language]):
-                return lambda: None
+            st.text(
+                f"The translated video will be linked here soon. Please don't close the tab!"
+            )
+            transcript_url = await _transcribe(
+                url, source_language, method, paragraph_size
+            )
 
-            async def action():
-                st.text(
-                    f"The translated video will be linked here soon. Please don't close the tab!"
-                )
-                transcript_url = await _transcribe(
-                    url, language, method, paragraph_size
-                )
-                print("Transcribed")
-                translated_transcript_url = await translate.translate(
-                    source=transcript_url,
-                    lang=target_language,
-                    format="SSMD-NEXT",
-                    platform="Google",
-                )
-                print("Translated")
-                dub_url = await synthesize.dub(
-                    await transcript.load(source=translated_transcript_url),
-                    is_smooth=True,
-                )
-                st.text(f"Here you are: {dub_url}")
+            translated_transcript_url = await translate.translate(
+                source=transcript_url,
+                lang=target_language,
+                format="SSMD-NEXT",
+                platform="Google",
+            )
 
-            return action
-        case "transcript":
-            print("transcript!")
-            return lambda: None
-        case "unfilled":
-            return lambda: None
-    return lambda: None
+            dub_url = await synthesize.dub(
+                await transcript.load(source=translated_transcript_url),
+                is_smooth=True,
+            )
+            st.text("Here you are: [link](%s)" % dub_url)
+
+    if is_transcript_platform(platform(url)):
+        target_language = st.selectbox(
+            "I want my result to be in:",
+            options=LANGUAGES,
+        )
+        if not target_language:
+            return END
+
+        async def action():
+            log_user_action(
+                "Translate transcript", url=url, target_language=target_language
+            )
+            st.text(
+                "The translated transcript will be linked here soon. Please don't close the tab!"
+            )
+            translated_transcript_url = await translate.translate(
+                source=url,
+                lang=target_language,
+                format="SSMD-NEXT",
+                platform="Google",
+            )
+            st.text("Here you are: [link](%s)" % translated_transcript_url)
+
+    return (start_button(), action)
 
 
 def transcribe_flow():
-    inp = st.text_input("Please paste a link to the video")
-    return lambda: None
+    url = st.text_input("Please paste a link to the video and hit Enter")
+
+    if url and not is_media_platform(platform(url)):
+        st.text("Sorry! The link is invalid, or the platform isn't supported.")
+        return lambda: None
+
+    source_language, method, paragraph_size = transcribe_dialogue()
+    if not all([url, source_language, method, paragraph_size]):
+        return lambda: None
+
+    async def action():
+        log_user_action(
+            "Transcribe",
+            url=url,
+            source_language=source_language,
+            method=method,
+            paragraph_size=paragraph_size,
+        )
+        st.text("The transcript will be linked here soon. Please don't close the tab!")
+        transcript_url = await _transcribe(url, source_language, method, paragraph_size)
+        st.text("Here you are: [link](%s)" % transcript_url)
+
+    return action
 
 
 def dub_flow():
-    return lambda: None
+    url = st.text_input("Please paste a link to the transcript and hit Enter")
+
+    if url and not is_media_platform(platform(url)):
+        st.text("Sorry! The link is invalid, or the platform isn't supported.")
+        return lambda: None
+
+    if not url:
+        return lambda: None
+
+    async def action():
+        log_user_action(
+            "Dub",
+            url=url,
+        )
+        st.text(
+            f"The dub of the transcript will be here soon. Please don't close the tab!"
+        )
+        dub_url = await synthesize.dub(
+            await transcript.load(source=url),
+            is_smooth=True,
+        )
+        st.text("Here you are: [link](%s)" % dub_url)
+
+    return action
 
 
-st.title("Welcome! We're under construction")
+st.title("Freespeech Web Interface. Please insert a quarter to continue.")
 
 
 async def main():
@@ -238,16 +250,19 @@ async def main():
         options=["Translate", "Transcribe", "Dub"],
     )
     action = lambda: None
+    start_button = lambda: st.button(f"{st.session_state['option']}!")
+    start = False
 
     match st.session_state["option"]:
         case "Translate":
-            action = translate_flow()
+            start, action = translate_flow(start_button)
         case "Transcribe":
             action = transcribe_flow()
+            start = start_button()
         case "Dub":
             action = dub_flow()
+            start = start_button()
 
-    start = st.button(f"{st.session_state['option']}!")
     if start and (res := action()):
         await res
 
