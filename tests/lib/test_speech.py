@@ -77,7 +77,7 @@ async def test_synthesize_text(tmp_path) -> None:
     eps = speech.SYNTHESIS_ERROR_MS
     assert abs(audio.duration_ms - 4_000) < eps
     # Although text is short, speech break helps us achieve reasonable speech rate
-    assert voice.speech_rate == pytest.approx(0.8551, 1e-2)
+    assert voice.speech_rate == pytest.approx(0.904, 1e-2)
     assert voice.character == "Grace"
     assert voice.pitch == 0.0
 

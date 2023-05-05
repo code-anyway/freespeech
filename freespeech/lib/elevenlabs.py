@@ -38,7 +38,11 @@ async def synthesize(text: str, voice: str, rate: float, output: Path) -> Path:
             async with session.post(
                 f"{ROOT_URL}/v1/text-to-speech/{voice_id}",
                 headers={"xi-api-key": api_key},
-                json={"language_id": "en-us", "model_id": "prod", "text": text},
+                json={
+                    "language_id": "en-us",
+                    "model_id": "eleven_multilingual_v1",
+                    "text": text,
+                },
             ) as response:
                 if response.status != 200:
                     raise RuntimeError(
