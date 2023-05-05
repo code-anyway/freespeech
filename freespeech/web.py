@@ -2,6 +2,7 @@ import asyncio
 import logging
 import logging.config
 from dataclasses import replace
+from typing import Awaitable
 
 import streamlit as st
 
@@ -105,7 +106,7 @@ def transcribe_dialogue():
 async def translate_transcript_action(url, target_language):
     log_user_action("Translate transcript", url=url, target_language=target_language)
     st.write(
-        "The translated transcript will be linked here soon. Please don't close the tab!"
+        "The translated transcript will be linked here soon. Please don't close the tab!"  # noqa E501
     )
     translated_transcript_url = await translate.translate(
         source=url,
@@ -128,7 +129,7 @@ async def translate_video_action(
         target_language=target_language,
     )
     st.write(
-        "The translated video will be linked here soon. Please don't close the tab!"  # noqa
+        "The translated video will be linked here soon. Please don't close the tab!"  # noqa E501
     )
     transcript_url = await _transcribe(url, source_language, method, paragraph_size)
 
@@ -138,21 +139,20 @@ async def translate_video_action(
         format="SSMD-NEXT",
         platform="Google",
     )
-
     dub_url = await synthesize.dub(
         await transcript.load(source=translated_transcript_url),
         is_smooth=True,
     )
-    st.write(f"Here you are: [link]({dub_url})")
+    st.write(
+        f"""Here you are:
+    * [Translated Dub]({dub_url})
+    * [Translated Transcript]({translated_transcript_url})
+    * [Original Transcript]({transcript_url})
+"""
+    )
 
 
-def translate_flow(start_button):
-    END = (False, None)
-
-    url = st.text_input("Please paste a link to the transcript/video and hit Enter")
-    if not url:
-        return END
-
+def translate_flow(url: str) -> Awaitable | None:
     if is_media_platform(platform(url)):
         source_language, method, paragraph_size = transcribe_dialogue()
         target_language = st.selectbox(
@@ -160,36 +160,24 @@ def translate_flow(start_button):
             options=LANGUAGES,
         )
 
-        if not all([source_language, method, paragraph_size, target_language]):
-            return END
-
-        return start_button(), lambda: translate_video_action(
-            url, source_language, method, paragraph_size, target_language
-        )
+        if all((source_language, method, paragraph_size, target_language)):
+            return translate_video_action(
+                url, source_language, method, paragraph_size, target_language
+            )
 
     if is_transcript_platform(platform(url)):
         target_language = st.selectbox(
             "I want my result to be in:",
             options=LANGUAGES,
         )
-        if not target_language:
-            return END
+        if target_language:
+            return translate_transcript_action(url, target_language)
 
-        return start_button(), lambda: translate_transcript_action(url, target_language)
-
-    return END
+    return None
 
 
-def transcribe_flow():
-    url = st.text_input("Please paste a link to the video and hit Enter")
-
-    if url and not is_media_platform(platform(url)):
-        st.write("Sorry! The link is invalid, or the platform isn't supported.")
-        return None
-
+def transcribe_flow(url: str) -> Awaitable | None:
     source_language, method, paragraph_size = transcribe_dialogue()
-    if not all([url, source_language, method, paragraph_size]):
-        return None
 
     async def action():
         log_user_action(
@@ -203,26 +191,20 @@ def transcribe_flow():
         transcript_url = await _transcribe(url, source_language, method, paragraph_size)
         st.write(f"Here you are: [link]({transcript_url})")
 
-    return lambda: action()
+    if all((url, source_language, method, paragraph_size)):
+        return action()
+
+    return None
 
 
-def dub_flow():
-    url = st.text_input("Please paste a link to the transcript and hit Enter")
-
-    if url and not is_media_platform(platform(url)):
-        st.write("Sorry! The link is invalid, or the platform isn't supported.")
-        return None
-
-    if not url:
-        return None
-
+def dub_flow(url: str) -> Awaitable | None:
     async def action():
         log_user_action(
             "Dub",
             url=url,
         )
         st.write(
-            f"The dub of the transcript will be here soon. Please don't close the tab!"
+            "The dub of the transcript will be here soon. Please don't close the tab!"
         )
         dub_url = await synthesize.dub(
             await transcript.load(source=url),
@@ -230,37 +212,41 @@ def dub_flow():
         )
         st.write(f"Here you are: [link]({dub_url})")
 
-    return lambda: action()
+    return action()
 
 
 st.title("Freespeech Web Interface. Please insert a quarter to continue.")
 
 
 async def main():
-    if "option" not in st.session_state:
-        st.session_state["option"] = "Translate"
-
     st.radio(
         "I want to:",
         key="option",
+        index=0,
         options=["Translate", "Transcribe", "Dub"],
     )
-    action = None
-    start_button = lambda: st.button(f"{st.session_state['option']}!")
-    start = False
 
+    action = None
     match st.session_state["option"]:
         case "Translate":
-            start, action = translate_flow(start_button)
+            url = st.text_input(
+                "Please paste a link to the video or transcript and hit Enter"
+            )  # noqa E501
+            if url:
+                action = translate_flow(url)
         case "Transcribe":
-            action = transcribe_flow()
-            start = start_button()
+            url = st.text_input("Please paste a link to the video and hit Enter")
+            if url:
+                action = transcribe_flow(url)
         case "Dub":
-            action = dub_flow()
-            start = start_button()
+            url = st.text_input("Please paste a link to the transcript and hit Enter")
+            if url:
+                action = dub_flow(url)
+
+    start = st.button(f"{st.session_state['option']}!")
 
     if start and action:
-        await action()
+        await action
 
 
 if __name__ == "__main__":
