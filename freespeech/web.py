@@ -145,11 +145,15 @@ async def translate_video_action(
     )
     st.write(
         f"""Here you are:
-    * [Translated Dub]({dub_url})
-    * [Translated Transcript]({translated_transcript_url})
-    * [Original Transcript]({transcript_url})
+    - [Translated Dub]({dub_url})
+    - [Translated Transcript]({translated_transcript_url})
+    - [Original Transcript]({transcript_url})
 """
     )
+
+
+def start():
+    return st.button(f"{st.session_state['option']}!")
 
 
 def translate_flow(url: str) -> Awaitable | None:
@@ -161,9 +165,10 @@ def translate_flow(url: str) -> Awaitable | None:
         )
 
         if all((source_language, method, paragraph_size, target_language)):
-            return translate_video_action(
-                url, source_language, method, paragraph_size, target_language
-            )
+            if start():
+                return translate_video_action(
+                    url, source_language, method, paragraph_size, target_language
+                )
 
     if is_transcript_platform(platform(url)):
         target_language = st.selectbox(
@@ -171,12 +176,16 @@ def translate_flow(url: str) -> Awaitable | None:
             options=LANGUAGES,
         )
         if target_language:
-            return translate_transcript_action(url, target_language)
+            if start():
+                return translate_transcript_action(url, target_language)
 
     return None
 
 
 def transcribe_flow(url: str) -> Awaitable | None:
+    if not is_media_platform(platform(url)):
+        return None
+
     source_language, method, paragraph_size = transcribe_dialogue()
 
     async def action():
@@ -192,12 +201,16 @@ def transcribe_flow(url: str) -> Awaitable | None:
         st.write(f"Here you are: [link]({transcript_url})")
 
     if all((url, source_language, method, paragraph_size)):
-        return action()
+        if start():
+            return action()
 
     return None
 
 
 def dub_flow(url: str) -> Awaitable | None:
+    if not is_transcript_platform(platform(url)):
+        return None
+
     async def action():
         log_user_action(
             "Dub",
@@ -212,10 +225,14 @@ def dub_flow(url: str) -> Awaitable | None:
         )
         st.write(f"Here you are: [link]({dub_url})")
 
-    return action()
+    if start():
+        return action()
+    else:
+        return None
 
 
-st.title("Freespeech Web Interface. Please insert a quarter to continue.")
+st.title("Welcome to Freespeech!")
+st.write("Please insert a quarter to continue.")
 
 
 async def main():
@@ -231,7 +248,7 @@ async def main():
         case "Translate":
             url = st.text_input(
                 "Please paste a link to the video or transcript and hit Enter"
-            )  # noqa E501
+            )
             if url:
                 action = translate_flow(url)
         case "Transcribe":
@@ -243,9 +260,7 @@ async def main():
             if url:
                 action = dub_flow(url)
 
-    start = st.button(f"{st.session_state['option']}!")
-
-    if start and action:
+    if action:
         await action
 
 
