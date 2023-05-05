@@ -104,7 +104,7 @@ def transcribe_dialogue():
 
 async def translate_transcript_action(url, target_language):
     log_user_action("Translate transcript", url=url, target_language=target_language)
-    st.text(
+    st.write(
         "The translated transcript will be linked here soon. Please don't close the tab!"
     )
     translated_transcript_url = await translate.translate(
@@ -113,7 +113,7 @@ async def translate_transcript_action(url, target_language):
         format="SSMD-NEXT",
         platform="Google",
     )
-    st.text("Here you are: [link](%s)" % translated_transcript_url)
+    st.write(f"Here you are: [link]({translated_transcript_url})")
 
 
 async def translate_video_action(
@@ -127,7 +127,7 @@ async def translate_video_action(
         paragraph_size=paragraph_size,
         target_language=target_language,
     )
-    st.text(
+    st.write(
         "The translated video will be linked here soon. Please don't close the tab!"  # noqa
     )
     transcript_url = await _transcribe(url, source_language, method, paragraph_size)
@@ -143,17 +143,15 @@ async def translate_video_action(
         await transcript.load(source=translated_transcript_url),
         is_smooth=True,
     )
-    st.text("Here you are: [link](%s)" % dub_url)
+    st.write(f"Here you are: [link]({dub_url})")
 
 
 def translate_flow(start_button):
-    END = (False, lambda: None)
+    END = (False, None)
 
     url = st.text_input("Please paste a link to the transcript/video and hit Enter")
     if not url:
-        return False, None
-
-    action = default_action
+        return END
 
     if is_media_platform(platform(url)):
         source_language, method, paragraph_size = transcribe_dialogue()
@@ -164,8 +162,8 @@ def translate_flow(start_button):
 
         if not all([source_language, method, paragraph_size, target_language]):
             return END
-        
-        action = lambda: translate_video_action(
+
+        return start_button(), lambda: translate_video_action(
             url, source_language, method, paragraph_size, target_language
         )
 
@@ -176,22 +174,22 @@ def translate_flow(start_button):
         )
         if not target_language:
             return END
-        
-        action = lambda: translate_transcript_action(url, target_language)
 
-    return (start_button(), action)
+        return start_button(), lambda: translate_transcript_action(url, target_language)
+
+    return END
 
 
 def transcribe_flow():
     url = st.text_input("Please paste a link to the video and hit Enter")
 
     if url and not is_media_platform(platform(url)):
-        st.text("Sorry! The link is invalid, or the platform isn't supported.")
-        return lambda: None
+        st.write("Sorry! The link is invalid, or the platform isn't supported.")
+        return None
 
     source_language, method, paragraph_size = transcribe_dialogue()
     if not all([url, source_language, method, paragraph_size]):
-        return lambda: None
+        return None
 
     async def action():
         log_user_action(
@@ -201,38 +199,38 @@ def transcribe_flow():
             method=method,
             paragraph_size=paragraph_size,
         )
-        st.text("The transcript will be linked here soon. Please don't close the tab!")
+        st.write("The transcript will be linked here soon. Please don't close the tab!")
         transcript_url = await _transcribe(url, source_language, method, paragraph_size)
-        st.text("Here you are: [link](%s)" % transcript_url)
+        st.write(f"Here you are: [link]({transcript_url})")
 
-    return action
+    return lambda: action()
 
 
 def dub_flow():
     url = st.text_input("Please paste a link to the transcript and hit Enter")
 
     if url and not is_media_platform(platform(url)):
-        st.text("Sorry! The link is invalid, or the platform isn't supported.")
-        return lambda: None
+        st.write("Sorry! The link is invalid, or the platform isn't supported.")
+        return None
 
     if not url:
-        return lambda: None
+        return None
 
     async def action():
         log_user_action(
             "Dub",
             url=url,
         )
-        st.text(
+        st.write(
             f"The dub of the transcript will be here soon. Please don't close the tab!"
         )
         dub_url = await synthesize.dub(
             await transcript.load(source=url),
             is_smooth=True,
         )
-        st.text("Here you are: [link](%s)" % dub_url)
+        st.write(f"Here you are: [link]({dub_url})")
 
-    return action
+    return lambda: action()
 
 
 st.title("Freespeech Web Interface. Please insert a quarter to continue.")
@@ -247,7 +245,7 @@ async def main():
         key="option",
         options=["Translate", "Transcribe", "Dub"],
     )
-    action = lambda: None
+    action = None
     start_button = lambda: st.button(f"{st.session_state['option']}!")
     start = False
 
@@ -261,16 +259,9 @@ async def main():
             action = dub_flow()
             start = start_button()
 
-    if start and (res := action()):
-        await res
+    if start and action:
+        await action()
 
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
-# st.write(input)
-# reset = text.empty()
-# attempt = st.text_input("hi")
-
-# attempt = ""
