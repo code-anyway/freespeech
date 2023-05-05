@@ -1,8 +1,3 @@
-import sys
-
-# to make modules visible
-sys.path.append("../")
-
 import asyncio
 import logging
 import logging.config
@@ -107,15 +102,56 @@ def transcribe_dialogue():
     return (source_language, method, paragraph_size)
 
 
+async def translate_transcript_action(url, target_language):
+    log_user_action("Translate transcript", url=url, target_language=target_language)
+    st.text(
+        "The translated transcript will be linked here soon. Please don't close the tab!"
+    )
+    translated_transcript_url = await translate.translate(
+        source=url,
+        lang=target_language,
+        format="SSMD-NEXT",
+        platform="Google",
+    )
+    st.text("Here you are: [link](%s)" % translated_transcript_url)
+
+
+async def translate_video_action(
+    url, source_language, method, paragraph_size, target_language
+):
+    log_user_action(
+        "Translate video",
+        url=url,
+        source_language=source_language,
+        method=method,
+        paragraph_size=paragraph_size,
+        target_language=target_language,
+    )
+    st.text(
+        "The translated video will be linked here soon. Please don't close the tab!"  # noqa
+    )
+    transcript_url = await _transcribe(url, source_language, method, paragraph_size)
+
+    translated_transcript_url = await translate.translate(
+        source=transcript_url,
+        lang=target_language,
+        format="SSMD-NEXT",
+        platform="Google",
+    )
+
+    dub_url = await synthesize.dub(
+        await transcript.load(source=translated_transcript_url),
+        is_smooth=True,
+    )
+    st.text("Here you are: [link](%s)" % dub_url)
+
+
 def translate_flow(start_button):
     END = (False, lambda: None)
 
     url = st.text_input("Please paste a link to the transcript/video and hit Enter")
     if not url:
-        return END
-
-    async def default_action():
-        return None
+        return False, None
 
     action = default_action
 
@@ -128,35 +164,10 @@ def translate_flow(start_button):
 
         if not all([source_language, method, paragraph_size, target_language]):
             return END
-
-        async def action():
-            log_user_action(
-                "Translate video",
-                url=url,
-                source_language=source_language,
-                method=method,
-                paragraph_size=paragraph_size,
-                target_language=target_language,
-            )
-            st.text(
-                f"The translated video will be linked here soon. Please don't close the tab!"
-            )
-            transcript_url = await _transcribe(
-                url, source_language, method, paragraph_size
-            )
-
-            translated_transcript_url = await translate.translate(
-                source=transcript_url,
-                lang=target_language,
-                format="SSMD-NEXT",
-                platform="Google",
-            )
-
-            dub_url = await synthesize.dub(
-                await transcript.load(source=translated_transcript_url),
-                is_smooth=True,
-            )
-            st.text("Here you are: [link](%s)" % dub_url)
+        
+        action = lambda: translate_video_action(
+            url, source_language, method, paragraph_size, target_language
+        )
 
     if is_transcript_platform(platform(url)):
         target_language = st.selectbox(
@@ -165,21 +176,8 @@ def translate_flow(start_button):
         )
         if not target_language:
             return END
-
-        async def action():
-            log_user_action(
-                "Translate transcript", url=url, target_language=target_language
-            )
-            st.text(
-                "The translated transcript will be linked here soon. Please don't close the tab!"
-            )
-            translated_transcript_url = await translate.translate(
-                source=url,
-                lang=target_language,
-                format="SSMD-NEXT",
-                platform="Google",
-            )
-            st.text("Here you are: [link](%s)" % translated_transcript_url)
+        
+        action = lambda: translate_transcript_action(url, target_language)
 
     return (start_button(), action)
 
