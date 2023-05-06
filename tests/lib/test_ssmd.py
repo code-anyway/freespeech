@@ -330,233 +330,201 @@ def test_render_block_newlines():
     assert ssmd.render_block(events) == "00:00:00.00#1.00 (Ada) Hello World."
 
 
-def test_parse_transcript():
+def test_parse_body():
     ssmd_examples = [
         # Example
         (
-            """language: en
+            """
 What is the meaning of life?""",
-            {
-                "lang": "en",
-                "transcript": [
-                    {
-                        "time": None,
-                        "speaker": None,
-                        "text": "What is the meaning of life?",
-                        "fixed": False,
-                    }
-                ],
-            },
+            [
+                {
+                    "time": None,
+                    "speaker": None,
+                    "text": "What is the meaning of life?",
+                    "fixed": False,
+                }
+            ],
         ),
         # Example
         (
-            """language: ru
+            """
 
 What is the meaning of life?""",
-            {
-                "lang": "ru",
-                "transcript": [
-                    {
-                        "time": None,
-                        "speaker": None,
-                        "text": "What is the meaning of life?",
-                        "fixed": False,
-                    }
-                ],
-            },
+            [
+                {
+                    "time": None,
+                    "speaker": None,
+                    "text": "What is the meaning of life?",
+                    "fixed": False,
+                }
+            ],
         ),
         # Example
-        ("""language: es""", {"lang": "es", "transcript": []}),
+        ("""""", []),
         # Example
         (
-            """language: fr
-(Bill) Hello world! How are you?
+            """(Bill) Hello world! How are you?
 (Sam) I'm good, how are you?""",
-            {
-                "lang": "fr",
-                "transcript": [
-                    {
-                        "time": None,
-                        "speaker": "Bill",
-                        "text": "Hello world! How are you?",
-                        "fixed": False,
-                    },
-                    {
-                        "time": None,
-                        "speaker": "Sam",
-                        "text": "I'm good, how are you?",
-                        "fixed": False,
-                    },
-                ],
-            },
+            [
+                {
+                    "time": None,
+                    "speaker": "Bill",
+                    "text": "Hello world! How are you?",
+                    "fixed": False,
+                },
+                {
+                    "time": None,
+                    "speaker": "Sam",
+                    "text": "I'm good, how are you?",
+                    "fixed": False,
+                },
+            ],
         ),
         # Example
         (
-            """language: en
-(Bill) Hello world!
+            """(Bill) Hello world!
 How are you?
 (Sam) I'm good, how are you?""",
-            {
-                "lang": "en",
-                "transcript": [
-                    {
-                        "time": None,
-                        "speaker": "Bill",
-                        "text": "Hello world! How are you?",
-                        "fixed": False,
-                    },
-                    {
-                        "time": None,
-                        "speaker": "Sam",
-                        "text": "I'm good, how are you?",
-                        "fixed": False,
-                    },
-                ],
-            },
+            [
+                {
+                    "time": None,
+                    "speaker": "Bill",
+                    "text": "Hello world! How are you?",
+                    "fixed": False,
+                },
+                {
+                    "time": None,
+                    "speaker": "Sam",
+                    "text": "I'm good, how are you?",
+                    "fixed": False,
+                },
+            ],
         ),
         # Example
         (
-            """language: en
+            """
 
 00:00 (Bill) Hello world!
 
 00:02 How are you?
 (Sam) I'm good, how are you?""",
-            {
-                "lang": "en",
-                "transcript": [
-                    {
-                        "time": "00:00",
-                        "speaker": "Bill",
-                        "text": "Hello world!",
-                        "fixed": True,
-                    },
-                    {
-                        "time": "00:02",
-                        "speaker": None,
-                        "text": "How are you?",
-                        "fixed": True,
-                    },
-                    {
-                        "time": None,
-                        "speaker": "Sam",
-                        "text": "I'm good, how are you?",
-                        "fixed": False,
-                    },
-                ],
-            },
+            [
+                {
+                    "time": "00:00",
+                    "speaker": "Bill",
+                    "text": "Hello world!",
+                    "fixed": True,
+                },
+                {
+                    "time": "00:02",
+                    "speaker": None,
+                    "text": "How are you?",
+                    "fixed": True,
+                },
+                {
+                    "time": None,
+                    "speaker": "Sam",
+                    "text": "I'm good, how are you?",
+                    "fixed": False,
+                },
+            ],
         ),
         # Example
         (
-            """language: en
+            """
 
 00:00 (Bill) Hello world!
 00:01 How are you?
 
 00:00:02.005 (Sam) I'm good, how are you?
 You look great!""",
-            {
-                "lang": "en",
-                "transcript": [
-                    {
-                        "time": "00:00",
-                        "speaker": "Bill",
-                        "text": "Hello world!",
-                        "fixed": True,
-                    },
-                    {
-                        "time": "00:01",
-                        "speaker": None,
-                        "text": "How are you?",
-                        "fixed": False,
-                    },
-                    {
-                        "time": "00:00:02.005",
-                        "speaker": "Sam",
-                        "text": "I'm good, how are you? You look great!",
-                        "fixed": True,
-                    },
-                ],
-            },
+            [
+                {
+                    "time": "00:00",
+                    "speaker": "Bill",
+                    "text": "Hello world!",
+                    "fixed": True,
+                },
+                {
+                    "time": "00:01",
+                    "speaker": None,
+                    "text": "How are you?",
+                    "fixed": False,
+                },
+                {
+                    "time": "00:00:02.005",
+                    "speaker": "Sam",
+                    "text": "I'm good, how are you? You look great!",
+                    "fixed": True,
+                },
+            ],
         ),
         # Example
         (
-            """language: en
+            """
 00:00 (Bill) Hello world!
 
 00:00:01.40 How are you?""",
-            {
-                "lang": "en",
-                "transcript": [
-                    {
-                        "time": "00:00",
-                        "speaker": "Bill",
-                        "text": "Hello world!",
-                        "fixed": False,
-                    },
-                    {
-                        "time": "00:00:01.40",
-                        "speaker": None,
-                        "text": "How are you?",
-                        "fixed": True,
-                    },
-                ],
-            },
+            [
+                {
+                    "time": "00:00",
+                    "speaker": "Bill",
+                    "text": "Hello world!",
+                    "fixed": True,
+                },
+                {
+                    "time": "00:00:01.40",
+                    "speaker": None,
+                    "text": "How are you?",
+                    "fixed": True,
+                },
+            ],
         ),
         # Example
         (
-            """language: en
-00:00 (Bill) Hello world!
+            """00:00 (Bill) Hello world!
 [This is a comment]
 00:00:01.40 How are you?""",
-            {
-                "lang": "en",
-                "transcript": [
-                    {
-                        "time": "00:00",
-                        "speaker": "Bill",
-                        "text": "Hello world!",
-                        "comment": "This is a comment",
-                        "fixed": False,
-                    },
-                    {
-                        "time": "00:00:01.40",
-                        "speaker": None,
-                        "text": "How are you?",
-                        "fixed": False,
-                    },
-                ],
-            },
+            [
+                {
+                    "time": "00:00",
+                    "speaker": "Bill",
+                    "text": "Hello world!",
+                    "comment": "This is a comment",
+                    "fixed": True,
+                },
+                {
+                    "time": "00:00:01.40",
+                    "speaker": None,
+                    "text": "How are you?",
+                    "fixed": False,
+                },
+            ],
         ),
         # Example
         (
-            """language: en
-origin: https://www.youtube.com/watch?v=9C_HReR_McQ
+            """
 00:00 (Bill) Hello world!
 [This is a multi-line
 
 comment]
 00:00:01.40 How are you?""",
-            {
-                "lang": "en",
-                "origin": "https://www.youtube.com/watch?v=9C_HReR_McQ",
-                "transcript": [
-                    {
-                        "time": "00:00",
-                        "speaker": "Bill",
-                        "text": "Hello world!",
-                        "comment": "This is a multi-line\n\ncomment",
-                        "fixed": False,
-                    },
-                    {
-                        "time": "00:00:01.40",
-                        "speaker": None,
-                        "text": "How are you?",
-                        "fixed": False,
-                    },
-                ],
-            },
+            [
+                {
+                    "time": "00:00",
+                    "speaker": "Bill",
+                    "text": "Hello world!",
+                    "comment": "This is a multi-line\n\ncomment",
+                    "fixed": True,
+                },
+                {
+                    "time": "00:00:01.40",
+                    "speaker": None,
+                    "text": "How are you?",
+                    "fixed": False,
+                },
+            ],
         ),
     ]
     for text, value in ssmd_examples:
-        assert ssmd.parse_transcript(text) == value
+        assert ssmd.parse_body(text) == value, text

@@ -20,29 +20,17 @@ timecode_parser = re.compile(
 MAXIMUM_GAP_MS = 1400
 
 
-def parse_transcript(transcript_text):
+def parse_body(transcript_text: str) -> list[dict]:
     transcript_text = transcript_text.replace(
         "\u2028", " "
     )  # Replace line separator with space
-    lines = transcript_text.strip().splitlines()
+    lines = transcript_text.splitlines()
 
-    # Parse optional meta-information
-    metadata = {}
-    transcript = []
-
-    for line in lines.copy():
-        if line.startswith("language:"):
-            metadata["lang"] = line.split("language:")[1].strip()
-        elif line.startswith("origin:"):
-            metadata["origin"] = line.split("origin:")[1].strip()
-        else:
-            break
-
-        lines.pop(0)
+    transcript: list[dict] = []
 
     # Parse transcript
-    timestamp_regex = r"\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?"
-    speaker_regex = r"\(([A-Za-z]+)\)"
+    timestamp_regex = r"\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(#(\d+(\.\d+)))?"
+    speaker_regex = r"\(([A-Za-z]+(@(\d+(\.\d+)?))?)\)"
 
     i = 0
     while i < len(lines):
@@ -56,7 +44,7 @@ def parse_transcript(transcript_text):
                 i += 1
 
             if lines[i].count("]") > 1:
-                return "Invalid transcript format."
+                raise ValueError("Invalid transcript format.")
             comment_lines.append(lines[i])
             comment = "\n".join([line.strip("[]") for line in comment_lines])
             i += 1
@@ -79,7 +67,9 @@ def parse_transcript(transcript_text):
         else:
             speaker = None
 
-        fixed = (time is not None) and (i > 0 and lines[i - 1].strip() == "")
+        fixed = (time is not None) and (
+            (i > 0 and lines[i - 1].strip() == "") or i == 0
+        )
 
         text_lines.append(line)
         i += 1
@@ -111,7 +101,7 @@ def parse_transcript(transcript_text):
         ):
             transcript.append(entry)
 
-    return {"transcript": transcript, **metadata}
+    return transcript
 
 
 def parse_block(s: str, group: int) -> list[Event]:
