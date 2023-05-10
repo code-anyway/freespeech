@@ -164,7 +164,7 @@ def sentences(s: str, lang: Language) -> Sequence[str]:
     Returns:
         Sequence of strings representing sentences.
     """
-    if lang in ("tr-TR", "ar-SA"):
+    if lang in LANGUAGES_WITHOUT_SPACY_SUPPORT:
         return split_sentences(s)
 
     nlp = _nlp(lang)
