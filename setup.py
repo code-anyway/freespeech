@@ -72,7 +72,7 @@ setup(
         ],
         *[
             f"{lang}_core_news_sm @ https://github.com/explosion/spacy-models/releases/download/{lang}_core_news_sm-3.4.0/{lang}_core_news_sm-3.4.0.tar.gz"  # noqa E501
-            for lang in ("es", "uk", "pt", "ru", "de", "fr", "sv", "it")
+            for lang in ("es", "uk", "pt", "ru", "de", "fr", "sv", "it", "fi")
         ],
         "streamlit",
         "telethon",
