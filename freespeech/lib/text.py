@@ -7,6 +7,10 @@ import spacy
 
 from freespeech.types import Language, assert_never
 
+# Apply simple heuristics to determine if a string is a sentence
+# end don't do anything fancy like parsing.
+LANGUAGES_WITHOUT_SPACY_SUPPORT = ("tr-TR", "ar-SA", "et-EE")
+
 
 @functools.cache
 def _nlp(lang: Language):
@@ -29,7 +33,9 @@ def _nlp(lang: Language):
             nlp = spacy.load("sv_core_news_sm")
         case "it-IT":
             nlp = spacy.load("it_core_news_sm")
-        case "tr-TR" | "ar-SA":
+        case "fi-FI":
+            nlp = spacy.load("fi_core_news_sm")
+        case "tr-TR" | "ar-SA" | "et-EE":
             raise NotImplementedError(f"{lang} is not supported yet")
         case never:
             # (astaff, 20221109): when adding a new language make sure
@@ -181,7 +187,7 @@ def lemmas(s: str, lang: Language) -> Sequence[str]:
     Returns:
         Sequence of strings representing lemmas.
     """
-    if lang in ("tr-TR", "ar-SA"):
+    if lang in LANGUAGES_WITHOUT_SPACY_SUPPORT:
         return [lemma for lemma in s.split() if lemma]
 
     nlp = _nlp(lang)
