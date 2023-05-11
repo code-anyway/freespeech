@@ -20,7 +20,7 @@ timecode_parser = re.compile(
 MAXIMUM_GAP_MS = 1400
 
 
-def parse_body(transcript_text: str) -> list[dict]:
+def parse_body(transcript_text: str) -> list[dict[str, str | bool | None]]:
     transcript_text = transcript_text.replace(
         "\u2028", " "
     )  # Replace line separator with space
@@ -104,86 +104,97 @@ def parse_body(transcript_text: str) -> list[dict]:
     return transcript
 
 
-def parse_block(s: str, group: int) -> list[Event]:
-    """Parses single SSMD block and extracts speech events.
-    Args:
-        text: speech events in SSMD format.
-    Returns:
-        Speech events.
-    """
-    events = []
+def parse_time(time: str) -> tuple[int, int | None]:
+    """Parses timecode string into milliseconds."""
 
-    s = s.replace("\u2028", " ")  # Replace line separator with space
-    # Not that not only \n is a new line character in SSMD
-    # Things like \r, \x0b and \x0c are also new line characters
-    for line in s.splitlines():
-        if line.startswith("["):  # Comment
-            continue
-        matches = timecode_parser.findall(line)
-        assert len(matches) == 1, f"Invalid SSMD format: {matches}"
-        match = matches[0]
-        event_text = match[-1]
-        character_str = match[-5]
-        time = match[1]
-        qualifier = match[3]
-        parameter = match[4]
-        speech_rate_str = match[-3]
+    def parse_timecode(timecode: str) -> int:
+        """Parses timecode string into milliseconds."""
+        parts = timecode.split(":")
+        if len(parts) == 3:
+            hours, minutes, seconds = parts
+        elif len(parts) == 2:
+            hours, minutes = parts
+            seconds = "0"
+        else:
+            raise ValueError("Invalid timecode format.")
 
-        time_ms = transcript.to_milliseconds(time)
-        character = character_str.split(" ")[0]
-        if not is_character(character):
-            character = "Ada"
+        return int(hours) * 3600000 + int(minutes) * 60000 + int(float(seconds) * 1000)
 
+    if "#" in time:
+        time, duration = time.split("#")
+        duration_ms = int(float(duration) * 1000)
+    else:
         duration_ms = None
 
-        speech_rate = float(speech_rate_str) if speech_rate_str else 1.0
+    time_ms = parse_timecode(time)
 
-        match qualifier:
-            case "/":
-                if parameter:
-                    finish_ms = transcript.to_milliseconds(parameter)
+    return time_ms, duration_ms
 
-                    duration_ms = (
-                        finish_ms - time_ms if time_ms is not None else finish_ms
-                    )
-            case "#":
-                duration_ms = round(float(parameter) * 1000)
 
-        events += [
+def make_events(parsed_events: list[dict[str, str | bool | None]]) -> list[Event]:
+    """Converts parsed transcript into a sequence of events."""
+
+    events: list[Event] = []
+    group = 0
+    current_voice = Voice(character="Ada", speech_rate=1.0)
+
+    for parsed_event in parsed_events:
+        time = parsed_event["time"]
+        text = str(parsed_event["text"])
+        speaker = str(parsed_event["speaker"])
+        comment = str(parsed_event.get("comment", ""))
+        fixed = bool(parsed_event["fixed"])
+
+        if fixed:
+            group += 1
+
+        time_ms = None
+        duration_ms = None
+        if time:
+            time_ms, duration_ms = parse_time(time)
+
+        if speaker:
+            character_name = speaker.split("@")[0]
+            if not is_character(character_name):
+                raise ValueError(f"Invalid speaker name: {character_name}")
+
+            voice = Voice(
+                character=character_name,
+                speech_rate=float(speaker.split("@")[1]) if "@" in speaker else 1.0,
+            )
+            current_voice = voice
+        else:
+            voice = current_voice
+
+        if text:
+            chunks = [text]
+        else:
+            chunks = []
+
+        events.append(
             Event(
                 time_ms=time_ms,
                 duration_ms=duration_ms,
-                chunks=[event_text.strip()],
-                voice=Voice(
-                    character=character,
-                    speech_rate=speech_rate,
-                ),
+                chunks=chunks,
+                voice=voice,
+                comment=comment,
                 group=group,
             )
-        ]
-
-    return [
-        replace(
-            event,
-            duration_ms=event.duration_ms
-            if event.duration_ms is not None or next_event == event
-            else next_event.time_ms - event.time_ms,
         )
-        for event, next_event in zip(events, events[1:] + [events[-1]])
-    ]
+
+    return events
 
 
 def parse(s: str) -> Sequence[Event]:
     """Parses SSMD text and extracts speech events turning gaps into blanks."""
 
-    blocks = [block.strip() for block in s.split("\n\n") if block]
-    return no_gaps(
-        sum(
-            [parse_block(block, group=group) for group, block in enumerate(blocks)],
-            [],
-        ),
-        threshold_ms=MAXIMUM_GAP_MS,
-    )
+    # Parse SSMD
+    parsed_events = parse_body(s)
+
+    # Convert parsed SSMD into a sequence of events
+    events = make_events(parsed_events)
+
+    return events
 
 
 def no_gaps(events: list[Event], threshold_ms: int) -> list[Event]:

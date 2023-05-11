@@ -528,3 +528,19 @@ comment]
     ]
     for text, value in ssmd_examples:
         assert ssmd.parse_body(text) == value, text
+
+
+def test_make_events():
+    # Example
+    assert ssmd.make_events(
+        [
+            {
+                "time": None,
+                "speaker": None,
+                "text": "What is the meaning of life?",
+                "fixed": False,
+            }
+        ]
+    ) == [
+        Event(time_ms=None, chunks=["What is the meaning of life?"], duration_ms=None)
+    ]
