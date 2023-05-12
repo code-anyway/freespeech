@@ -187,7 +187,7 @@ def parse_transcript(text: str) -> Transcript:
     properties = parse_properties(parts[0])
     body = parts[1]
 
-    format = properties.get("format", "SSMD")
+    format = properties.get("format", "SSMD-NEXT")
     if not is_transcript_format(format):
         raise ValueError(
             f"Invalid transcript format: {format}. Supported values: {TRANSCRIPT_FORMATS}"  # noqa: E501

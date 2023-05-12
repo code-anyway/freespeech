@@ -29,7 +29,7 @@ def parse_body(transcript_text: str) -> list[dict[str, str | bool | None]]:
     transcript: list[dict] = []
 
     # Parse transcript
-    timestamp_regex = r"\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(#(\d+(\.\d+)))?"
+    timestamp_regex = r"(\d{2}:)?\d{2}:\d{2}(\.\d{1,3})?(#(\d+(\.\d+)))?"
     speaker_regex = r"\(([A-Za-z]+(@(\d+(\.\d+)?))?)\)"
 
     i = 0
@@ -50,6 +50,9 @@ def parse_body(transcript_text: str) -> list[dict[str, str | bool | None]]:
             i += 1
         else:
             comment = None
+
+        if i >= len(lines):
+            break
 
         # Parsing time, speaker, and text
         time_match = re.match(timestamp_regex, lines[i])
@@ -86,7 +89,7 @@ def parse_body(transcript_text: str) -> list[dict[str, str | bool | None]]:
         entry = {
             "time": time,
             "speaker": speaker,
-            "text": (" ".join(text_lines)).strip(),
+            "text": ("\n".join(text_lines)).strip(),
             "fixed": fixed,
         }
 
@@ -113,8 +116,8 @@ def parse_time(time: str) -> tuple[int, int | None]:
         if len(parts) == 3:
             hours, minutes, seconds = parts
         elif len(parts) == 2:
-            hours, minutes = parts
-            seconds = "0"
+            minutes, seconds = parts
+            hours = "0"
         else:
             raise ValueError("Invalid timecode format.")
 
@@ -135,25 +138,30 @@ def make_events(parsed_events: list[dict[str, str | bool | None]]) -> list[Event
     """Converts parsed transcript into a sequence of events."""
 
     events: list[Event] = []
-    group = 0
+    group = -1
     current_voice = Voice(character="Ada", speech_rate=1.0)
 
     for parsed_event in parsed_events:
         time = parsed_event["time"]
         text = str(parsed_event["text"])
-        speaker = str(parsed_event["speaker"])
-        comment = str(parsed_event.get("comment", ""))
+        speaker = parsed_event["speaker"]
+
+        comment = parsed_event.get("comment", None)
+        if not (isinstance(comment, str) or comment is None):
+            raise ValueError(f"Invalid comment: {comment}")
+
         fixed = bool(parsed_event["fixed"])
 
-        if fixed:
+        # Groups are zero-based
+        if fixed or group == -1:
             group += 1
 
         time_ms = None
         duration_ms = None
-        if time:
+        if time and isinstance(time, str):
             time_ms, duration_ms = parse_time(time)
 
-        if speaker:
+        if speaker and isinstance(speaker, str):
             character_name = speaker.split("@")[0]
             if not is_character(character_name):
                 raise ValueError(f"Invalid speaker name: {character_name}")
@@ -171,6 +179,8 @@ def make_events(parsed_events: list[dict[str, str | bool | None]]) -> list[Event
         else:
             chunks = []
 
+        if time_ms is None:
+            raise ValueError(f"Missing timecode for {chunks}")
         events.append(
             Event(
                 time_ms=time_ms,
@@ -194,7 +204,7 @@ def parse(s: str) -> Sequence[Event]:
     # Convert parsed SSMD into a sequence of events
     events = make_events(parsed_events)
 
-    return events
+    return no_gaps(events, threshold_ms=MAXIMUM_GAP_MS)
 
 
 def no_gaps(events: list[Event], threshold_ms: int) -> list[Event]:
@@ -247,6 +257,7 @@ def no_gaps(events: list[Event], threshold_ms: int) -> list[Event]:
 
 def render_block(events: Sequence[Event]) -> str:
     lines: list[str] = []
+    previous_voice = None
 
     for event, next_event in zip(events, list(events[1:]) + [events[-1]]):
         time = (
@@ -254,8 +265,12 @@ def render_block(events: Sequence[Event]) -> str:
             if event.time_ms is not None
             else ""
         )
-        event_text = " ".join(event.chunks)
-        event_text = re.sub("\n+", " ", event_text)
+        if time:
+            # Remove hours if less than 1 hour
+            if event.time_ms < 60_000:
+                time = time[3:]
+
+        event_text = "\n".join(event.chunks)
         if event.duration_ms is not None:
             if next_event == event or (
                 next_event.time_ms - event.time_ms != event.duration_ms
@@ -272,8 +287,11 @@ def render_block(events: Sequence[Event]) -> str:
         else:
             comment = ""
 
-        lines += [f"{time} ({voice}) {event_text}{comment}".strip()]  # noqa: E501
-
+        if event.voice != previous_voice:
+            lines += [f"{time} ({voice}) {event_text}{comment}".strip()]
+            previous_voice = event.voice
+        else:
+            lines += [f"{time} {event_text}{comment}".strip()]
     return "\n".join(lines)
 
 

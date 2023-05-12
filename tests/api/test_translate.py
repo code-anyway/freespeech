@@ -33,6 +33,6 @@ async def test_translate_srt():
     assert transcript_ru.lang == "ru-RU"
     assert (
         transcript_ru.events[0].chunks[0]
-        == "Вдохновленный романом Астрид Линдгрен фея сказка."
+        == "Вдохновленный романом Астрид Линдгрен\nфея\nсказка."
     )
     assert transcript_ru.title.startswith("ru-RU")

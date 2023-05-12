@@ -39,9 +39,9 @@ def test_load():
 
 def test_create():
     expected_transcript = replace(EXPECTED_TRANSCRIPT, title="test_gdocs::test_create")
-    url = gdocs.create(source=expected_transcript, format="SSMD")
+    url = gdocs.create(source=expected_transcript, format="SSMD-NEXT")
     transcript = gdocs.load(url)
-    assert transcript == expected_transcript
+    assert transcript == expected_transcript, f"{url}"
 
 
 def test_create_ssmd_next():

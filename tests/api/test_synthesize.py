@@ -69,7 +69,7 @@ async def test_synthesize_crop() -> None:
     with TemporaryDirectory() as tmp_dir:
         transcript_str = await obj.get(obj.storage_url(url), dst_dir=tmp_dir)
         (audio_info, *_), _ = media.probe(transcript_str)
-        assert audio_info.duration_ms / 1000.0 == pytest.approx(11.4, 0.12)
+        assert audio_info.duration_ms / 1000.0 == pytest.approx(26.92, 0.12)
 
 
 @pytest.mark.asyncio
