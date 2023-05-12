@@ -7,14 +7,15 @@ from freespeech.types import Event, Settings, Source, Transcript, Voice
 EXPECTED_EVENTS = [
     Event(
         time_ms=0,
-        duration_ms=1000,
-        chunks=["Hello, Bill!", "How are you?"],
+        duration_ms=2000,
+        chunks=["Hello, Bill!\nHow are you?"],
         voice=Voice(character="Grace", pitch=0.0, speech_rate=1.0),
     ),
     Event(
         time_ms=2000,
         chunks=["It was a huge mistake."],
-        voice=Voice(character="Ada", pitch=0.0, speech_rate=1.4),
+        voice=Voice(character="Grace", pitch=0.0, speech_rate=1.0),
+        group=1,
     ),
 ]
 EXPECTED_TRANSCRIPT = Transcript(
@@ -32,11 +33,11 @@ method: Subtitles
 original_audio_level: 1
 video:
 
-00:00:00.000000/00:00:01.000000 (Grace Hopper)
+00:00:00.00 (Grace)
 Hello, Bill!
 How are you?
 
-00:00:02.000000@1.40
+00:00:02.000
 It was a huge mistake.
 """
 
