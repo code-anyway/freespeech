@@ -33,12 +33,12 @@ def strip(file: Path | str) -> str:
         *Same* audio file. It will overwrite the original one.
     """
     with open(file, "rb") as fd:
-        signal, rate = librosa.load(fd)
+        signal, rate = librosa.load(fd, sr=44100)
 
     _, (start, end) = librosa.effects.trim(signal)
 
     with open(file, "wb") as fd:
-        sf.write(fd, signal[start:end], rate, subtype="PCM_16")
+        sf.write(fd, signal[start:end], rate, subtype="PCM_24")
 
     return str(file)
 

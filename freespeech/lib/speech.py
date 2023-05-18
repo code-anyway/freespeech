@@ -222,17 +222,17 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
     "Volodymyr": {
         "en-US": ("ElevenLabs", "Volodymyr"),
         "ru-RU": None,
-        "pt-PT": None,
-        "pt-BR": None,
-        "de-DE": None,
-        "es-US": None,
+        "pt-PT": ("ElevenLabs", "Volodymyr"),
+        "pt-BR": ("ElevenLabs", "Volodymyr"),
+        "de-DE": ("ElevenLabs", "Volodymyr"),
+        "es-US": ("ElevenLabs", "Volodymyr"),
         "uk-UA": None,
-        "es-MX": None,
-        "es-ES": None,
-        "fr-FR": None,
+        "es-MX": ("ElevenLabs", "Volodymyr"),
+        "es-ES": ("ElevenLabs", "Volodymyr"),
+        "fr-FR": ("ElevenLabs", "Volodymyr"),
         "sv-SE": None,
         "tr-TR": None,
-        "it-IT": None,
+        "it-IT": ("ElevenLabs", "Volodymyr"),
         "ar-SA": None,
         "et-EE": None,
         "fi-FI": None,
@@ -600,7 +600,6 @@ def _emojis_to_ssml_emotion_tags(text: str, lang: Language) -> str:
 
     pattern = rf"([{''.join(SSML_EMOTIONS.keys())}]\s*[.!?,;:]*)"
     split_by_emojis = re.split(pattern, text)
-
     text_with_emotion_tags = ""
     # Iterate over pairs: substring and it's subsequent emoji fragment
     for i in range(0, len(split_by_emojis) - 1, 2):

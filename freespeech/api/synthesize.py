@@ -59,10 +59,6 @@ async def _synthesize(source, is_smooth: bool, tmp_dir):
         synth_file = await tts.synthesize(
             list(source.events),
             lang=source.lang,
-            sentence_pause_ms=SENTENCE_PAUSE_MS,
-            min_rate=MIN_RATE,
-            min_silence_scale=MIN_SILENCE_SCALE,
-            variance_threshold=VARIANCE_THRESHOLD,
             output_dir=tmp_dir,
         )
         first = source.events[0]
