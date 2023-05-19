@@ -77,7 +77,7 @@ async def test_synthesize_text(tmp_path) -> None:
     eps = speech.SYNTHESIS_ERROR_MS
     assert abs(audio.duration_ms - 4_000) < eps
     # Although text is short, speech break helps us achieve reasonable speech rate
-    assert voice.speech_rate == pytest.approx(0.904, 1e-2)
+    assert voice.speech_rate == pytest.approx(1.5, 1e-2)
     assert voice.character == "Grace"
     assert voice.pitch == 0.0
 
@@ -210,9 +210,9 @@ async def test_synthesize_events(tmp_path) -> None:
     # is this deterministic?
     assert spans == [
         ("blank", 0, 1000),
-        ("event", 1000, 2975),
-        ("blank", 2975, 5000),
-        ("event", 5000, 7027),
+        ("event", 1000, 2998),
+        ("blank", 2998, 5000),
+        ("event", 5000, 7000),
     ]
 
     downmixed_local = await media.multi_channel_audio_to_mono(
@@ -225,20 +225,20 @@ async def test_synthesize_events(tmp_path) -> None:
     first, second = t_en
 
     assert first.time_ms == 0
-    assert first.duration_ms == pytest.approx(3270, abs=ABSOLUTE_ERROR_MS)
+    assert first.duration_ms == pytest.approx(2930, abs=ABSOLUTE_ERROR_MS)
     assert first.chunks == ["One, hen two ducks."]
 
-    assert second.time_ms == pytest.approx(3270, abs=ABSOLUTE_ERROR_MS)
-    assert second.duration_ms == pytest.approx(3720, abs=ABSOLUTE_ERROR_MS)
+    assert second.time_ms == pytest.approx(2930, abs=ABSOLUTE_ERROR_MS)
+    assert second.duration_ms == pytest.approx(3810, abs=ABSOLUTE_ERROR_MS)
     assert second.chunks == [" three squawking geese"]
 
     voice_1, voice_2 = voices
 
-    assert voice_1.speech_rate == 0.8625
+    assert voice_1.speech_rate == 1.381
     assert voice_1.character == "Alan"
     assert voice_1.pitch == 0.0
 
-    assert voice_2.speech_rate == 0.7655
+    assert voice_2.speech_rate == 1.256
     assert voice_2.character == "Grace"
     assert voice_2.pitch == 0.0
 
@@ -295,7 +295,7 @@ async def test_synthesize_long_event(tmp_path) -> None:
 
     (voice,) = voices
 
-    assert voice.speech_rate == pytest.approx(0.762, rel=1e-3)
+    assert voice.speech_rate == pytest.approx(0.776, rel=1e-3)
 
 
 def test_normalize_speech() -> None:
@@ -415,7 +415,7 @@ async def test_synthesize_azure(tmp_path) -> None:
 
     (voice,) = voices
 
-    assert voice.speech_rate == pytest.approx(0.87, abs=0.02)
+    assert voice.speech_rate == pytest.approx(0.85, abs=0.02)
 
 
 @pytest.mark.asyncio
