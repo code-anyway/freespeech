@@ -12,7 +12,7 @@ async def get_response(prompt) -> str:
         messages=[
             {
                 "role": "system",
-                "content": "Post production editor and writer for the President of Ukraine during war time.",
+                "content": "Post production editor and writer.",
             },
             {"role": "user", "content": prompt},
         ],
@@ -37,6 +37,6 @@ Don't change the text, keep most of the time stamps, don't change them and don't
 The transcript is enclosed in ```
 
 ```{text}```
-"""
+"""  # noqa: E501
     print(prompt)
     return await get_response(prompt)
