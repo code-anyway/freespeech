@@ -12,6 +12,7 @@ from typing import Dict, Sequence, Tuple
 from uuid import uuid4
 
 import aiohttp
+import pydub
 from deepgram import Deepgram
 from google.api_core import exceptions as google_api_exceptions
 from google.cloud import speech as speech_api
@@ -854,12 +855,31 @@ async def _synthesize_text(
             case never:
                 assert_never(never)
 
+        def is_valid_file(file: str) -> bool:
+            try:
+                media.probe(file)
+                return True
+            except Exception:
+                return False
+
         with TemporaryDirectory() as tmp_dir:
             files = [f"{media.new_file(tmp_dir)}.wav" for _ in responses]
             for file, response in zip(files, responses):
                 with open(file, "wb") as fd:
                     fd.write(response)
-            audio_file = await media.concat(files, output_dir)
+
+            # filter out invalid files (e.g. empty files)
+            files = [file for file in files if is_valid_file(file)]
+
+            if files:
+                audio_file = await media.concat(files, output_dir)
+            else:
+                # fallback to a silent audio file
+                audio_file = Path(f"{media.new_file(output_dir)}.wav")
+                fd = pydub.AudioSegment.silent(duration=1, frame_rate=44100).export(
+                    audio_file, format="wav"
+                )
+                fd.close()  # type: ignore
 
         (audio, *_), _ = media.probe(audio_file)
         assert isinstance(audio, Audio)

@@ -19,7 +19,7 @@ def resample(audio_file: str, target_duration_ms: int, output_dir: str) -> str:
     output_file = str(Path(output_dir) / f"{uuid4()}.wav")
 
     with open(output_file, "wb") as fd:
-        sf.write(fd, new_signal, sr, subtype="PCM_16")
+        sf.write(fd, new_signal, sr, subtype="PCM_24")
 
     return output_file
 

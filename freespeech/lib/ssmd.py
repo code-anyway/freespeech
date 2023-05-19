@@ -7,13 +7,7 @@ from typing import Sequence
 from freespeech.lib import transcript
 from freespeech.types import Event, Voice, is_character
 
-TIMECODE_PATTERN = (
-    r"(([\d\:\.]+)?\s*(([/#])\s*([\d\:\.]+))?\s*(\((.+?)(@(\d+(\.\d+)?))?\)))"
-)
-timecode_parser = re.compile(
-    rf"\s*{TIMECODE_PATTERN}\s*(.*)$",  # noqa: E501
-    flags=re.M,
-)
+TIMECODE_PATTERN = r"(\d{2}:)?\d{2}:\d{2}(\.\d{1,3})?(#(\d+(\.\d+)))?"
 
 
 # Maximum gap between two adjacent events
@@ -29,7 +23,6 @@ def parse_body(transcript_text: str) -> list[dict[str, str | bool | None]]:
     transcript: list[dict] = []
 
     # Parse transcript
-    timestamp_regex = r"(\d{2}:)?\d{2}:\d{2}(\.\d{1,3})?(#(\d+(\.\d+)))?"
     speaker_regex = r"\(([A-Za-z]+(@(\d+(\.\d+)?))?)\)"
 
     i = 0
@@ -55,7 +48,7 @@ def parse_body(transcript_text: str) -> list[dict[str, str | bool | None]]:
             break
 
         # Parsing time, speaker, and text
-        time_match = re.match(timestamp_regex, lines[i])
+        time_match = re.match(TIMECODE_PATTERN, lines[i])
         if time_match:
             time = time_match.group()
             line = lines[i][len(time) :].strip()
@@ -80,7 +73,7 @@ def parse_body(transcript_text: str) -> list[dict[str, str | bool | None]]:
         # Multi-line text
         while i < len(lines) and not (
             lines[i].startswith("[")
-            or re.match(timestamp_regex, lines[i])
+            or re.match(TIMECODE_PATTERN, lines[i])
             or re.match(speaker_regex, lines[i])
         ):
             text_lines.append(lines[i])
@@ -267,7 +260,7 @@ def render_block(events: Sequence[Event]) -> str:
         )
         if time:
             # Remove hours if less than 1 hour
-            if event.time_ms < 60_000:
+            if event.time_ms < 3600_000:
                 time = time[3:]
 
         event_text = "\n".join(event.chunks)
