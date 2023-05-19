@@ -21,6 +21,8 @@ async def synthesize_phrase(
         lang=lang,
         output_dir=output_dir,
     )
+    if phrase.strip() == "":
+        return AudioSegment.empty()
     return AudioSegment.from_file(audio.strip(clip))
 
 
