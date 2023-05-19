@@ -12,6 +12,7 @@ from typing import Dict, Sequence, Tuple
 from uuid import uuid4
 
 import aiohttp
+import pydub
 from deepgram import Deepgram
 from google.api_core import exceptions as google_api_exceptions
 from google.cloud import speech as speech_api
@@ -222,17 +223,17 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
     "Volodymyr": {
         "en-US": ("ElevenLabs", "Volodymyr"),
         "ru-RU": None,
-        "pt-PT": None,
-        "pt-BR": None,
-        "de-DE": None,
-        "es-US": None,
+        "pt-PT": ("ElevenLabs", "Volodymyr"),
+        "pt-BR": ("ElevenLabs", "Volodymyr"),
+        "de-DE": ("ElevenLabs", "Volodymyr"),
+        "es-US": ("ElevenLabs", "Volodymyr"),
         "uk-UA": None,
-        "es-MX": None,
-        "es-ES": None,
-        "fr-FR": None,
+        "es-MX": ("ElevenLabs", "Volodymyr"),
+        "es-ES": ("ElevenLabs", "Volodymyr"),
+        "fr-FR": ("ElevenLabs", "Volodymyr"),
         "sv-SE": None,
         "tr-TR": None,
-        "it-IT": None,
+        "it-IT": ("ElevenLabs", "Volodymyr"),
         "ar-SA": None,
         "et-EE": None,
         "fi-FI": None,
@@ -600,7 +601,6 @@ def _emojis_to_ssml_emotion_tags(text: str, lang: Language) -> str:
 
     pattern = rf"([{''.join(SSML_EMOTIONS.keys())}]\s*[.!?,;:]*)"
     split_by_emojis = re.split(pattern, text)
-
     text_with_emotion_tags = ""
     # Iterate over pairs: substring and it's subsequent emoji fragment
     for i in range(0, len(split_by_emojis) - 1, 2):
@@ -855,12 +855,31 @@ async def _synthesize_text(
             case never:
                 assert_never(never)
 
+        def is_valid_file(file: str) -> bool:
+            try:
+                media.probe(file)
+                return True
+            except Exception:
+                return False
+
         with TemporaryDirectory() as tmp_dir:
             files = [f"{media.new_file(tmp_dir)}.wav" for _ in responses]
             for file, response in zip(files, responses):
                 with open(file, "wb") as fd:
                     fd.write(response)
-            audio_file = await media.concat(files, output_dir)
+
+            # filter out invalid files (e.g. empty files)
+            files = [file for file in files if is_valid_file(file)]
+
+            if files:
+                audio_file = await media.concat(files, output_dir)
+            else:
+                # fallback to a silent audio file
+                audio_file = Path(f"{media.new_file(output_dir)}.wav")
+                fd = pydub.AudioSegment.silent(duration=1, frame_rate=44100).export(
+                    audio_file, format="wav"
+                )
+                fd.close()  # type: ignore
 
         (audio, *_), _ = media.probe(audio_file)
         assert isinstance(audio, Audio)

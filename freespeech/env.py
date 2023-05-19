@@ -239,3 +239,21 @@ def get_media_service_url() -> str:
         raise RuntimeError("FREESPEECH_MEDIA_SERVICE_URL is not set.")
 
     return url
+
+
+def get_openai_key() -> str:
+    key = os.environ.get("OPENAI_KEY", None)
+
+    if not key:
+        raise RuntimeError("OPENAI_KEY is not set.")
+
+    return key
+
+
+def get_openai_organization() -> str:
+    org = os.environ.get("OPENAI_ORGANIZATION", None)
+
+    if not org:
+        raise RuntimeError("OPENAI_ORGANIZATION is not set.")
+
+    return org

@@ -19,7 +19,7 @@ def resample(audio_file: str, target_duration_ms: int, output_dir: str) -> str:
     output_file = str(Path(output_dir) / f"{uuid4()}.wav")
 
     with open(output_file, "wb") as fd:
-        sf.write(fd, new_signal, sr, subtype="PCM_16")
+        sf.write(fd, new_signal, sr, subtype="PCM_24")
 
     return output_file
 
@@ -33,12 +33,12 @@ def strip(file: Path | str) -> str:
         *Same* audio file. It will overwrite the original one.
     """
     with open(file, "rb") as fd:
-        signal, rate = librosa.load(fd)
+        signal, rate = librosa.load(fd, sr=44100)
 
     _, (start, end) = librosa.effects.trim(signal)
 
     with open(file, "wb") as fd:
-        sf.write(fd, signal[start:end], rate, subtype="PCM_16")
+        sf.write(fd, signal[start:end], rate, subtype="PCM_24")
 
     return str(file)
 
