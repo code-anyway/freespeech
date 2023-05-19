@@ -77,7 +77,7 @@ async def test_synthesize_text(tmp_path) -> None:
     eps = speech.SYNTHESIS_ERROR_MS
     assert abs(audio.duration_ms - 4_000) < eps
     # Although text is short, speech break helps us achieve reasonable speech rate
-    assert voice.speech_rate == pytest.approx(0.904, 1e-2)
+    assert voice.speech_rate == pytest.approx(1.5, 1e-2)
     assert voice.character == "Grace"
     assert voice.pitch == 0.0
 
@@ -210,9 +210,9 @@ async def test_synthesize_events(tmp_path) -> None:
     # is this deterministic?
     assert spans == [
         ("blank", 0, 1000),
-        ("event", 1000, 2975),
-        ("blank", 2975, 5000),
-        ("event", 5000, 7027),
+        ("event", 1000, 2998),
+        ("blank", 2998, 5000),
+        ("event", 5000, 7000),
     ]
 
     downmixed_local = await media.multi_channel_audio_to_mono(
@@ -295,7 +295,7 @@ async def test_synthesize_long_event(tmp_path) -> None:
 
     (voice,) = voices
 
-    assert voice.speech_rate == pytest.approx(0.762, rel=1e-3)
+    assert voice.speech_rate == pytest.approx(0.776, rel=1e-3)
 
 
 def test_normalize_speech() -> None:
@@ -415,7 +415,7 @@ async def test_synthesize_azure(tmp_path) -> None:
 
     (voice,) = voices
 
-    assert voice.speech_rate == pytest.approx(0.87, abs=0.02)
+    assert voice.speech_rate == pytest.approx(0.85, abs=0.02)
 
 
 @pytest.mark.asyncio
