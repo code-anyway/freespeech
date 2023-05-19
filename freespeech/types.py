@@ -112,7 +112,7 @@ Character = Literal[
     "Ada",  # Ada Lovelace
     "Alonzo",  # Alonzo Church
     "Bill",  # Bill Gates
-    "Melinda",  # Melinda Gates
+    "Barbara",  # Barbara Liskov
     "Greta",  # Greta Thunberg
     "Volodymyr",  # Volodymyr Zelenskyy
 ]
@@ -122,7 +122,7 @@ CHARACTERS: List[Character] = [
     "Ada",
     "Alonzo",
     "Bill",
-    "Melinda",
+    "Barbara",
     "Greta",
     "Volodymyr",
 ]

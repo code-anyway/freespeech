@@ -95,7 +95,7 @@ MAX_CHUNK_LENGTH = 1000  # Google Speech API Limit
 # https://cloud.google.com/text-to-speech/docs/voices
 VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
     "Ada": {
-        "en-US": ("Google", "en-US-Wavenet-F"),
+        "en-US": ("Azure", "en-US-AriaNeural"),
         "ru-RU": ("Google", "ru-RU-Wavenet-E"),
         "pt-PT": ("Google", "pt-PT-Wavenet-D"),
         "pt-BR": ("Azure", "pt-BR-YaraNeural"),
@@ -113,7 +113,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "fi-FI": ("Azure", "fi-FI-SelmaNeural"),
     },
     "Grace": {
-        "en-US": ("Google", "en-US-Wavenet-C"),
+        "en-US": ("Azure", "en-US-JaneNeural"),
         "ru-RU": ("Google", "ru-RU-Wavenet-C"),
         "pt-PT": ("Google", "pt-PT-Wavenet-A"),
         "pt-BR": ("Azure", "pt-BR-ManuelaNeural"),
@@ -131,7 +131,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "fi-FI": ("Azure", "fi-FI-NooraNeural"),
     },
     "Alan": {
-        "en-US": ("Google", "en-US-Wavenet-I"),
+        "en-US": ("Azure", "en-US-GuyNeural"),
         "ru-RU": ("Google", "ru-RU-Wavenet-D"),
         "pt-PT": ("Google", "pt-PT-Wavenet-C"),
         "pt-BR": ("Azure", "pt-BR-NicolauNeural"),
@@ -149,7 +149,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "fi-FI": ("Azure", "fi-FI-HarriNeural"),
     },
     "Alonzo": {
-        "en-US": ("Google", "en-US-Wavenet-D"),
+        "en-US": ("Azure", "en-US-JasonNeural"),
         "ru-RU": ("Google", "ru-RU-Wavenet-B"),
         "pt-PT": ("Google", "pt-PT-Wavenet-B"),
         "pt-BR": ("Azure", "pt-BR-DonatoNeural"),
@@ -167,7 +167,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "fi-FI": ("Azure", "fi-FI-HarriNeural"),
     },
     "Bill": {
-        "en-US": ("Azure", "en-US-ChristopherNeural"),
+        "en-US": ("Azure", "en-US-DavisNeural"),
         "ru-RU": ("Azure", "ru-RU-DmitryNeural"),
         "pt-PT": ("Azure", "pt-PT-DuarteNeural"),
         "pt-BR": ("Azure", "pt-BR-JulioNeural"),
@@ -184,7 +184,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "et-EE": ("Azure", "et-EE-KertNeural"),
         "fi-FI": ("Azure", "fi-FI-HarriNeural"),
     },
-    "Melinda": {
+    "Barbara": {
         "ru-RU": ("Azure", "ru-RU-DariyaNeural"),
         "en-US": ("Azure", "en-US-JennyNeural"),
         "pt-PT": ("Azure", "pt-PT-RaquelNeural"),
