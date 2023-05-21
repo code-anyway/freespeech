@@ -9,6 +9,7 @@ from freespeech.lib import audio, speech
 from freespeech.types import Event, Language, Voice
 
 PAUSE_INCREMENT_MS = 100.0
+FRAME_RATE = 44100
 
 
 async def synthesize_phrase(
@@ -63,7 +64,7 @@ async def synthesize_text(
     frame_rate = (
         audio_segments[0].frame_rate
         if audio_segments and audio_segments[0].frame_rate
-        else 44100
+        else FRAME_RATE
     )
 
     res = AudioSegment.empty()
@@ -89,6 +90,9 @@ async def synthesize(
     carry_over = 0
     res = AudioSegment.empty()
 
+    if events and events[0].time_ms > 0:
+        res += AudioSegment.silent(duration=events[0].time_ms, frame_rate=FRAME_RATE)
+
     for i, event in enumerate(events):
         duration_ms = None
 
@@ -112,7 +116,7 @@ async def synthesize(
     fd = res.export(output_file, format="wav")
     fd.close()  # type: ignore
 
-    if events[-1].time_ms is not None and events[-1].duration_ms is not None:
+    if events and events[-1].time_ms is not None and events[-1].duration_ms is not None:
         total_duration_ms = events[-1].time_ms + events[-1].duration_ms
         if total_duration_ms != len(res):
             output_file = audio.resample(output_file, total_duration_ms, output_dir)

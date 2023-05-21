@@ -1,5 +1,6 @@
 from tempfile import TemporaryDirectory
 
+import pydub
 from fastapi import APIRouter
 
 from freespeech import env
@@ -62,8 +63,8 @@ async def _synthesize(source, is_smooth: bool, tmp_dir):
             output_dir=tmp_dir,
         )
         first = source.events[0]
-        last = source.events[-1]
-        spans = [("event", first.time_ms, last.time_ms + last.duration_ms)]
+        duration_ms = len(pydub.AudioSegment.from_file(synth_file))
+        spans = [("event", first.time_ms, duration_ms)]
     else:
         synth_file, _, spans = await speech.synthesize_events(
             events=source.events,
