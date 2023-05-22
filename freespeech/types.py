@@ -6,12 +6,21 @@ url = str
 AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC", "MP3"]
 VideoEncoding = Literal["H264", "HEVC", "AV1", "VP9"]
 ServiceProvider = Literal["Google", "Deepgram", "Azure", "ElevenLabs"]
-TranscriptionModel = Literal["default", "latest_long", "general", "default_granular"]
+TranscriptionModel = Literal[
+    "default", "latest_long", "general", "default_granular", "whisper-large"
+]
 
 SpeechToTextBackend = Literal[
-    "Machine A", "Machine B", "Machine C", "Machine D", "Subtitles"
+    "Machine A", "Machine B", "Machine C", "Machine D", "Machine E", "Subtitles"
 ]
-SPEECH_BACKENDS = ["Machine A", "Machine B", "Machine C", "Machine D", "Subtitles"]
+SPEECH_BACKENDS = [
+    "Machine A",
+    "Machine B",
+    "Machine C",
+    "Machine D",
+    "Machine E",
+    "Subtitles",
+]
 
 
 def is_speech_to_text_backend(val: str) -> TypeGuard[SpeechToTextBackend]:
@@ -83,6 +92,8 @@ Language = Literal[
     "ar-SA",
     "et-EE",
     "fi-FI",
+    "ja-JP",
+    "zh-CN",
 ]
 LANGUAGES = [
     "en-US",
@@ -101,6 +112,8 @@ LANGUAGES = [
     "ar-SA",
     "et-EE",
     "fi-FI",
+    "ja-JP",
+    "zh-CN",
 ]
 
 Operation = Literal["Transcribe", "Translate", "Synthesize"]
