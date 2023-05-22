@@ -134,6 +134,10 @@ def to_language(lang: str) -> Language | None:
         return "et-EE"
     elif lang in ("fi", "finnish", "финский", "suomi", "fi-fi"):
         return "fi-FI"
+    elif lang in ("ja", "japanese", "японский", "日本語", "ja-jp"):
+        return "ja-JP"
+    elif lang in ("zh", "chinese", "китайский", "中文", "zh-cn"):
+        return "zh-CN"
     else:
         return None
 

@@ -111,6 +111,8 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "ar-SA": ("Azure", "ar-SA-ZariyahNeural"),
         "et-EE": ("Azure", "et-EE-AnuNeural"),
         "fi-FI": ("Azure", "fi-FI-SelmaNeural"),
+        "ja-JP": ("Azure", "ja-JP-NanamiNeural"),
+        "zh-CN": ("Azure", "zh-CN-XiaohanNeural"),
     },
     "Grace": {
         "en-US": ("Azure", "en-US-JaneNeural"),
@@ -129,6 +131,8 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "ar-SA": ("Azure", "ar-SA-ZariyahNeural"),
         "et-EE": ("Azure", "et-EE-AnuNeural"),
         "fi-FI": ("Azure", "fi-FI-NooraNeural"),
+        "ja-JP": ("Azure", "ja-JP-MayuNeural"),
+        "zh-CN": ("Azure", "zh-CN-XiaomoNeural"),
     },
     "Alan": {
         "en-US": ("Azure", "en-US-GuyNeural"),
@@ -147,6 +151,8 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "ar-SA": ("Azure", "ar-SA-HamedNeural"),
         "et-EE": ("Azure", "et-EE-KertNeural"),
         "fi-FI": ("Azure", "fi-FI-HarriNeural"),
+        "ja-JP": ("Azure", "ja-JP-DaichiNeural"),
+        "zh-CN": ("Azure", "zh-CN-YunxiNeural"),
     },
     "Alonzo": {
         "en-US": ("Azure", "en-US-JasonNeural"),
@@ -165,6 +171,8 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "ar-SA": ("Azure", "ar-SA-HamedNeural"),
         "et-EE": ("Azure", "et-EE-KertNeural"),
         "fi-FI": ("Azure", "fi-FI-HarriNeural"),
+        "ja-JP": ("Azure", "ja-JP-KeitaNeural"),
+        "zh-CN": ("Azure", "zh-CN-YunyeNeural"),
     },
     "Bill": {
         "en-US": ("Azure", "en-US-DavisNeural"),
@@ -183,6 +191,8 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "ar-SA": ("Azure", "ar-SA-HamedNeural"),
         "et-EE": ("Azure", "et-EE-KertNeural"),
         "fi-FI": ("Azure", "fi-FI-HarriNeural"),
+        "ja-JP": ("Azure", "ja-JP-NaokiNeural"),
+        "zh-CN": ("Azure", "zh-CN-YunzeNeural"),
     },
     "Barbara": {
         "ru-RU": ("Azure", "ru-RU-DariyaNeural"),
@@ -201,6 +211,8 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "ar-SA": ("Azure", "ar-SA-ZariyahNeural"),
         "et-EE": ("Azure", "et-EE-AnuNeural"),
         "fi-FI": ("Azure", "fi-FI-NooraNeural"),
+        "ja-JP": ("Azure", "ja-JP-ShioriNeural"),
+        "zh-CN": ("Azure", "zh-CN-XiaoxiaoNeural"),
     },
     "Greta": {
         "ru-RU": ("Azure", "ru-RU-SvetlanaNeural"),
@@ -219,6 +231,8 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "ar-SA": ("Azure", "ar-SA-ZariyahNeural"),
         "et-EE": ("Azure", "et-EE-KertNeural"),
         "fi-FI": ("Azure", "fi-FI-SelmaNeural"),
+        "ja-JP": ("Azure", "ja-JP-AoiNeural"),
+        "zh-CN": ("Azure", "zh-CN-XiaoshuangNeural"),
     },
     "Volodymyr": {
         "en-US": ("ElevenLabs", "Volodymyr"),
@@ -237,6 +251,8 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "ar-SA": None,
         "et-EE": None,
         "fi-FI": None,
+        "ja-JP": None,
+        "zh-CN": None,
     },
 }
 
@@ -257,7 +273,7 @@ SPEECH_RATE_MAXIMUM = 1.5
 # Number of retries when iteratively adjusting speaking rate.
 SYNTHESIS_RETRIES = 10
 
-# Number of retries when makeing a request to speech API.
+# Number of retries when making a request to speech API.
 API_RETRIES = 3
 
 # Speech-to-text API call timeout.
@@ -482,7 +498,7 @@ def transform_azure_result(
                     voice=Voice(character=CHARACTERS[phrase.speaker]),
                 )
             ]
-        case "latest_long" | "general":
+        case "latest_long" | "general" | "whisper-large":
             raise ValueError(f"Azure doesn't support model: '{model}'")
         case never:
             assert_never(never)

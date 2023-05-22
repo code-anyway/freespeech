@@ -62,7 +62,7 @@ async def transcribe(
         raise ValueError(f"No audio stream: {source}")
 
     match backend:
-        case "Machine A" | "Machine B" | "Machine C" | "Machine D":
+        case "Machine A" | "Machine B" | "Machine C" | "Machine D" | "Machine E":
             provider: ServiceProvider
             model: TranscriptionModel
             match backend:
@@ -78,6 +78,9 @@ async def transcribe(
                 case "Machine D":
                     provider = "Azure"
                     model = "default_granular"
+                case "Machine E":
+                    provider = "Deepgram"
+                    model = "whisper-large"
                 case never:
                     assert_never(never)
             with tempfile.TemporaryDirectory() as tmp_dir:
