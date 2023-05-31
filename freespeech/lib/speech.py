@@ -155,7 +155,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "zh-CN": ("Azure", "zh-CN-YunxiNeural"),
     },
     "Alonzo": {
-        "en-US": ("Azure", "en-US-JasonNeural"),
+        "en-US": ("Azure", "en-US-EricNeural"),
         "ru-RU": ("Google", "ru-RU-Wavenet-B"),
         "pt-PT": ("Google", "pt-PT-Wavenet-B"),
         "pt-BR": ("Azure", "pt-BR-DonatoNeural"),
