@@ -436,14 +436,7 @@ async def test_voices_and_languages_completeness() -> None:
 
     # 2 check that whenever we have a character defined, they support all languages
     for character, voices in speech.VOICES.items():
-        if character in (
-            "Volodymyr",
-            "Artyom",
-            "Sophie",
-            "Margaret",
-            "John",
-            "Tim"
-        ):
+        if character in ("Volodymyr", "Artyom", "Sophie", "Margaret", "John", "Tim"):
             continue
 
         for lang in supported_languages:
