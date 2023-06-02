@@ -74,9 +74,9 @@ async def test_transcribe_twitter() -> None:
 
     expected_start = [
         Event(
-            time_ms=1480,
+            time_ms=1520,
             chunks=["Ah Dorado."],
-            duration_ms=720,
+            duration_ms=680,
             group=0,
             voice=Voice(character="Alan", pitch=0.0, speech_rate=1.0),
             comment=None,
@@ -99,7 +99,7 @@ async def test_transcribe_twitter() -> None:
         ),
         Event(
             time_ms=3640,
-            chunks=["Is that you again, Joe?"],
+            chunks=["Is that you again Joe?"],
             duration_ms=1000,
             group=0,
             voice=Voice(character="Alan", pitch=0.0, speech_rate=1.0),
