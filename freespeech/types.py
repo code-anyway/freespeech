@@ -128,6 +128,11 @@ Character = Literal[
     "Barbara",  # Barbara Liskov
     "Greta",  # Greta Thunberg
     "Volodymyr",  # Volodymyr Zelenskyy
+    "Artyom",
+    "Margaret",  # Margaret Hamilton
+    "Sophie",  # Sophie Wilson
+    "Tim",  # Tim Berners-Lee
+    "John",  # John von Neumann
 ]
 CHARACTERS: List[Character] = [
     "Alan",
@@ -138,6 +143,11 @@ CHARACTERS: List[Character] = [
     "Barbara",
     "Greta",
     "Volodymyr",
+    "Artyom",
+    "Margaret",
+    "Sophie",
+    "Tim",
+    "John",
 ]
 
 Method = Literal[SpeechToTextBackend, TranscriptFormat]
