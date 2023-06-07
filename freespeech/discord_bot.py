@@ -9,6 +9,7 @@ from dataclasses import dataclass, replace
 from typing import Awaitable, Callable, Literal
 
 import discord
+import google.cloud.logging
 from discord import Message
 
 from freespeech import env
@@ -23,7 +24,10 @@ from freespeech.types import (
     platform,
 )
 
-logging_handler = ["google" if env.is_in_cloud_run() else "console"]
+logging_handler = ["google", "console"]
+
+client = google.cloud.logging.Client()
+client.setup_logging()
 
 LOGGING_CONFIG = {
     "version": 1,
@@ -40,7 +44,10 @@ LOGGING_CONFIG = {
             "formatter": "default",
             "stream": "ext://sys.stdout",
         },
-        "google": {"class": "google.cloud.logging.handlers.StructuredLogHandler"},
+        "google": {
+            "class": "google.cloud.logging.handlers.CloudLoggingHandler",
+            "client": client,
+        },
     },
     "loggers": {
         "discord": {"level": logging.INFO, "handlers": logging_handler},
@@ -93,7 +100,21 @@ context: dict[int, Context] = {}
 
 def log_user_action(ctx: Context, action: str, **kwargs):
     sender = ctx.message.author if ctx.message else "Unknown"
-    logger.info(f"User {sender} {action} {kwargs}")
+
+    logger.info(
+        f"user_event: {sender} {action} {ctx.from_lang} {ctx.to_lang} {ctx.method} {ctx.url}",  # noqa: E501
+        extra={
+            "json_fields": {
+                "labels": "user",
+                "sender": sender,
+                "action": action,
+                "from_lang": ctx.from_lang,
+                "to_lang": ctx.to_lang,
+                "method": ctx.method,
+                "url": ctx.url,
+            }
+        },
+    )
 
 
 def to_language(lang: str) -> Language | None:
