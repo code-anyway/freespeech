@@ -39,6 +39,8 @@ def _nlp(lang: Language):
             nlp = spacy.load("ja_core_news_sm")
         case "zh-CN":
             nlp = spacy.load("zh_core_web_sm")
+        case "pl-PL":
+            nlp = spacy.load("pl_core_news_sm")
         case "tr-TR" | "ar-SA" | "et-EE":
             raise NotImplementedError(f"{lang} is not supported yet")
         case never:

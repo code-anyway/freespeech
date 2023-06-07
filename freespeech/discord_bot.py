@@ -138,6 +138,8 @@ def to_language(lang: str) -> Language | None:
         return "ja-JP"
     elif lang in ("zh", "chinese", "китайский", "中文", "zh-cn"):
         return "zh-CN"
+    elif lang in ("pl", "polish", "польский", "polski", "polska", "pl-pl"):
+        return "pl-PL"
     else:
         return None
 
