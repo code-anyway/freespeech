@@ -113,6 +113,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "fi-FI": ("Azure", "fi-FI-SelmaNeural"),
         "ja-JP": ("Azure", "ja-JP-NanamiNeural"),
         "zh-CN": ("Azure", "zh-CN-XiaohanNeural"),
+        "pl-PL": ("Azure", "pl-PL-ZofiaNeural"),
     },
     "Grace": {
         "en-US": ("Azure", "en-US-JaneNeural"),
@@ -133,6 +134,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "fi-FI": ("Azure", "fi-FI-NooraNeural"),
         "ja-JP": ("Azure", "ja-JP-MayuNeural"),
         "zh-CN": ("Azure", "zh-CN-XiaomoNeural"),
+        "pl-PL": ("Azure", "pl-PL-AgnieszkaNeural"),
     },
     "Alan": {
         "en-US": ("Azure", "en-US-GuyNeural"),
@@ -153,6 +155,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "fi-FI": ("Azure", "fi-FI-HarriNeural"),
         "ja-JP": ("Azure", "ja-JP-DaichiNeural"),
         "zh-CN": ("Azure", "zh-CN-YunxiNeural"),
+        "pl-PL": ("Azure", "pl-PL-MarekNeural"),
     },
     "Alonzo": {
         "en-US": ("Azure", "en-US-EricNeural"),
@@ -173,6 +176,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "fi-FI": ("Azure", "fi-FI-HarriNeural"),
         "ja-JP": ("Azure", "ja-JP-KeitaNeural"),
         "zh-CN": ("Azure", "zh-CN-YunyeNeural"),
+        "pl-PL": ("Azure", "pl-PL-MarekNeural"),
     },
     "Bill": {
         "en-US": ("Azure", "en-US-DavisNeural"),
@@ -193,6 +197,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "fi-FI": ("Azure", "fi-FI-HarriNeural"),
         "ja-JP": ("Azure", "ja-JP-NaokiNeural"),
         "zh-CN": ("Azure", "zh-CN-YunzeNeural"),
+        "pl-PL": ("Azure", "pl-PL-MarekNeural"),
     },
     "Barbara": {
         "ru-RU": ("Azure", "ru-RU-DariyaNeural"),
@@ -213,6 +218,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "fi-FI": ("Azure", "fi-FI-NooraNeural"),
         "ja-JP": ("Azure", "ja-JP-ShioriNeural"),
         "zh-CN": ("Azure", "zh-CN-XiaoxiaoNeural"),
+        "pl-PL": ("Azure", "pl-PL-ZofiaNeural"),
     },
     "Greta": {
         "ru-RU": ("Azure", "ru-RU-SvetlanaNeural"),
@@ -233,6 +239,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "fi-FI": ("Azure", "fi-FI-SelmaNeural"),
         "ja-JP": ("Azure", "ja-JP-AoiNeural"),
         "zh-CN": ("Azure", "zh-CN-XiaoshuangNeural"),
+        "pl-PL": ("Azure", "pl-PL-MarekNeural"),
     },
     "Volodymyr": {
         "en-US": ("ElevenLabs", "Volodymyr"),
@@ -253,6 +260,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "fi-FI": None,
         "ja-JP": None,
         "zh-CN": None,
+        "pl-PL": ("ElevenLabs", "Volodymyr"),
     },
     "Artyom": {
         "en-US": ("ElevenLabs", "Artyom"),
@@ -273,6 +281,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "fi-FI": None,
         "ja-JP": None,
         "zh-CN": None,
+        "pl-PL": ("ElevenLabs", "Artyom"),
     },
     "Sophie": {
         "en-US": ("ElevenLabs", "Bella"),
@@ -293,6 +302,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "fi-FI": None,
         "ja-JP": None,
         "zh-CN": None,
+        "pl-PL": ("ElevenLabs", "Bella"),
     },
     "Margaret": {
         "en-US": ("ElevenLabs", "Elli"),
@@ -313,6 +323,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "fi-FI": None,
         "ja-JP": None,
         "zh-CN": None,
+        "pl-PL": ("ElevenLabs", "Elli"),
     },
     "John": {
         "en-US": ("ElevenLabs", "Antoni"),
@@ -333,6 +344,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "fi-FI": None,
         "ja-JP": None,
         "zh-CN": None,
+        "pl-PL": ("ElevenLabs", "Antoni"),
     },
     "Tim": {
         "en-US": ("ElevenLabs", "Josh"),
@@ -353,6 +365,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "fi-FI": None,
         "ja-JP": None,
         "zh-CN": None,
+        "pl-PL": ("ElevenLabs", "Josh"),
     },
 }
 

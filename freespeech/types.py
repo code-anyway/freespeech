@@ -94,6 +94,7 @@ Language = Literal[
     "fi-FI",
     "ja-JP",
     "zh-CN",
+    "pl-PL",
 ]
 LANGUAGES = [
     "en-US",
@@ -114,6 +115,7 @@ LANGUAGES = [
     "fi-FI",
     "ja-JP",
     "zh-CN",
+    "pl-PL",
 ]
 
 Operation = Literal["Transcribe", "Translate", "Synthesize"]
