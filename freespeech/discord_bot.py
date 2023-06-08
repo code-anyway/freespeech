@@ -494,7 +494,7 @@ if __name__ == "__main__":
             "json_fields": {
                 "labels": ["system"],
             }
-        }
+        },
     )
     bot_token = env.get_discord_bot_token()
 
