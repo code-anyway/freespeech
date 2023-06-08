@@ -1,3 +1,3 @@
 #!/bin/bash
-freespeech/discord.py &
-python -m http.server 8080 --directory /dev/null
+freespeech/discord_bot.py &
+python -m http.server 8080 --directory /dev/null > /dev/null
