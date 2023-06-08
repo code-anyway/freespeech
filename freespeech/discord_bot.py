@@ -9,7 +9,6 @@ from dataclasses import dataclass, replace
 from typing import Awaitable, Callable, Literal
 
 import discord
-import google.cloud.logging
 from discord import Message
 
 from freespeech import env
@@ -24,10 +23,8 @@ from freespeech.types import (
     platform,
 )
 
-logging_handler = ["google", "console"]
+logging_handler = ["google" if env.is_in_cloud_run() else "console"]
 
-client = google.cloud.logging.Client()
-client.setup_logging()
 
 LOGGING_CONFIG = {
     "version": 1,
@@ -45,8 +42,7 @@ LOGGING_CONFIG = {
             "stream": "ext://sys.stdout",
         },
         "google": {
-            "class": "google.cloud.logging.handlers.CloudLoggingHandler",
-            "client": client,
+            "class": "google.cloud.logging.handlers.StructuredLogHandler",
         },
     },
     "loggers": {
@@ -105,7 +101,7 @@ def log_user_action(ctx: Context, action: str, **kwargs):
         f"user_event: {sender} {action} {ctx.from_lang} {ctx.to_lang} {ctx.method} {ctx.url}",  # noqa: E501
         extra={
             "json_fields": {
-                "labels": "user",
+                "labels": ["user"],
                 "sender": sender,
                 "action": action,
                 "from_lang": ctx.from_lang,
@@ -492,7 +488,14 @@ async def dispatch(sender_id: int, message: Message | str):
 
 
 if __name__ == "__main__":
-    logger.info("Starting Discord client")
+    logger.info(
+        "Starting Discord client",
+        extra={
+            "json_fields": {
+                "labels": ["system"],
+            }
+        }
+    )
     bot_token = env.get_discord_bot_token()
 
     intents = discord.Intents.default()
