@@ -23,7 +23,8 @@ from freespeech.types import (
     platform,
 )
 
-logging_handler = ["google" if env.is_in_cloud_run() else "console"]
+# logging_handler = ["google" if env.is_in_cloud_run() else "console"]
+logging_handler = ["google"]
 
 
 LOGGING_CONFIG = {
