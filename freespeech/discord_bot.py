@@ -243,14 +243,16 @@ async def send_message(message: Message | None, reply: Reply):
         file = discord.File(
             fp=io.BytesIO(reply.data), filename=f"subtitles.{extension}"
         )
+        await message.reply(
+            content=reply.message,
+            view=view,
+            file=file,
+        )
     else:
-        file = None
-
-    await message.reply(
-        content=reply.message,
-        view=view,
-        file=file,
-    )
+        await message.reply(
+            content=reply.message,
+            view=view,
+        )
 
 
 async def schedule(ctx: Context, task: Awaitable, operation: Operation) -> str:
