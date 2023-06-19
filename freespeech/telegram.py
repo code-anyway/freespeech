@@ -93,7 +93,7 @@ def log_user_action(ctx: Context, action: str, **kwargs):
         extra={
             "json_fields": {
                 "labels": ["usage"],
-                "surface": "discord",
+                "surface": "telegram",
                 "sender_id": sender_id,
                 "user": get_display_name(sender) if sender else "Unknown",
                 "action": action,
