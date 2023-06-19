@@ -92,9 +92,10 @@ def log_user_action(ctx: Context, action: str, **kwargs):
         f"user_event: {sender} {action} {ctx.from_lang} {ctx.to_lang} {ctx.method} {ctx.url}",  # noqa: E501
         extra={
             "json_fields": {
-                "labels": ["user"],
+                "labels": ["usage"],
+                "surface": "discord",
                 "sender_id": sender_id,
-                "display_name": get_display_name(sender) if sender else "Unknown",
+                "user": get_display_name(sender) if sender else "Unknown",
                 "action": action,
                 "from_lang": ctx.from_lang,
                 "to_lang": ctx.to_lang,

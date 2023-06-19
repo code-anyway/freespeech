@@ -102,8 +102,10 @@ def log_user_action(ctx: Context, action: str, **kwargs):
         f"user_event: {sender} {action} {ctx.from_lang} {ctx.to_lang} {ctx.method} {ctx.url}",  # noqa: E501
         extra={
             "json_fields": {
-                "labels": ["user"],
-                "sender": sender,
+                "labels": ["usage"],
+                "surface": "discord",
+                "sender_id": sender,
+                "user": sender,
                 "action": action,
                 "from_lang": ctx.from_lang,
                 "to_lang": ctx.to_lang,
@@ -150,7 +152,13 @@ def to_language(lang: str) -> Language | None:
         return "ar-SA"
     elif lang in ("ee", "et", "estonian", "эстонский", "eesti", "et-ee"):
         return "et-EE"
-    elif lang in ("fi", "finnish", "финский", "suomi", "fi-fi"):
+    elif lang in (
+        "fi",
+        "finnish",
+        "финский",
+        "suomi",
+        "fi-fi",
+    ):
         return "fi-FI"
     elif lang in ("ja", "japanese", "японский", "日本語", "ja-jp"):
         return "ja-JP"
@@ -243,16 +251,26 @@ async def send_message(message: Message | None, reply: Reply):
         file = discord.File(
             fp=io.BytesIO(reply.data), filename=f"subtitles.{extension}"
         )
-        await message.reply(
-            content=reply.message,
-            view=view,
-            file=file,
-        )
+        if view:
+            await message.reply(
+                content=reply.message,
+                view=view,
+                file=file,
+            )
+        else:
+            await message.reply(
+                content=reply.message,
+            )
     else:
-        await message.reply(
-            content=reply.message,
-            view=view,
-        )
+        if view:
+            await message.reply(
+                content=reply.message,
+                view=view,
+            )
+        else:
+            await message.reply(
+                content=reply.message,
+            )
 
 
 async def schedule(ctx: Context, task: Awaitable, operation: Operation) -> str:
