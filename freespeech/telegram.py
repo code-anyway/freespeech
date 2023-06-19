@@ -87,9 +87,23 @@ context: dict[int, Context] = {}
 def log_user_action(ctx: Context, action: str, **kwargs):
     sender_id = ctx.message.sender_id if ctx.message else "Unknown"
     sender = ctx.message.sender if ctx.message else None
+
     logger.info(
-        f"User {sender_id} ({get_display_name(sender) if sender else 'Unknown'}) {action} {kwargs}"  # noqa: E501
-    )  # noqa: E501
+        f"user_event: {sender} {action} {ctx.from_lang} {ctx.to_lang} {ctx.method} {ctx.url}",  # noqa: E501
+        extra={
+            "json_fields": {
+                "labels": ["usage"],
+                "surface": "discord",
+                "sender_id": sender_id,
+                "user": get_display_name(sender) if sender else "Unknown",
+                "action": action,
+                "from_lang": ctx.from_lang,
+                "to_lang": ctx.to_lang,
+                "method": ctx.method,
+                "url": ctx.url,
+            }
+        },
+    )
 
 
 def to_language(lang: str) -> Language | None:

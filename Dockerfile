@@ -31,8 +31,7 @@ COPY run.sh /root/freespeech/
 COPY run_discord.sh /root/freespeech/
 COPY run_web.sh /root/freespeech/
 COPY run_discord_google.sh /root/freespeech/
+COPY run_telegram_google.sh /root/freespeech/
 
 VOLUME ["/root/.config", "/root/id/"]
 WORKDIR "/root/freespeech"
-
-CMD freespeech start transcript
