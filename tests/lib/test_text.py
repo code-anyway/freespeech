@@ -1,3 +1,5 @@
+import pytest
+
 from freespeech.lib import text
 
 TEXT = (
@@ -140,3 +142,13 @@ def test_capitalize_sentence() -> None:
 
 def test_sentences() -> None:
     assert text.sentences("Et zéro.", lang="fr-FR") == ["Et zéro"]
+
+
+@pytest.mark.asyncio
+async def test_denormalize() -> None:
+    assert (
+        await text.denormalize(
+            "The hypotenuse we already know is sqrt 65, so it's 4 / sqrt 65"
+        )
+        == "The hypotenuse we already know is the square root of sixty-five, so it's four divided by the square root of sixty-five."
+    )  # noqaP
