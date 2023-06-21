@@ -343,11 +343,12 @@ def vtt_to_events(text: str) -> Sequence[Event]:
         text += "\n"
     parser = re.compile(r"([\d\:\.]+)\s*-->\s*([\d\:\.]+)\n((.+\n)+)")
     match = parser.findall(text)
-
     result = [
         Event(
             time_ms=(start_ms := to_milliseconds(start)),
-            duration_ms=(to_milliseconds(finish) - start_ms),
+            duration_ms=None
+            if finish == "99:59:59.999"  # This magic value means "until the end"
+            else (to_milliseconds(finish) - start_ms),
             chunks=[
                 " ".join(
                     [remove_special_characters(line) for line in text.split("\n")[:-1]]
