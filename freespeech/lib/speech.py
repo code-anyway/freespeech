@@ -1310,13 +1310,14 @@ def restore_full_sentences(events: list[Event]) -> list[Event]:
             res.append(prev_event)
             res.append(event)
         else:
-            assert event.duration_ms is not None
             assert prev_event.duration_ms is not None
             res.append(
                 replace(
                     prev_event,
                     chunks=[prev_event_text + " " + event_text],
-                    duration_ms=prev_event.duration_ms + event.duration_ms,
+                    duration_ms=prev_event.duration_ms + event.duration_ms
+                    if event.duration_ms is not None
+                    else None,
                 )
             )
     return res
