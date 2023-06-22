@@ -252,7 +252,7 @@ async def _get_captions(url: str, lang: str):
         command = f"""yt-dlp --skip-download --write-sub --sub-lang {lang} --skip-download --output {Path(tmpdir) / "captions"} {url}"""  # noqa: E501
         stdout = await run(command)
 
-        if "There's no subtitles for the requested languages" in stdout:
+        if "no subtitles for the requested languages" in stdout:
             raise ValueError(f"No captions found for {lang} in {url}")
 
         # extract captions path from the result
