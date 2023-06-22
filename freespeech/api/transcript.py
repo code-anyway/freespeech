@@ -83,15 +83,14 @@ def compress(events: list[Event], window_size_ms: int) -> list[Event]:
 
     compressed = [events[0]]
     for event in events[1:]:
-        if not event.duration_ms:
-            raise ValueError("Event duration must be set.")
-
         last = compressed.pop()
         if event.time_ms - last.time_ms < window_size_ms and event.voice == last.voice:
             compressed.append(
                 Event(
                     time_ms=last.time_ms,
-                    duration_ms=event.time_ms + event.duration_ms - last.time_ms,
+                    duration_ms=event.time_ms + event.duration_ms - last.time_ms
+                    if event.duration_ms is not None
+                    else None,
                     chunks=[f"{' '.join(last.chunks)} {' '.join(event.chunks)}"],
                     voice=last.voice,
                 )
