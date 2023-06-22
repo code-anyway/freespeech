@@ -686,6 +686,7 @@ async def _transcribe_azure(file: Path, lang: Language, model: TranscriptionMode
         [
             transform_azure_result(RecognizedPhrase(**phrase), lang, model)
             for phrase in result["recognizedPhrases"]
+            if "duration" in phrase  # filter out empty phrases
         ],
         [],
     )
