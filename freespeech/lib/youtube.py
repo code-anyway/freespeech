@@ -11,6 +11,7 @@ from tempfile import TemporaryDirectory
 from typing import Sequence
 from uuid import uuid4
 
+import gdown
 import httplib2
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -165,6 +166,9 @@ async def download(
 
     audio, video = None, None
     match platform(url):
+        case "Google Drive":
+            audio = await _download_from_gdrive(url, output_dir)
+            video = await _download_from_gdrive(url, output_dir)
         case "Twitter":
             audio = await _download_media(url, output_dir, pipeline="b")
             video = await _download_media(url, output_dir, pipeline="b")
@@ -173,6 +177,12 @@ async def download(
             video = await _download_media(url, output_dir, pipeline="bv[ext=mp4]")
 
     return audio, video
+
+
+async def _download_from_gdrive(url: str, output_dir: str | PathLike) -> Path:
+    output_path = Path(output_dir) / f"{uuid4()}.gdrive"
+    gdown.download(url, str(output_path), fuzzy=True, quiet=False)
+    return output_path
 
 
 async def _download_media(url: str, output_dir: str | PathLike, pipeline: str) -> Path:
