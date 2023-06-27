@@ -60,13 +60,14 @@ async def test_transcribe() -> None:
 
 @pytest.mark.asyncio
 async def test_transcribe_twitter() -> None:
+    backends = ["Machine D"]  # TODO: Add more backends
     responses = [
         transcribe.transcribe(
             source="https://twitter.com/heyBarsee/status/1643518322523222016",
             backend=backend,
             lang="en-US",
         )
-        for backend in ["Machine D"]
+        for backend in backends
         if is_speech_to_text_backend(backend)
     ]
 
@@ -106,12 +107,48 @@ async def test_transcribe_twitter() -> None:
             comment=None,
         ),
     ]
-    for backend, result in zip(["Machine D"], results):
+    for backend, result in zip(backends, results):
         assert result.source is not None, f"Backend {backend} failed"
         assert result.source.method == backend, f"Backend {backend} failed"
         assert result.audio is not None, f"Backend {backend} failed"
         assert result.audio.startswith("https://")
         assert result.audio.endswith(".mp4")
+        assert result.events[:4] == expected_start
+
+
+@pytest.mark.asyncio
+async def test_transcribe_google_drive() -> None:
+    url = "https://drive.google.com/file/d/1luwsJThgTLgF5g1ho6eoN4Xf-u0nAbLH/view"
+
+    backends = ["Machine D"]  # TODO: Add more backends
+    responses = [
+        transcribe.transcribe(
+            source=url,
+            backend=backend,
+            lang="en-US",
+        )
+        for backend in backends
+        if is_speech_to_text_backend(backend)
+    ]
+
+    results: list[Transcript] = await asyncio.gather(*responses)
+
+    expected_start = [
+        Event(
+            time_ms=1000,
+            chunks=["This is a test for Google Drive."],
+            duration_ms=2760,
+            group=0,
+            voice=Voice(character="Alan", pitch=0.0, speech_rate=1.0),
+            comment=None,
+        ),
+    ]
+    for backend, result in zip(backends, results):
+        assert result.source is not None, f"Backend {backend} failed"
+        assert result.source.method == backend, f"Backend {backend} failed"
+        assert result.audio is not None, f"Backend {backend} failed"
+        assert result.audio.startswith("https://")
+        assert result.audio.endswith(".gdrive")
         assert result.events[:4] == expected_start
 
 

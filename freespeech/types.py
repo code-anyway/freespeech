@@ -35,8 +35,8 @@ def is_transcript_platform(val: str) -> TypeGuard[TranscriptPlatform]:
     return val in TRANSCRIPT_PLATFORMS
 
 
-MediaPlatform = Literal["YouTube", "GCS", "Twitter"]
-MEDIA_PLATFORMS = ["YouTube", "GCS", "Twitter"]
+MediaPlatform = Literal["YouTube", "GCS", "Twitter", "Google Drive"]
+MEDIA_PLATFORMS = ["YouTube", "GCS", "Twitter", "Google Drive"]
 
 
 def is_media_platform(val: str) -> TypeGuard[MediaPlatform]:
@@ -61,6 +61,8 @@ def platform(url: str) -> TranscriptPlatform | MediaPlatform:
         return "YouTube"
     elif url.startswith("https://twitter.com"):
         return "Twitter"
+    elif url.startswith("https://drive.google.com"):
+        return "Google Drive"
     else:
         raise ValueError(
             f"Unsupported url: {url}. Supported platforms are: {', '.join(TRANSCRIPT_PLATFORMS + MEDIA_PLATFORMS)}"  # noqa: E501

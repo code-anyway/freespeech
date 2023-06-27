@@ -50,6 +50,7 @@ setup(
         # TODO (astaff): update/remove after https://github.com/pytube/pytube/pull/1282
         # is merged/released,
         "librosa",
+        "gdown",
         "google-cloud-texttospeech",
         "google-cloud-translate",
         "google-cloud-storage",

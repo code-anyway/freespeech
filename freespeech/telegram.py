@@ -180,6 +180,8 @@ async def estimate_operation_duration(url: str, operation: Operation) -> int | N
             raise NotImplementedError("GCS is not supported yet")
         case "Twitter":
             return None
+        case "Google Drive":
+            return None
         case _platform:
             assert_never(_platform)
 
@@ -362,14 +364,10 @@ async def start(ctx: Context, message: Message | str) -> tuple[Context, Reply | 
                 "Create transcript using Subtitles or Speech Recognition?",
                 buttons=["Subtitles", "Speech Recognition"],
             )
-        case "GCS":
+        case "GCS" | "Twitter" | "Google Drive":
             return replace(ctx, state=media_operation), Reply(
                 "Create transcript using Speech Recognition?",
                 buttons=["Yes"],
-            )
-        case "Twitter":
-            return replace(ctx, state=media_operation), Reply(
-                "Create transcript using Speech Recognition?", buttons=["Yes"]
             )
         case "Google" | "Notion":
             return replace(ctx, state=transcript_operation), Reply(
