@@ -298,7 +298,7 @@ async def test_telegram_reset_after_error():
     text, buttons, file = await breaking.read()
     assert (
         text
-        == "Invalid transcript format: SSMEXT. Supported values: ['SRT', 'SSMD', 'SSMD-NEXT']"
+        == "Invalid transcript format: SSMEXT. Supported values: ['SRT', 'SSMD', 'SSMD-NEXT']"  # noqa: E501
     )  # noqa: E501
 
     await telegram.dispatch(0, breaking)
