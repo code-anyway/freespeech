@@ -278,3 +278,38 @@ async def test_telegram_direct_upload_nonsense():
     )
     assert buttons is None
     assert file is None
+
+
+@pytest.mark.asyncio
+async def test_telegram_reset_after_error():
+    # Test that you're able to resubmit a link after an error
+    breaking = Message(
+        "https://docs.google.com/document/d/1GUje5QOp_cPhQZ8NlGp4JdO0Vtc3ZmXfczahF1X9E9I/edit#",
+        SubMessage("")
+    )
+
+    srt = Message(
+        "SRT",
+        SubMessage("")
+    )
+
+    await telegram.dispatch(0, breaking)
+    text, buttons, file = await breaking.read()
+
+    print(text)
+    print(buttons)
+
+    await telegram.dispatch(0, srt)
+    text, buttons, file = await srt.read()
+
+    print(text)
+    print(buttons)
+
+    await telegram.dispatch(0, breaking)
+    text, buttons, file = await breaking.read()
+
+    print(text)
+    print(buttons)
+
+    assert False
+    assert file is None

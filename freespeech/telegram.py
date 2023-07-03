@@ -486,7 +486,11 @@ async def dispatch(sender_id: int, message: Message | str):
         context[sender_id] = Context(state=start)
 
     ctx = context[sender_id]
-    context[sender_id], reply = await ctx.state(ctx, message)
+    try:
+        context[sender_id], reply = await ctx.state(ctx, message)
+    except Exception as e:
+        context[sender_id] = Context(state=start)
+        return
     if reply:
         msg = context[sender_id].message or ctx.message
         if msg is not None:
@@ -507,6 +511,7 @@ if __name__ == "__main__":
         @client.on(events.NewMessage(pattern=r".*"))
         async def event_handler(event):
             if event.raw_text == "/start":
+                context[event.sender_id] = Context(state=start)
                 await event.reply(
                     f"Welcome to Freespeech! I am here to help you with video transcription, translation and dubbing.\n{URL_SOLUTION_TEXT}"  # noqa: E501
                 )
