@@ -59,6 +59,7 @@ async def test_transcribe() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip(reason="Twitter content is not always available")
 async def test_transcribe_twitter() -> None:
     backends = ["Machine D"]  # TODO: Add more backends
     responses = [
