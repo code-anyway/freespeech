@@ -284,32 +284,26 @@ async def test_telegram_direct_upload_nonsense():
 async def test_telegram_reset_after_error():
     # Test that you're able to resubmit a link after an error
     breaking = Message(
-        "https://docs.google.com/document/d/1GUje5QOp_cPhQZ8NlGp4JdO0Vtc3ZmXfczahF1X9E9I/edit#",
-        SubMessage("")
-    )
-
-    srt = Message(
-        "SRT",
-        SubMessage("")
+        "https://docs.google.com/document/d/1GUje5QOp_cPhQZ8NlGp4JdO0Vtc3ZmXfczahF1X9E9I/edit#",  # noqa: E501
     )
 
     await telegram.dispatch(0, breaking)
     text, buttons, file = await breaking.read()
-
-    print(text)
-    print(buttons)
+    assert (
+        text
+        == "Would you like to translate, dub, or download the transcript as SRT or TXT?"
+    )  # noqa: E501
 
     await telegram.dispatch(0, "SRT")
-    text, buttons, file = await srt.read()
-
-    print(text)
-    print(buttons)
+    text, buttons, file = await breaking.read()
+    assert (
+        text
+        == "Invalid transcript format: SSMEXT. Supported values: ['SRT', 'SSMD', 'SSMD-NEXT']"
+    )  # noqa: E501
 
     await telegram.dispatch(0, breaking)
     text, buttons, file = await breaking.read()
-
-    print(text)
-    print(buttons)
-
-    assert False
-    assert file is None
+    assert (
+        text
+        == "Would you like to translate, dub, or download the transcript as SRT or TXT?"
+    )  # noqa: E501
