@@ -299,7 +299,7 @@ async def test_telegram_reset_after_error():
     print(text)
     print(buttons)
 
-    await telegram.dispatch(0, srt)
+    await telegram.dispatch(0, "SRT")
     text, buttons, file = await srt.read()
 
     print(text)
