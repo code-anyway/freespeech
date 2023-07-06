@@ -1,5 +1,6 @@
 import asyncio
 import difflib
+import json
 import logging
 import re
 import xml.etree.ElementTree as ET
@@ -20,9 +21,9 @@ from google.cloud import texttospeech as google_tts
 from google.cloud.speech_v1.types.cloud_speech import LongRunningRecognizeResponse
 from pydantic.dataclasses import dataclass
 
+import freespeech.lib.hash as hash
 from freespeech import env
 from freespeech.lib import concurrency, elevenlabs, media
-from freespeech.lib.hash import hash_object
 from freespeech.lib.storage import obj
 from freespeech.lib.text import (
     capitalize_sentence,
@@ -908,8 +909,18 @@ async def _synthesize_text(
             )
         )
 
-    if await obj.has('/media-cache'):
-        return obj.get('/media-cache')
+    synthesized_hash = hash.obj((text, duration_ms, voice, lang))
+    synthesized_url = f"{env.get_storage_url()}/media-cache/{synthesized_hash}.wav"
+    voice_url = f"{env.get_storage_url()}/media-cache/{synthesized_hash}-voice.json"
+
+    try:
+        synthesized_path = await obj.get(synthesized_url, output_dir)
+        with TemporaryDirectory() as td:
+            voice_path = await obj.get(voice_url, td)
+            voice = Voice(**json.loads(open(voice_path).read()))
+        return Path(synthesized_path), voice
+    except google_api_exceptions.NotFound:
+        pass
 
     async def _synthesize_step(rate: float, retries: int | None) -> Tuple[Path, float]:
         if retries is not None and retries < 0:
@@ -1034,7 +1045,20 @@ async def _synthesize_text(
     output_file, speech_rate = await _synthesize_step(
         rate=voice.speech_rate, retries=SYNTHESIS_RETRIES
     )
-    await obj.put(hash_object((output_file,)), f"{env.get_storage_url()}/media-cache/{Path(output_file).name}")
+
+    await obj.put(output_file, synthesized_url)
+    with TemporaryDirectory() as td:
+        open(f"{td}/voice.json", "w").write(
+            json.dumps(
+                {
+                    "speech_rate": speech_rate,
+                    "character": voice.character,
+                    "pitch": voice.pitch,
+                }
+            )
+        )
+        await obj.put(f"{td}/voice.json", voice_url)
+
     return output_file, Voice(
         speech_rate=speech_rate, character=voice.character, pitch=voice.pitch
     )

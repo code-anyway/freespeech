@@ -22,7 +22,7 @@ def string(s: str) -> str:
     return sha256_hash.hexdigest()
 
 
-def hash_object(obj: object) -> str:
+def obj(obj: object) -> str:
     """Get SHA256 hash of an object as a hex digest."""
 
     def descend_tuple(o: tuple):
