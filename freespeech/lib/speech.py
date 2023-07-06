@@ -22,6 +22,7 @@ from pydantic.dataclasses import dataclass
 
 from freespeech import env
 from freespeech.lib import concurrency, elevenlabs, media
+from freespeech.lib.hash import hash_object
 from freespeech.lib.storage import obj
 from freespeech.lib.text import (
     capitalize_sentence,
@@ -907,6 +908,9 @@ async def _synthesize_text(
             )
         )
 
+    if await obj.has('/media-cache'):
+        return obj.get('/media-cache')
+
     async def _synthesize_step(rate: float, retries: int | None) -> Tuple[Path, float]:
         if retries is not None and retries < 0:
             raise RuntimeError(
@@ -1030,7 +1034,7 @@ async def _synthesize_text(
     output_file, speech_rate = await _synthesize_step(
         rate=voice.speech_rate, retries=SYNTHESIS_RETRIES
     )
-
+    await obj.put(hash_object((output_file,)), f"{env.get_storage_url()}/media-cache/{Path(output_file).name}")
     return output_file, Voice(
         speech_rate=speech_rate, character=voice.character, pitch=voice.pitch
     )
