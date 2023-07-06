@@ -12,6 +12,7 @@ from azure.storage.blob import BlobServiceClient
 from google.api_core import exceptions as google_api_exceptions
 from google.cloud import storage  # type: ignore
 from google.cloud.storage.retry import DEFAULT_RETRY
+from google.cloud.storage.bucket import Bucket
 
 from freespeech import env
 from freespeech.lib import concurrency
@@ -92,7 +93,19 @@ def stream(src: url, mode: str) -> Generator[BinaryIO, None, None]:
         finally:
             storage._http.close()
 
+async def has(src: url) -> bool:
+    # Customize retry with a deadline of 500 seconds (default=120 seconds).
+    retry = DEFAULT_RETRY.with_deadline(600.0)
+    # Customize retry with an initial wait time of 1.5 (default=1.0).
+    # Customize retry with a wait time multiplier per iteration of 1.2 (default=2.0).
+    # Customize retry with a maximum wait time of 45.0 (default=60.0).
+    retry = retry.with_delay(initial=1.5, multiplier=1.2, maximum=60.0)
 
+    src_url = urlparse(src)
+    with google_storage_client() as storage:
+        bucket = Bucket(storage, src_url.netloc)
+    return bucket.exists()
+    
 async def get(src: url, dst_dir: str | PathLike) -> str:
     src_url = urlparse(src)
     dst_dir = Path(dst_dir)
