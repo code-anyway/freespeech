@@ -279,14 +279,8 @@ async def schedule(ctx: Context, task: Awaitable, operation: Operation) -> str:
     assert ctx.url is not None
 
     async def execute_and_notify():
-        try:
-            log_user_action(ctx, action=operation, context=ctx)
-            message = await task
-        except (ValueError, NotImplementedError, PermissionError) as e:
-            message = str(e)
-        except Exception as e:
-            logger.exception(e)
-            message = "Something went wrong. Please try again later."
+        log_user_action(ctx, action=operation, context=ctx)
+        message = await task
 
         await send_message(ctx.message, Reply(message))
 
@@ -497,7 +491,16 @@ async def dispatch(sender_id: int, message: Message | str):
         context[sender_id] = Context(state=start)
 
     ctx = context[sender_id]
-    context[sender_id], reply = await ctx.state(ctx, message)
+    try:
+        context[sender_id], reply = await ctx.state(ctx, message)
+    except (ValueError, NotImplementedError, PermissionError) as e:
+        context[sender_id] = Context(state=start)
+        reply = Reply(str(e))
+    except Exception as e:
+        context[sender_id] = Context(state=start)
+        logger.exception(e)
+        reply = Reply("Something went wrong. Please try again later.")
+
     if reply:
         msg = context[sender_id].message or ctx.message
         if msg is not None:
