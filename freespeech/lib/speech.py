@@ -911,14 +911,12 @@ async def _synthesize_text(
             )
         )
     synthesized_hash = hash.obj((text, duration_ms, voice, lang))
-    synthesized_path = f"/home/axel/repos/freespeech/cache/{synthesized_hash}.wav"#CHANGEIT!!
-    voice_path = f"/home/axel/repos/freespeech/cache/{synthesized_hash}-voice.json"
+    synthesized_path = f"/cache/{synthesized_hash}.wav"#CHANGEIT!!
+    voice_path = f"/cache/{synthesized_hash}-voice.json"
 
     if os.path.exists(voice_path):
         voice = Voice(**json.loads(open(voice_path, "r").read()))
         return Path(synthesized_path), voice
-
-
     async def _synthesize_step(rate: float, retries: int | None) -> Tuple[Path, float]:
         if retries is not None and retries < 0:
             raise RuntimeError(
