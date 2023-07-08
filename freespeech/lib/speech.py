@@ -3,6 +3,8 @@ import difflib
 import json
 import logging
 import re
+import os
+import shutil
 import xml.etree.ElementTree as ET
 from dataclasses import replace
 from functools import cache, reduce
@@ -908,19 +910,14 @@ async def _synthesize_text(
                 f"Supported values: {all_voices}"
             )
         )
-
     synthesized_hash = hash.obj((text, duration_ms, voice, lang))
-    synthesized_url = f"{env.get_storage_url()}/media-cache/{synthesized_hash}.wav"
-    voice_url = f"{env.get_storage_url()}/media-cache/{synthesized_hash}-voice.json"
+    synthesized_path = f"/home/axel/repos/freespeech/cache/{synthesized_hash}.wav"#CHANGEIT!!
+    voice_path = f"/home/axel/repos/freespeech/cache/{synthesized_hash}-voice.json"
 
-    try:
-        synthesized_path = await obj.get(synthesized_url, output_dir)
-        with TemporaryDirectory() as td:
-            voice_path = await obj.get(voice_url, td)
-            voice = Voice(**json.loads(open(voice_path).read()))
+    if os.path.exists(voice_path):
+        voice = Voice(**json.loads(open(voice_path, "r").read()))
         return Path(synthesized_path), voice
-    except google_api_exceptions.NotFound:
-        pass
+
 
     async def _synthesize_step(rate: float, retries: int | None) -> Tuple[Path, float]:
         if retries is not None and retries < 0:
@@ -1046,9 +1043,9 @@ async def _synthesize_text(
         rate=voice.speech_rate, retries=SYNTHESIS_RETRIES
     )
 
-    await obj.put(output_file, synthesized_url)
-    with TemporaryDirectory() as td:
-        open(f"{td}/voice.json", "w").write(
+    shutil.copyfile(output_file, synthesized_path)
+    with open(voice_path, "w") as voice_cache:
+        voice_cache.write(
             json.dumps(
                 {
                     "speech_rate": speech_rate,
@@ -1057,8 +1054,6 @@ async def _synthesize_text(
                 }
             )
         )
-        await obj.put(f"{td}/voice.json", voice_url)
-
     return output_file, Voice(
         speech_rate=speech_rate, character=voice.character, pitch=voice.pitch
     )
