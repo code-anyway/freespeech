@@ -918,6 +918,7 @@ async def _synthesize_text(
     if os.path.exists(voice_path):
         voice = Voice(**json.loads(open(voice_path, "r").read()))
         return Path(synthesized_path), voice
+    
     async def _synthesize_step(rate: float, retries: int | None) -> Tuple[Path, float]:
         if retries is not None and retries < 0:
             raise RuntimeError(
@@ -1044,7 +1045,7 @@ async def _synthesize_text(
 
     try:
         shutil.copyfile(output_file, synthesized_path)
-    except IOError as io_err:
+    except IOError:
         os.makedirs(os.path.dirname(synthesized_path))
         shutil.copyfile(output_file, synthesized_path)
     with open(voice_path, "w") as voice_cache:
