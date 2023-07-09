@@ -910,9 +910,10 @@ async def _synthesize_text(
                 f"Supported values: {all_voices}"
             )
         )
+    cachedir = os.path.join(os.path.dirname(__file__), "../../cache")
     synthesized_hash = hash.obj((text, duration_ms, voice, lang))
-    synthesized_path = f"/cache/{synthesized_hash}.wav"#CHANGEIT!!
-    voice_path = f"/cache/{synthesized_hash}-voice.json"
+    synthesized_path = f"{cachedir}/{synthesized_hash}.wav"
+    voice_path = f"{cachedir}/{synthesized_hash}-voice.json"
 
     if os.path.exists(voice_path):
         voice = Voice(**json.loads(open(voice_path, "r").read()))
@@ -1041,7 +1042,11 @@ async def _synthesize_text(
         rate=voice.speech_rate, retries=SYNTHESIS_RETRIES
     )
 
-    shutil.copyfile(output_file, synthesized_path)
+    try:
+        shutil.copyfile(output_file, synthesized_path)
+    except IOError as io_err:
+        os.makedirs(os.path.dirname(synthesized_path))
+        shutil.copyfile(output_file, synthesized_path)
     with open(voice_path, "w") as voice_cache:
         voice_cache.write(
             json.dumps(
