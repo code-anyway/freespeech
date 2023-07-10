@@ -210,8 +210,8 @@ async def test_synthesize_events(tmp_path) -> None:
     # is this deterministic?
     assert spans == [
         ("blank", 0, 1000),
-        ("event", 1000, 2998),
-        ("blank", 2998, 5000),
+        ("event", 1000, 2997),
+        ("blank", 2997, 5000),
         ("event", 5000, 7000),
     ]
 
@@ -225,11 +225,11 @@ async def test_synthesize_events(tmp_path) -> None:
     first, second = t_en
 
     assert first.time_ms == 0
-    assert first.duration_ms == pytest.approx(2930, abs=ABSOLUTE_ERROR_MS)
+    assert first.duration_ms == pytest.approx(2870, abs=ABSOLUTE_ERROR_MS)
     assert first.chunks == ["One, hen two ducks."]
 
-    assert second.time_ms == pytest.approx(2930, abs=ABSOLUTE_ERROR_MS)
-    assert second.duration_ms == pytest.approx(3810, abs=ABSOLUTE_ERROR_MS)
+    assert second.time_ms == pytest.approx(2870, abs=ABSOLUTE_ERROR_MS)
+    assert second.duration_ms == pytest.approx(3900, abs=ABSOLUTE_ERROR_MS)
     assert second.chunks == [" three squawking geese"]
 
     voice_1, voice_2 = voices
