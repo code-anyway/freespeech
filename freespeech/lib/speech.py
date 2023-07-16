@@ -1,10 +1,13 @@
+import aiofiles
 import asyncio
 import difflib
+
 import json
 import logging
 import re
 import os
 import shutil
+from filelock import FileLock, Timeout
 import xml.etree.ElementTree as ET
 from dataclasses import replace
 from functools import cache, reduce
@@ -913,12 +916,19 @@ async def _synthesize_text(
     cachedir = os.path.join(os.path.dirname(__file__), "../../cache")
     synthesized_hash = hash.obj((text, duration_ms, voice, lang))
     synthesized_path = f"{cachedir}/{synthesized_hash}.wav"
+    locked_synthesized_path = f"{synthesized_path}.lock"
+    synthesized_path_lock = FileLock(locked_synthesized_path, timeout=1)
     voice_path = f"{cachedir}/{synthesized_hash}-voice.json"
+    locked_voice_path = f"{voice_path}.lock"
+    voice_path_lock = FileLock(locked_voice_path, timeout=1)
 
     if os.path.exists(voice_path):
-        voice = Voice(**json.loads(open(voice_path, "r").read()))
+        voice_path_lock.release()
+        synthesized_path_lock.release()
+        async with aiofiles.open(voice_path, "r") as cached_voice:
+            voice = Voice(**json.loads(await cached_voice.read()))
         return Path(synthesized_path), voice
-    
+
     async def _synthesize_step(rate: float, retries: int | None) -> Tuple[Path, float]:
         if retries is not None and retries < 0:
             raise RuntimeError(
@@ -1044,20 +1054,34 @@ async def _synthesize_text(
     )
 
     try:
-        shutil.copyfile(output_file, synthesized_path)
+        with synthesized_path_lock:
+            shutil.copyfile(output_file, synthesized_path)
     except IOError:
-        os.makedirs(os.path.dirname(synthesized_path))
-        shutil.copyfile(output_file, synthesized_path)
-    with open(voice_path, "w") as voice_cache:
-        voice_cache.write(
-            json.dumps(
-                {
-                    "speech_rate": speech_rate,
-                    "character": voice.character,
-                    "pitch": voice.pitch,
-                }
+        with synthesized_path_lock:
+            os.makedirs(os.path.dirname(synthesized_path))
+            shutil.copyfile(output_file, synthesized_path)
+
+    with voice_path_lock:
+        async with aiofiles.open(voice_path, "w") as voice_cache:
+            await voice_cache.write(
+                json.dumps(
+                    {
+                        "speech_rate": speech_rate,
+                        "character": voice.character,
+                        "pitch": voice.pitch,
+                    }
+                )
             )
-        )
+
+    synthesized_path_lock.release()
+    voice_path_lock.release()
+    async with aiofiles.open(f"{cachedir}/cache-size.txt", "w+") as size:
+        size_value = await size.read()
+        await size.write(str(int(size_value) if size_value else 0 + await obj.get_size(voice_path) + await obj.get_size(output_file)))
+    await obj.rotateCache(cachedir)
+    os.remove(locked_synthesized_path)
+    os.remove(locked_voice_path)
+
     return output_file, Voice(
         speech_rate=speech_rate, character=voice.character, pitch=voice.pitch
     )
