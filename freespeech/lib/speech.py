@@ -1,13 +1,10 @@
-import aiofiles
 import asyncio
 import difflib
-
 import json
 import logging
-import re
 import os
+import re
 import shutil
-from filelock import FileLock, Timeout
 import xml.etree.ElementTree as ET
 from dataclasses import replace
 from functools import cache, reduce
@@ -17,9 +14,11 @@ from tempfile import TemporaryDirectory
 from typing import Dict, Sequence, Tuple
 from uuid import uuid4
 
+import aiofiles
 import aiohttp
 import pydub
 from deepgram import Deepgram
+from filelock import FileLock, Timeout
 from google.api_core import exceptions as google_api_exceptions
 from google.cloud import speech as speech_api
 from google.cloud import texttospeech as google_tts
@@ -1077,7 +1076,15 @@ async def _synthesize_text(
     voice_path_lock.release()
     async with aiofiles.open(f"{cachedir}/cache-size.txt", "w+") as size:
         size_value = await size.read()
-        await size.write(str(int(size_value) if size_value else 0 + await obj.get_size(voice_path) + await obj.get_size(output_file)))
+        await size.write(
+            str(
+                int(size_value)
+                if size_value
+                else 0
+                + await obj.get_size(voice_path)
+                + await obj.get_size(output_file)
+            )
+        )
     await obj.rotateCache(cachedir)
     os.remove(locked_synthesized_path)
     os.remove(locked_voice_path)
