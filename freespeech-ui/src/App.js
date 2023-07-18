@@ -3,6 +3,7 @@ import './App.css';
 
 import Navbar from './Navbar.js';
 import Hero from './components/Hero.js';
+import Features from './components/Features.js';
 
 function App() {
   return (
@@ -10,6 +11,7 @@ function App() {
       <header className="App-header">
         {/* <Navbar /> */}
         <Hero />
+        <Features />
       </header>
     </div>
   );
