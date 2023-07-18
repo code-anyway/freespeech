@@ -1055,7 +1055,7 @@ async def _synthesize_text(
     try:
         with synthesized_path_lock:
             shutil.copyfile(output_file, synthesized_path)
-    except IOError:
+    except FileNotFoundError:
         with synthesized_path_lock:
             os.makedirs(os.path.dirname(synthesized_path))
             shutil.copyfile(output_file, synthesized_path)
