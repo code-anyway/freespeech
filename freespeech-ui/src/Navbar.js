@@ -3,14 +3,17 @@ import logo from './freespeechlogo.svg';
 function Navbar() {
   return (
     <div className="Navbar">
-        <a
-          className="Home-link"
-          href="https://freespeechnow.ai/"
-        ></a>
-        <a class="active" href="#home">Home</a>
-        <a href="#news">News</a>
-        <a href="#contact">Contact</a>
-        <a href="#about">About</a>
+      <img src={logo} className="Home-logo" alt="logo" />        
+      
+      <nav class="stroke">
+        <ul>
+          <li><a href="/">Home</a></li>
+          <li><a href="/#about">About</a></li>
+          <li><a href="/#transcribe">Transcribe</a></li>
+          <li><a href="/#translate">Translate</a></li>
+          <li><a href="/#dub">Dub/Voiceover</a></li>
+        </ul>
+      </nav>
     </div>
   );
 }
