@@ -18,7 +18,7 @@ import aiofiles
 import aiohttp
 import pydub
 from deepgram import Deepgram
-from filelock import FileLock, Timeout
+from filelock import FileLock
 from google.api_core import exceptions as google_api_exceptions
 from google.cloud import speech as speech_api
 from google.cloud import texttospeech as google_tts
@@ -1082,7 +1082,7 @@ async def _synthesize_text(
                 if size_value
                 else 0
                 + await obj.get_size(voice_path)
-                + await obj.get_size(output_file)
+                + await obj.get_size(synthesized_path)
             )
         )
     await obj.rotateCache(cachedir)
