@@ -921,6 +921,9 @@ async def _synthesize_text(
     locked_voice_path = f"{voice_path}.lock"
     voice_path_lock = FileLock(locked_voice_path, timeout=1)
 
+    if not os.path.exists(cachedir):
+        os.makedirs(cachedir)
+
     if os.path.exists(voice_path):
         voice_path_lock.release()
         synthesized_path_lock.release()
@@ -1052,13 +1055,8 @@ async def _synthesize_text(
         rate=voice.speech_rate, retries=SYNTHESIS_RETRIES
     )
 
-    try:
-        with synthesized_path_lock:
-            shutil.copyfile(output_file, synthesized_path)
-    except FileNotFoundError:
-        with synthesized_path_lock:
-            os.makedirs(os.path.dirname(synthesized_path))
-            shutil.copyfile(output_file, synthesized_path)
+    with synthesized_path_lock:
+        shutil.copyfile(output_file, synthesized_path)
 
     with voice_path_lock:
         async with aiofiles.open(voice_path, "w") as voice_cache:
