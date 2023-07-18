@@ -5,6 +5,7 @@ from typing import Iterator, Sequence
 
 import spacy
 
+from freespeech.lib import llms
 from freespeech.types import Language, assert_never
 
 # Apply simple heuristics to determine if a string is a sentence
@@ -211,3 +212,22 @@ def has_text(
         True if string contains text, False otherwise.
     """
     return bool(re.search(r"\w", s))
+
+
+async def denormalize(s: str) -> str:
+    """Denormalize string: spell out numbers, formulas, etc."""
+
+    prompt = f"""
+You are given a piece of text in ```.
+
+Your task is to expand all mathematical formulas in it and spell them out using natural language.
+If there are no mathematical symbols or functions in the text, return the original text.
+Your task is also to normalize numerals convert numbers from digits into words in the case that matches the context.
+All special mathematical characters must be also spelled out using natural language.
+Always be brief.
+Return only text, nothing else.
+
+```
+{s}
+```"""  # noqa
+    return await llms.get_response(prompt, model="gpt-3.5-turbo-16k")

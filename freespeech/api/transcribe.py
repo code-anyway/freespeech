@@ -1,12 +1,15 @@
 import tempfile
+from dataclasses import replace
 from pathlib import Path
+from typing import Sequence
 
 from fastapi import APIRouter
 
 from freespeech import env
-from freespeech.lib import media, speech, youtube
+from freespeech.lib import media, speech, text, youtube
 from freespeech.lib.storage import obj
 from freespeech.types import (
+    Event,
     Language,
     ServiceProvider,
     Source,
@@ -25,7 +28,6 @@ PHRASE_LENGTH = 600
 
 # Max download retries for YouTube videos.
 MAX_RETRIES = 4
-
 router = APIRouter()
 
 
@@ -48,6 +50,16 @@ async def ingest(source: str) -> tuple[str | None, str | None]:
         )
 
         return (audio_url, video_url)
+
+
+async def normalize_events(events: Sequence[Event]) -> Sequence[Event]:
+    async def normalize_chunks(chunks: Sequence[str]) -> Sequence[str]:
+        return [await text.denormalize(chunk) for chunk in chunks]
+
+    events = [
+        replace(event, chunks=await normalize_chunks(event.chunks)) for event in events
+    ]
+    return events
 
 
 @router.post("/transcribe")

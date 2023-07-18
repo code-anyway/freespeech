@@ -1,25 +1,5 @@
-import openai
-
-from freespeech import env
+from freespeech.lib import llms
 from freespeech.types import Language
-
-
-async def get_response(prompt) -> str:
-    openai.api_key = env.get_openai_key()
-    openai.organization = env.get_openai_organization()
-    response = await openai.ChatCompletion.acreate(
-        model="gpt-4",
-        messages=[
-            {
-                "role": "system",
-                "content": "Post production editor and writer.",
-            },
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0,
-    )
-
-    return response["choices"][0]["message"]["content"]  # type: ignore
 
 
 async def get_chunks(text: str, lang: Language) -> str:
@@ -39,4 +19,4 @@ The transcript is enclosed in ```
 ```{text}```
 """  # noqa: E501
     print(prompt)
-    return await get_response(prompt)
+    return await llms.get_response(prompt)
