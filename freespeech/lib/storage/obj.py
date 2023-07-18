@@ -34,11 +34,9 @@ async def get_size(file_path: str):
 
 
 async def rotateCache(cache_dir: str):
-    if (
-        new_cache_size := int(
-            await (await aiofiles.open(f"{cache_dir}/cache-size.txt", "r")).read()
-        )
-    ) >= 1_073_741_824:  # 1g
+    async with aiofiles.open(f"{cache_dir}/cache-size.txt", "r") as cache_size_file:
+        new_cache_size = int(await cache_size_file.read())
+    if new_cache_size >= 1_073_741_824:  # 1gb
         file_paths = [
             f"{cache_dir}/{x}" for x in os.listdir(cache_dir) if x != "cache-size.txt"
         ]
