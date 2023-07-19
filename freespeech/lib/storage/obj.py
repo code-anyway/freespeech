@@ -33,22 +33,29 @@ async def get_size(file_path: str):
     return apparent_size_bytes
 
 
-async def rotateCache(cache_dir: str):
-    async with aiofiles.open(f"{cache_dir}/cache-size.txt", "r") as cache_size_file:
-        new_cache_size = int(await cache_size_file.read())
-    if new_cache_size >= 1_073_741_824:  # 1gb
+async def rotate_cache(cache_dir: str):
+    async with aiofiles.open(f"{cache_dir}/cache-size.txt", "r") as new_cache_size:
+        new_cache_size_value = int(await new_cache_size.read())
+    if new_cache_size_value >= 1_073_741_824:  # 1gb
         file_paths = [
-            f"{cache_dir}/{x}" for x in os.listdir(cache_dir) if x != "cache-size.txt"
+            f"{cache_dir}/{x}"
+            for x in os.listdir(cache_dir)
+            if x != "cache-size.txt" and x.endswith(".wav")
         ]
-        while new_cache_size > 999_999_000:
-            oldestfile = min(file_paths, key=os.path.getctime)
-            new_cache_size -= await get_size(oldestfile)
-            os.remove(oldestfile)
-            file_paths.remove(oldestfile)
+        while new_cache_size_value > 858_993_459:  # 80%gb
+            oldest_wav_file = min(file_paths, key=os.path.getctime)
+            oldest_voice_file = (
+                f"{cache_dir}/{oldest_wav_file.split('/')[-1][:-4]}-voice.json"
+            )
+            new_cache_size_value -= await get_size(oldest_wav_file)
+            new_cache_size_value -= await get_size(oldest_voice_file)
+            file_paths.remove(oldest_wav_file)
+            os.remove(oldest_voice_file)
+            os.remove(oldest_wav_file)
             async with aiofiles.open(
                 f"{cache_dir}/cache-size.txt", "w"
             ) as old_cache_size:
-                await old_cache_size.write(str(new_cache_size))
+                await old_cache_size.write(str(new_cache_size_value))
     return
 
 
