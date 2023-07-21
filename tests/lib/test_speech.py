@@ -1,10 +1,12 @@
 import json
 from pathlib import Path
+import os
 from typing import Sequence, get_args
+import time
 
 import pytest
 
-from freespeech.lib import elevenlabs, media, speech
+from freespeech.lib import elevenlabs, media, speech, hash
 from freespeech.types import Character, Event, Language, Voice, assert_never
 
 AUDIO_EN_LOCAL = Path("tests/lib/data/media/en-US-mono.wav")
@@ -831,3 +833,49 @@ def test_fix_sentence_boundaries():
         ("The Universe", (1500, 2000)),
         ("And everything 42 42", (2000, 2500)),
     ]
+
+
+@pytest.mark.asyncio
+async def test_dub_cache(tmp_path) -> None:
+    cache_dir = os.path.join(os.path.dirname(__file__), "../../cache")
+    non_cached_function_time = 0
+    for i in range(1000):
+        start_time = time.time()
+        output, voice = await speech._synthesize_text(
+            text="Elephant banana clock waterfall zebra spaceship rainbow apple mountain guitar moon cheese pizza starfish unicorn sunflower jellyfish spaceship popcorn monkey watermelon dinosaur spaceship robot cookie ocean pencil catfish balloon kangaroo dragon peanut jelly shirt basketball rocket turtle pineapple rainbow giraffe spaceship caterpillar rainbow coffee lamp potato octopus spaceship rocket moon kangaroo donut lighthouse rainbow book skateboard spaceship tree frog ice cream strawberry pencil rainbow turtle volcano dragon telescope spaceship popcorn mushroom spaceship butterfly moon rainbow guitar unicorn spaceship tomato spaceship dragon octopus rainbow elephant starfish penguin spaceship pineapple cheese cupcake rainbow spaceship robot book rainbow spaceship spaceship spaceship.",
+            duration_ms=10_000,
+            voice=Voice(character="Alan"),
+            lang="en-US",
+            output_dir=tmp_path,
+        )
+        end_time = time.time()
+        non_cached_function_time += end_time - start_time
+        os.remove(f"{cache_dir}/{hash.obj(('The curious cat jumped gracefully onto the shimmering moon, exploring the mysterious galaxy beyond. Elephant banana clock waterfall zebra spaceship rainbow apple mountain guitar moon cheese pizza starfish unicorn sunflower jellyfish spaceship popcorn monkey watermelon dinosaur spaceship robot cookie ocean pencil catfish balloon kangaroo dragon peanut jelly shirt basketball rocket turtle pineapple rainbow giraffe spaceship caterpillar rainbow coffee lamp potato octopus spaceship rocket moon kangaroo donut lighthouse rainbow book skateboard spaceship tree frog ice cream strawberry pencil rainbow turtle volcano dragon telescope spaceship popcorn mushroom spaceship butterfly moon rainbow guitar unicorn spaceship tomato spaceship dragon octopus rainbow elephant starfish penguin spaceship pineapple cheese cupcake rainbow spaceship robot book rainbow spaceship spaceship spaceship.', 10_000, Voice(character='Alan'), 'enUS'))}.wav")
+        os.remove(f"{cache_dir}/{hash.obj(('The curious cat jumped gracefully onto the shimmering moon, exploring the mysterious galaxy beyond. Elephant banana clock waterfall zebra spaceship rainbow apple mountain guitar moon cheese pizza starfish unicorn sunflower jellyfish spaceship popcorn monkey watermelon dinosaur spaceship robot cookie ocean pencil catfish balloon kangaroo dragon peanut jelly shirt basketball rocket turtle pineapple rainbow giraffe spaceship caterpillar rainbow coffee lamp potato octopus spaceship rocket moon kangaroo donut lighthouse rainbow book skateboard spaceship tree frog ice cream strawberry pencil rainbow turtle volcano dragon telescope spaceship popcorn mushroom spaceship butterfly moon rainbow guitar unicorn spaceship tomato spaceship dragon octopus rainbow elephant starfish penguin spaceship pineapple cheese cupcake rainbow spaceship robot book rainbow spaceship spaceship spaceship.',10_000,Voice(character='Alan'), 'enUS'))}.wav")
+    non_cached_function_time /= 1000
+    output, voice = await speech._synthesize_text(
+        text="The curious cat jumped gracefully onto the shimmering moon, exploring the mysterious galaxy beyond. Elephant banana clock waterfall zebra spaceship rainbow apple mountain guitar moon cheese pizza starfish unicorn sunflower jellyfish spaceship popcorn monkey watermelon dinosaur spaceship robot cookie ocean pencil catfish balloon kangaroo dragon peanut jelly shirt basketball rocket turtle pineapple rainbow giraffe spaceship caterpillar rainbow coffee lamp potato octopus spaceship rocket moon kangaroo donut lighthouse rainbow book skateboard spaceship tree frog ice cream strawberry pencil rainbow turtle volcano dragon telescope spaceship popcorn mushroom spaceship butterfly moon rainbow guitar unicorn spaceship tomato spaceship dragon octopus rainbow elephant starfish penguin spaceship pineapple cheese cupcake rainbow spaceship robot book rainbow spaceship spaceship spaceship.",
+        duration_ms=10_000,
+        voice=Voice(character="Alan"),
+        lang="en-US",
+        output_dir=tmp_path,
+    )
+
+    assert os.path.exists(f"{cache_dir}/{hash.obj(('The curious cat jumped gracefully onto the shimmering moon, exploring the mysterious galaxy beyond. Elephant banana clock waterfall zebra spaceship rainbow apple mountain guitar moon cheese pizza starfish unicorn sunflower jellyfish spaceship popcorn monkey watermelon dinosaur spaceship robot cookie ocean pencil catfish balloon kangaroo dragon peanut jelly shirt basketball rocket turtle pineapple rainbow giraffe spaceship caterpillar rainbow coffee lamp potato octopus spaceship rocket moon kangaroo donut lighthouse rainbow book skateboard spaceship tree frog ice cream strawberry pencil rainbow turtle volcano dragon telescope spaceship popcorn mushroom spaceship butterfly moon rainbow guitar unicorn spaceship tomato spaceship dragon octopus rainbow elephant starfish penguin spaceship pineapple cheese cupcake rainbow spaceship robot book rainbow spaceship spaceship spaceship.',10_000,Voice(character='Alan'), 'enUS'))}.wav")
+    
+    assert os.path.exists(f"{cache_dir}/{hash.obj(('The curious cat jumped gracefully onto the shimmering moon, exploring the mysterious galaxy beyond. Elephant banana clock waterfall zebra spaceship rainbow apple mountain guitar moon cheese pizza starfish unicorn sunflower jellyfish spaceship popcorn monkey watermelon dinosaur spaceship robot cookie ocean pencil catfish balloon kangaroo dragon peanut jelly shirt basketball rocket turtle pineapple rainbow giraffe spaceship caterpillar rainbow coffee lamp potato octopus spaceship rocket moon kangaroo donut lighthouse rainbow book skateboard spaceship tree frog ice cream strawberry pencil rainbow turtle volcano dragon telescope spaceship popcorn mushroom spaceship butterfly moon rainbow guitar unicorn spaceship tomato spaceship dragon octopus rainbow elephant starfish penguin spaceship pineapple cheese cupcake rainbow spaceship robot book rainbow spaceship spaceship spaceship.',10_000,Voice(character='Alan'), 'enUS'))}-voice.json")
+    
+    cached_function_time = 0
+    for i in range(1000):
+        start_time = time.time()
+        output_cahed, voice_cached = await speech._synthesize_text(
+            text="The curious cat jumped gracefully onto the shimmering moon, exploring the mysterious galaxy beyond. Elephant banana clock waterfall zebra spaceship rainbow apple mountain guitar moon cheese pizza starfish unicorn sunflower jellyfish spaceship popcorn monkey watermelon dinosaur spaceship robot cookie ocean pencil catfish balloon kangaroo dragon peanut jelly shirt basketball rocket turtle pineapple rainbow giraffe spaceship caterpillar rainbow coffee lamp potato octopus spaceship rocket moon kangaroo donut lighthouse rainbow book skateboard spaceship tree frog ice cream strawberry pencil rainbow turtle volcano dragon telescope spaceship popcorn mushroom spaceship butterfly moon rainbow guitar unicorn spaceship tomato spaceship dragon octopus rainbow elephant starfish penguin spaceship pineapple cheese cupcake rainbow spaceship robot book rainbow spaceship spaceship spaceship.",
+            duration_ms=10_000,
+            voice=Voice(character="Alan"),
+            lang="en-US",
+            output_dir=tmp_path,
+        )
+        end_time = time.time()
+        cached_function_time = end_time - start_time
+    cached_function_time /= 1000
+    assert cached_function_time < non_cached_function_time
