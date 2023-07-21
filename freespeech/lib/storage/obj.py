@@ -1,6 +1,8 @@
 import logging
 import mimetypes
+import os as os
 import shutil
+import subprocess
 from contextlib import contextmanager
 from dataclasses import dataclass
 from os import PathLike
@@ -8,6 +10,7 @@ from pathlib import Path
 from typing import BinaryIO, Generator
 from urllib.parse import urlparse
 
+import aiofiles
 from azure.storage.blob import BlobServiceClient
 from google.api_core import exceptions as google_api_exceptions
 from google.cloud import storage  # type: ignore
@@ -21,6 +24,39 @@ logger = logging.getLogger(__name__)
 
 
 BLOCK_SIZE = 16 * 4096
+
+
+async def get_size(file_path: str):
+    command = ["du", "--apparent-size", file_path]
+    result = subprocess.run(command, capture_output=True, text=True, check=True)
+    apparent_size_bytes = int(result.stdout.strip().split()[0])
+    return apparent_size_bytes
+
+
+async def rotate_cache(cache_dir: str):
+    async with aiofiles.open(f"{cache_dir}/cache-size.txt", "r") as new_cache_size:
+        new_cache_size_value = int(await new_cache_size.read())
+    if new_cache_size_value >= 1_073_741_824:  # 1gb
+        file_paths = [
+            f"{cache_dir}/{x}"
+            for x in os.listdir(cache_dir)
+            if x != "cache-size.txt" and x.endswith(".wav")
+        ]
+        while new_cache_size_value > 858_993_459:  # 80%gb
+            oldest_wav_file = min(file_paths, key=os.path.getctime)
+            oldest_voice_file = (
+                f"{cache_dir}/{oldest_wav_file.split('/')[-1][:-4]}-voice.json"
+            )
+            new_cache_size_value -= await get_size(oldest_wav_file)
+            new_cache_size_value -= await get_size(oldest_voice_file)
+            file_paths.remove(oldest_wav_file)
+            os.remove(oldest_voice_file)
+            os.remove(oldest_wav_file)
+            async with aiofiles.open(
+                f"{cache_dir}/cache-size.txt", "w"
+            ) as old_cache_size:
+                await old_cache_size.write(str(new_cache_size_value))
+    return
 
 
 @dataclass(frozen=False)

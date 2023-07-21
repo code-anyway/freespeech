@@ -2,7 +2,9 @@ import asyncio
 import difflib
 import json
 import logging
+import os
 import re
+import shutil
 import xml.etree.ElementTree as ET
 from dataclasses import replace
 from functools import cache, reduce
@@ -12,9 +14,11 @@ from tempfile import TemporaryDirectory
 from typing import Dict, Sequence, Tuple
 from uuid import uuid4
 
+import aiofiles
 import aiohttp
 import pydub
 from deepgram import Deepgram
+from filelock import FileLock
 from google.api_core import exceptions as google_api_exceptions
 from google.cloud import speech as speech_api
 from google.cloud import texttospeech as google_tts
@@ -909,18 +913,18 @@ async def _synthesize_text(
             )
         )
 
+    cache_dir = os.path.join(os.path.dirname(__file__), "../../cache")
     synthesized_hash = hash.obj((text, duration_ms, voice, lang))
-    synthesized_url = f"{env.get_storage_url()}/media-cache/{synthesized_hash}.wav"
-    voice_url = f"{env.get_storage_url()}/media-cache/{synthesized_hash}-voice.json"
+    synthesized_path = f"{cache_dir}/{synthesized_hash}.wav"
+    voice_path = f"{cache_dir}/{synthesized_hash}-voice.json"
 
-    try:
-        synthesized_path = await obj.get(synthesized_url, output_dir)
-        with TemporaryDirectory() as td:
-            voice_path = await obj.get(voice_url, td)
-            voice = Voice(**json.loads(open(voice_path).read()))
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir)
+
+    if os.path.exists(voice_path):
+        async with aiofiles.open(voice_path, "r") as cached_voice:
+            voice = Voice(**json.loads(await cached_voice.read()))
         return Path(synthesized_path), voice
-    except google_api_exceptions.NotFound:
-        pass
 
     async def _synthesize_step(rate: float, retries: int | None) -> Tuple[Path, float]:
         if retries is not None and retries < 0:
@@ -1046,9 +1050,9 @@ async def _synthesize_text(
         rate=voice.speech_rate, retries=SYNTHESIS_RETRIES
     )
 
-    await obj.put(output_file, synthesized_url)
-    with TemporaryDirectory() as td:
-        open(f"{td}/voice.json", "w").write(
+    shutil.copyfile(output_file, synthesized_path)
+    async with aiofiles.open(voice_path, "w") as voice_cache:
+        await voice_cache.write(
             json.dumps(
                 {
                     "speech_rate": speech_rate,
@@ -1057,7 +1061,19 @@ async def _synthesize_text(
                 }
             )
         )
-        await obj.put(f"{td}/voice.json", voice_url)
+
+    async with aiofiles.open(f"{cache_dir}/cache-size.txt", "w+") as size:
+        size_value = await size.read()
+        await size.write(
+            str(
+                int(size_value)
+                if size_value
+                else 0
+                + await obj.get_size(voice_path)
+                + await obj.get_size(synthesized_path)
+            )
+        )
+    await obj.rotate_cache(cache_dir)
 
     return output_file, Voice(
         speech_rate=speech_rate, character=voice.character, pitch=voice.pitch
