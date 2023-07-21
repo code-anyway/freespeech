@@ -9,6 +9,7 @@ const navigation = [
   { name: 'Transcribe', href: '#' },
   { name: 'Translate', href: '#' },
   { name: 'Dub/Voiceover', href: '#' },
+  { name: 'Book transcriptions', href: '#' },
 ]
 
 export default function Hero() {
