@@ -18,7 +18,6 @@ import aiofiles
 import aiohttp
 import pydub
 from deepgram import Deepgram
-from filelock import FileLock
 from google.api_core import exceptions as google_api_exceptions
 from google.cloud import speech as speech_api
 from google.cloud import texttospeech as google_tts
