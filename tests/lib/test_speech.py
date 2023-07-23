@@ -836,9 +836,9 @@ def test_fix_sentence_boundaries():
 
 
 @pytest.mark.asyncio
-async def test_dub_cache(tmp_path) -> None:
+async def test_dub_cache(tmp_path) -> None:  # noqa E501
     cache_dir = os.path.join(os.path.dirname(__file__), "../../cache")
-    testing_text = "Elephant banana clock waterfall zebra spaceship rainbow apple mountain guitar moon cheese pizza starfish unicorn sunflower jellyfish spaceship popcorn monkey watermelon dinosaur spaceship robot cookie ocean pencil catfish balloon kangaroo dragon peanut jelly shirt basketball rocket turtle pineapple rainbow giraffe spaceship caterpillar rainbow coffee lamp potato octopus spaceship rocket moon kangaroo donut lighthouse rainbow book skateboard spaceship tree frog ice cream strawberry pencil rainbow turtle volcano dragon telescope spaceship popcorn mushroom spaceship butterfly moon rainbow guitar unicorn spaceship tomato spaceship dragon octopus rainbow elephant starfish penguin spaceship pineapple cheese cupcake rainbow spaceship robot book rainbow spaceship spaceship spaceship."
+    testing_text = "Elephant banana clock waterfall zebra spaceship rainbow apple mountain guitar moon cheese pizza starfish unicorn sunflower jellyfish spaceship popcorn monkey watermelon dinosaur spaceship robot cookie ocean pencil catfish balloon kangaroo dragon peanut jelly shirt basketball rocket turtle pineapple rainbow giraffe spaceship caterpillar rainbow coffee lamp potato octopus spaceship rocket moon kangaroo donut lighthouse rainbow book skateboard spaceship tree frog ice cream strawberry pencil rainbow turtle volcano dragon telescope spaceship popcorn mushroom spaceship butterfly moon rainbow guitar unicorn spaceship tomato spaceship dragon octopus rainbow elephant starfish penguin spaceship pineapple cheese cupcake rainbow spaceship robot book rainbow spaceship spaceship spaceship."  # noqa E501
     non_cached_function_time = 0.0
     for i in range(10):
         start_time = time.time()
@@ -852,10 +852,10 @@ async def test_dub_cache(tmp_path) -> None:
         end_time = time.time()
         non_cached_function_time += end_time - start_time
         os.remove(
-            f"{cache_dir}/{hash.obj((testing_text, None, Voice(character='Alan', pitch=0.0, speech_rate=1.0), 'en-US'))}.wav"
+            f"{cache_dir}/{hash.obj((testing_text, None, Voice(character='Alan', pitch=0.0, speech_rate=1.0), 'en-US'))}.wav"  # noqa E501
         )
         os.remove(
-            f"{cache_dir}/{hash.obj((testing_text, None, Voice(character='Alan', pitch=0.0, speech_rate=1.0), 'en-US'))}-voice.json"
+            f"{cache_dir}/{hash.obj((testing_text, None, Voice(character='Alan', pitch=0.0, speech_rate=1.0), 'en-US'))}-voice.json"  # noqa E501
         )
     non_cached_function_time /= 10
     output, voice = await speech.synthesize_text(
@@ -867,11 +867,11 @@ async def test_dub_cache(tmp_path) -> None:
     )
 
     assert os.path.exists(
-        f"{cache_dir}/{hash.obj((testing_text, None, Voice(character='Alan', pitch=0.0, speech_rate=1.0), 'en-US'))}.wav"
+        f"{cache_dir}/{hash.obj((testing_text, None, Voice(character='Alan', pitch=0.0, speech_rate=1.0), 'en-US'))}.wav"  # noqa E501
     )
 
     assert os.path.exists(
-        f"{cache_dir}/{hash.obj((testing_text, None, Voice(character='Alan', pitch=0.0, speech_rate=1.0), 'en-US'))}-voice.json"
+        f"{cache_dir}/{hash.obj((testing_text, None, Voice(character='Alan', pitch=0.0, speech_rate=1.0), 'en-US'))}-voice.json"  # noqa E501
     )
 
     cached_function_time = 0.0
