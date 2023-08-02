@@ -858,6 +858,7 @@ async def test_dub_cache(tmp_path) -> None:  # noqa E501
     hsh = hash.obj(
         (text, None, Voice(character="Alan", pitch=0.0, speech_rate=1.0), "en-US")
     )
+    assert_and_remove()
     non_cached_function_time = 0.0
     for i in range(10):
         start_time = time.time()
@@ -884,9 +885,10 @@ async def test_dub_cache(tmp_path) -> None:  # noqa E501
         )
         end_time = time.time()
         cached_function_time = end_time - start_time
+
+    non_cached_function_time /= 10
     cached_function_time /= 10
 
     # assert caching is faster
     assert cached_function_time < non_cached_function_time
-
     assert_and_remove()
