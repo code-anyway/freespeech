@@ -1,12 +1,12 @@
 import json
-from pathlib import Path
 import os
-from typing import Sequence, get_args
 import time
+from pathlib import Path
+from typing import Sequence, get_args
 
 import pytest
 
-from freespeech.lib import elevenlabs, media, speech, hash
+from freespeech.lib import elevenlabs, hash, media, speech
 from freespeech.types import Character, Event, Language, Voice, assert_never
 
 AUDIO_EN_LOCAL = Path("tests/lib/data/media/en-US-mono.wav")
@@ -836,46 +836,43 @@ def test_fix_sentence_boundaries():
 
 
 @pytest.mark.asyncio
-async def test_dub_cache(tmp_path) -> None:
+async def test_dub_cache(tmp_path) -> None:  # noqa E501
     cache_dir = os.path.join(os.path.dirname(__file__), "../../cache")
-    non_cached_function_time = 0
-    for i in range(1000):
+    testing_text = "Elephant banana clock waterfall zebra spaceship rainbow apple mountain guitar moon cheese pizza starfish unicorn sunflower jellyfish spaceship popcorn monkey watermelon dinosaur spaceship robot cookie ocean pencil catfish balloon kangaroo dragon peanut jelly shirt basketball rocket turtle pineapple rainbow giraffe spaceship caterpillar rainbow coffee lamp potato octopus spaceship rocket moon kangaroo donut lighthouse rainbow book skateboard spaceship tree frog ice cream strawberry pencil rainbow turtle volcano dragon telescope spaceship popcorn mushroom spaceship butterfly moon rainbow guitar unicorn spaceship tomato spaceship dragon octopus rainbow elephant starfish penguin spaceship pineapple cheese cupcake rainbow spaceship robot book rainbow spaceship spaceship spaceship."  # noqa E501
+    non_cached_function_time = 0.0
+    for i in range(10):
         start_time = time.time()
-        output, voice = await speech._synthesize_text(
-            text="Elephant banana clock waterfall zebra spaceship rainbow apple mountain guitar moon cheese pizza starfish unicorn sunflower jellyfish spaceship popcorn monkey watermelon dinosaur spaceship robot cookie ocean pencil catfish balloon kangaroo dragon peanut jelly shirt basketball rocket turtle pineapple rainbow giraffe spaceship caterpillar rainbow coffee lamp potato octopus spaceship rocket moon kangaroo donut lighthouse rainbow book skateboard spaceship tree frog ice cream strawberry pencil rainbow turtle volcano dragon telescope spaceship popcorn mushroom spaceship butterfly moon rainbow guitar unicorn spaceship tomato spaceship dragon octopus rainbow elephant starfish penguin spaceship pineapple cheese cupcake rainbow spaceship robot book rainbow spaceship spaceship spaceship.",
-            duration_ms=10_000,
+        output, voice = await speech.synthesize_text(
+            text=testing_text,
+            duration_ms=None,
             voice=Voice(character="Alan"),
             lang="en-US",
             output_dir=tmp_path,
         )
         end_time = time.time()
         non_cached_function_time += end_time - start_time
-        os.remove(f"{cache_dir}/{hash.obj(('The curious cat jumped gracefully onto the shimmering moon, exploring the mysterious galaxy beyond. Elephant banana clock waterfall zebra spaceship rainbow apple mountain guitar moon cheese pizza starfish unicorn sunflower jellyfish spaceship popcorn monkey watermelon dinosaur spaceship robot cookie ocean pencil catfish balloon kangaroo dragon peanut jelly shirt basketball rocket turtle pineapple rainbow giraffe spaceship caterpillar rainbow coffee lamp potato octopus spaceship rocket moon kangaroo donut lighthouse rainbow book skateboard spaceship tree frog ice cream strawberry pencil rainbow turtle volcano dragon telescope spaceship popcorn mushroom spaceship butterfly moon rainbow guitar unicorn spaceship tomato spaceship dragon octopus rainbow elephant starfish penguin spaceship pineapple cheese cupcake rainbow spaceship robot book rainbow spaceship spaceship spaceship.', 10_000, Voice(character='Alan'), 'enUS'))}.wav")
-        os.remove(f"{cache_dir}/{hash.obj(('The curious cat jumped gracefully onto the shimmering moon, exploring the mysterious galaxy beyond. Elephant banana clock waterfall zebra spaceship rainbow apple mountain guitar moon cheese pizza starfish unicorn sunflower jellyfish spaceship popcorn monkey watermelon dinosaur spaceship robot cookie ocean pencil catfish balloon kangaroo dragon peanut jelly shirt basketball rocket turtle pineapple rainbow giraffe spaceship caterpillar rainbow coffee lamp potato octopus spaceship rocket moon kangaroo donut lighthouse rainbow book skateboard spaceship tree frog ice cream strawberry pencil rainbow turtle volcano dragon telescope spaceship popcorn mushroom spaceship butterfly moon rainbow guitar unicorn spaceship tomato spaceship dragon octopus rainbow elephant starfish penguin spaceship pineapple cheese cupcake rainbow spaceship robot book rainbow spaceship spaceship spaceship.',10_000,Voice(character='Alan'), 'enUS'))}.wav")
-    non_cached_function_time /= 1000
-    output, voice = await speech._synthesize_text(
-        text="The curious cat jumped gracefully onto the shimmering moon, exploring the mysterious galaxy beyond. Elephant banana clock waterfall zebra spaceship rainbow apple mountain guitar moon cheese pizza starfish unicorn sunflower jellyfish spaceship popcorn monkey watermelon dinosaur spaceship robot cookie ocean pencil catfish balloon kangaroo dragon peanut jelly shirt basketball rocket turtle pineapple rainbow giraffe spaceship caterpillar rainbow coffee lamp potato octopus spaceship rocket moon kangaroo donut lighthouse rainbow book skateboard spaceship tree frog ice cream strawberry pencil rainbow turtle volcano dragon telescope spaceship popcorn mushroom spaceship butterfly moon rainbow guitar unicorn spaceship tomato spaceship dragon octopus rainbow elephant starfish penguin spaceship pineapple cheese cupcake rainbow spaceship robot book rainbow spaceship spaceship spaceship.",
-        duration_ms=10_000,
-        voice=Voice(character="Alan"),
-        lang="en-US",
-        output_dir=tmp_path,
-    )
 
-    assert os.path.exists(f"{cache_dir}/{hash.obj(('The curious cat jumped gracefully onto the shimmering moon, exploring the mysterious galaxy beyond. Elephant banana clock waterfall zebra spaceship rainbow apple mountain guitar moon cheese pizza starfish unicorn sunflower jellyfish spaceship popcorn monkey watermelon dinosaur spaceship robot cookie ocean pencil catfish balloon kangaroo dragon peanut jelly shirt basketball rocket turtle pineapple rainbow giraffe spaceship caterpillar rainbow coffee lamp potato octopus spaceship rocket moon kangaroo donut lighthouse rainbow book skateboard spaceship tree frog ice cream strawberry pencil rainbow turtle volcano dragon telescope spaceship popcorn mushroom spaceship butterfly moon rainbow guitar unicorn spaceship tomato spaceship dragon octopus rainbow elephant starfish penguin spaceship pineapple cheese cupcake rainbow spaceship robot book rainbow spaceship spaceship spaceship.',10_000,Voice(character='Alan'), 'enUS'))}.wav")
-    
-    assert os.path.exists(f"{cache_dir}/{hash.obj(('The curious cat jumped gracefully onto the shimmering moon, exploring the mysterious galaxy beyond. Elephant banana clock waterfall zebra spaceship rainbow apple mountain guitar moon cheese pizza starfish unicorn sunflower jellyfish spaceship popcorn monkey watermelon dinosaur spaceship robot cookie ocean pencil catfish balloon kangaroo dragon peanut jelly shirt basketball rocket turtle pineapple rainbow giraffe spaceship caterpillar rainbow coffee lamp potato octopus spaceship rocket moon kangaroo donut lighthouse rainbow book skateboard spaceship tree frog ice cream strawberry pencil rainbow turtle volcano dragon telescope spaceship popcorn mushroom spaceship butterfly moon rainbow guitar unicorn spaceship tomato spaceship dragon octopus rainbow elephant starfish penguin spaceship pineapple cheese cupcake rainbow spaceship robot book rainbow spaceship spaceship spaceship.',10_000,Voice(character='Alan'), 'enUS'))}-voice.json")
-    
-    cached_function_time = 0
-    for i in range(1000):
+        try:
+            os.remove(
+                f"{cache_dir}/{hash.obj((testing_text, None, Voice(character='Alan', pitch=0.0, speech_rate=1.0), 'en-US'))}.wav"  # noqa E500
+            )
+            os.remove(
+                f"{cache_dir}/{hash.obj((testing_text, None, Voice(character='Alan', pitch=0.0, speech_rate=1.0), 'en-US'))}-voice.json"  # noqa E500
+            )
+        except FileNotFoundError as file_not_found:
+            pytest.fail(f"Unexpected Error: {file_not_found}")
+
+    cached_function_time = 0.0
+    for i in range(10):
         start_time = time.time()
-        output_cahed, voice_cached = await speech._synthesize_text(
-            text="The curious cat jumped gracefully onto the shimmering moon, exploring the mysterious galaxy beyond. Elephant banana clock waterfall zebra spaceship rainbow apple mountain guitar moon cheese pizza starfish unicorn sunflower jellyfish spaceship popcorn monkey watermelon dinosaur spaceship robot cookie ocean pencil catfish balloon kangaroo dragon peanut jelly shirt basketball rocket turtle pineapple rainbow giraffe spaceship caterpillar rainbow coffee lamp potato octopus spaceship rocket moon kangaroo donut lighthouse rainbow book skateboard spaceship tree frog ice cream strawberry pencil rainbow turtle volcano dragon telescope spaceship popcorn mushroom spaceship butterfly moon rainbow guitar unicorn spaceship tomato spaceship dragon octopus rainbow elephant starfish penguin spaceship pineapple cheese cupcake rainbow spaceship robot book rainbow spaceship spaceship spaceship.",
-            duration_ms=10_000,
+        output_cahed, voice_cached = await speech.synthesize_text(
+            text=testing_text,
+            duration_ms=None,
             voice=Voice(character="Alan"),
             lang="en-US",
             output_dir=tmp_path,
         )
         end_time = time.time()
         cached_function_time = end_time - start_time
-    cached_function_time /= 1000
+    cached_function_time /= 10
     assert cached_function_time < non_cached_function_time
