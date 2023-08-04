@@ -2,17 +2,20 @@ import { useState } from 'react'
 import { Dialog } from '@headlessui/react'
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
 import logo from '../freespeechlogo.svg';
+import Login from '../user/Login.js';
+// import { Link } from 'react-router-dom'
+
 
 
 const navigation = [
-  { name: 'About', href: '#' },
-  { name: 'Transcribe', href: '#' },
-  { name: 'Translate', href: '#' },
-  { name: 'Dub/Voiceover', href: '#' },
-  { name: 'Book transcriptions', href: '#' },
+  { name: 'About', href: '/about' },
+  { name: 'Transcribe', href: '/transcribe' },
+  { name: 'Translate', href: '/translate' },
+  { name: 'Dub/Voiceover', href: '/dub' },
+  { name: 'Book Transcriptions(Platogram)', href: '/platogram' },
 ]
 
-export default function Hero() {
+export default function Hero({user}) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
@@ -87,10 +90,14 @@ export default function Hero() {
                   ))}
                 </div>
                 <div className="py-6">
+                  {/* <Link
+                    to="/login"
+                    className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50">
+                    Log in
+                  </Link> */}
                   <a
-                    href="#"
-                    className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
-                  >
+                    href="/login"
+                    className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50">
                     Log in
                   </a>
                 </div>
