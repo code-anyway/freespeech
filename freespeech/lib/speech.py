@@ -411,6 +411,8 @@ SSML_EMOTIONS = {
     "😠": "angry",
 }
 
+CACHE_SIZE = 0
+
 
 @cache
 def supported_google_voices() -> Dict[str, Sequence[str]]:
@@ -912,7 +914,7 @@ async def _synthesize_text(
             )
         )
 
-    cache_dir = os.path.join(os.path.dirname(__file__), "../../cache")
+    cache_dir = os.path.join(os.path.dirname(__file__), "../../.cache/freespeech")
     synthesized_hash = hash.obj((text, duration_ms, voice, lang))
     synthesized_path = f"{cache_dir}/{synthesized_hash}.wav"
     voice_path = f"{cache_dir}/{synthesized_hash}-voice.json"
@@ -1052,27 +1054,19 @@ async def _synthesize_text(
     shutil.copyfile(output_file, synthesized_path)
     async with aiofiles.open(voice_path, "w") as voice_cache:
         await voice_cache.write(
-            json.dumps(
-                {
-                    "speech_rate": speech_rate,
-                    "character": voice.character,
-                    "pitch": voice.pitch,
-                }
-            )
-        )
+                json.dumps(
+                    {
+                        "speech_rate": speech_rate,
+                        "character": voice.character,
+                        "pitch": voice.pitch,
+                        }
+                    )
+                )
 
-    async with aiofiles.open(f"{cache_dir}/cache-size.txt", "w+") as size:
-        size_value = await size.read()
-        await size.write(
-            str(
-                int(size_value)
-                if size_value
-                else 0
-                + await obj.get_size(voice_path)
-                + await obj.get_size(synthesized_path)
-            )
-        )
-    await obj.rotate_cache(cache_dir)
+    global CACHE_SIZE
+    CACHE_SIZE = await obj.rotate_cache(cache_dir, CACHE_SIZE
+                                        + await obj.get_size(voice_path)
+                                        + await obj.get_size(voice_path))
 
     return output_file, Voice(
         speech_rate=speech_rate, character=voice.character, pitch=voice.pitch
