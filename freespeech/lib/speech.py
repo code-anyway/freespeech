@@ -922,7 +922,7 @@ async def _synthesize_text(
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir)
 
-    if os.path.exists(voice_path):
+    if os.path.exists(voice_path) and os.path.exists(synthesized_path):
         async with aiofiles.open(voice_path, "r") as cached_voice:
             voice = Voice(**json.loads(await cached_voice.read()))
         return Path(synthesized_path), voice

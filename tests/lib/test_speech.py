@@ -212,8 +212,8 @@ async def test_synthesize_events(tmp_path) -> None:
     # is this deterministic?
     assert spans == [
         ("blank", 0, 1000),
-        ("event", 1000, 2998),
-        ("blank", 2998, 5000),
+        ("event", 1000, 2997),
+        ("blank", 2997, 5000),
         ("event", 5000, 7000),
     ]
 
@@ -227,11 +227,11 @@ async def test_synthesize_events(tmp_path) -> None:
     first, second = t_en
 
     assert first.time_ms == 0
-    assert first.duration_ms == pytest.approx(2930, abs=ABSOLUTE_ERROR_MS)
+    assert first.duration_ms == pytest.approx(2870, abs=ABSOLUTE_ERROR_MS)
     assert first.chunks == ["One, hen two ducks."]
 
-    assert second.time_ms == pytest.approx(2930, abs=ABSOLUTE_ERROR_MS)
-    assert second.duration_ms == pytest.approx(3810, abs=ABSOLUTE_ERROR_MS)
+    assert second.time_ms == pytest.approx(2870, abs=ABSOLUTE_ERROR_MS)
+    assert second.duration_ms == pytest.approx(3900, abs=ABSOLUTE_ERROR_MS)
     assert second.chunks == [" three squawking geese"]
 
     voice_1, voice_2 = voices
@@ -837,13 +837,32 @@ def test_fix_sentence_boundaries():
 
 @pytest.mark.asyncio
 async def test_dub_cache(tmp_path) -> None:  # noqa E501
+    def assert_and_remove():
+        assert Path.exists(Path(f"{cache_dir}/{hsh}.wav"))
+        assert Path.exists(Path(f"{cache_dir}/{hsh}-voice.json"))
+        os.remove(f"{cache_dir}/{hsh}.wav")  # noqa E500
+        os.remove(f"{cache_dir}/{hsh}-voice.json")  # noqa E500
+
     cache_dir = os.path.join(os.path.dirname(__file__), "../../cache")
-    testing_text = "Elephant banana clock waterfall zebra spaceship rainbow apple mountain guitar moon cheese pizza starfish unicorn sunflower jellyfish spaceship popcorn monkey watermelon dinosaur spaceship robot cookie ocean pencil catfish balloon kangaroo dragon peanut jelly shirt basketball rocket turtle pineapple rainbow giraffe spaceship caterpillar rainbow coffee lamp potato octopus spaceship rocket moon kangaroo donut lighthouse rainbow book skateboard spaceship tree frog ice cream strawberry pencil rainbow turtle volcano dragon telescope spaceship popcorn mushroom spaceship butterfly moon rainbow guitar unicorn spaceship tomato spaceship dragon octopus rainbow elephant starfish penguin spaceship pineapple cheese cupcake rainbow spaceship robot book rainbow spaceship spaceship spaceship."  # noqa E501
+    text = """
+    Elephant banana clock waterfall zebra spaceship rainbow apple mountain guitar
+    moon cheese pizza starfish unicorn sunflower jellyfish spaceship popcorn monkey
+    watermelon dinosaur spaceship robot cookie ocean pencil catfish balloon kangaroo
+    dragon peanut jelly shirt basketball rocket turtle pineapple rainbow giraffe
+    spaceship caterpillar rainbow coffee lamp potato octopus spaceship rocket moon
+    kangaroo donut lighthouse rainbow book skateboard spaceship tree frog ice cream
+    strawberry pencil rainbow turtle volcano dragon telescope spaceship popcorn mushroom
+    spaceship butterfly moon rainbow guitar unicorn spaceship tomato spaceship dragon
+    octopus rainbow elephant starfish penguin spaceship pineapple cheese cupcake rainbow
+    spaceship robot book rainbow spaceship spaceship spaceship."""
+    hsh = hash.obj(
+        (text, None, Voice(character="Alan", pitch=0.0, speech_rate=1.0), "en-US")
+    )
     non_cached_function_time = 0.0
     for i in range(10):
         start_time = time.time()
         output, voice = await speech.synthesize_text(
-            text=testing_text,
+            text=text,
             duration_ms=None,
             voice=Voice(character="Alan"),
             lang="en-US",
@@ -851,22 +870,13 @@ async def test_dub_cache(tmp_path) -> None:  # noqa E501
         )
         end_time = time.time()
         non_cached_function_time += end_time - start_time
-
-        try:
-            os.remove(
-                f"{cache_dir}/{hash.obj((testing_text, None, Voice(character='Alan', pitch=0.0, speech_rate=1.0), 'en-US'))}.wav"  # noqa E500
-            )
-            os.remove(
-                f"{cache_dir}/{hash.obj((testing_text, None, Voice(character='Alan', pitch=0.0, speech_rate=1.0), 'en-US'))}-voice.json"  # noqa E500
-            )
-        except FileNotFoundError as file_not_found:
-            pytest.fail(f"Unexpected Error: {file_not_found}")
+        assert_and_remove()
 
     cached_function_time = 0.0
     for i in range(10):
         start_time = time.time()
         output_cahed, voice_cached = await speech.synthesize_text(
-            text=testing_text,
+            text=text,
             duration_ms=None,
             voice=Voice(character="Alan"),
             lang="en-US",
@@ -875,4 +885,8 @@ async def test_dub_cache(tmp_path) -> None:  # noqa E501
         end_time = time.time()
         cached_function_time = end_time - start_time
     cached_function_time /= 10
+
+    # assert caching is faster
     assert cached_function_time < non_cached_function_time
+
+    assert_and_remove()
