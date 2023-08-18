@@ -41,7 +41,7 @@ htmlcov/
 .nox/
 .coverage
 .coverage.*
-.cache
+.cache/
 nosetests.xml
 coverage.xml
 *.cover
@@ -159,4 +159,3 @@ cython_debug/
 .ssh/
 .vscode-server/
 shell.nix
-cache/

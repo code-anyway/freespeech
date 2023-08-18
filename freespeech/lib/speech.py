@@ -914,7 +914,7 @@ async def _synthesize_text(
             )
         )
 
-    cache_dir = os.path.join(os.path.dirname(__file__), "../../.cache/freespeech")
+    cache_dir = os.path.join(os.path.dirname(__file__), "../../cache/freespeech")
     synthesized_hash = hash.obj((text, duration_ms, voice, lang))
     synthesized_path = f"{cache_dir}/{synthesized_hash}.wav"
     voice_path = f"{cache_dir}/{synthesized_hash}-voice.json"
