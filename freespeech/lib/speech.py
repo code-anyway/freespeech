@@ -1054,19 +1054,20 @@ async def _synthesize_text(
     shutil.copyfile(output_file, synthesized_path)
     async with aiofiles.open(voice_path, "w") as voice_cache:
         await voice_cache.write(
-                json.dumps(
-                    {
-                        "speech_rate": speech_rate,
-                        "character": voice.character,
-                        "pitch": voice.pitch,
-                        }
-                    )
-                )
+            json.dumps(
+                {
+                    "speech_rate": speech_rate,
+                    "character": voice.character,
+                    "pitch": voice.pitch,
+                }
+            )
+        )
 
     global CACHE_SIZE
-    CACHE_SIZE = await obj.rotate_cache(cache_dir, CACHE_SIZE
-                                        + await obj.get_size(voice_path)
-                                        + await obj.get_size(voice_path))
+    CACHE_SIZE = await obj.rotate_cache(
+        cache_dir,
+        CACHE_SIZE + await obj.get_size(voice_path) + await obj.get_size(voice_path),
+    )
 
     return output_file, Voice(
         speech_rate=speech_rate, character=voice.character, pitch=voice.pitch
