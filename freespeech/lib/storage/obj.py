@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import BinaryIO, Generator
 from urllib.parse import urlparse
 
-import aiofiles
 from azure.storage.blob import BlobServiceClient
 from google.api_core import exceptions as google_api_exceptions
 from google.cloud import storage  # type: ignore
