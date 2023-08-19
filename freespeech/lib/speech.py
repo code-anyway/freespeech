@@ -411,8 +411,6 @@ SSML_EMOTIONS = {
     "😠": "angry",
 }
 
-CACHE_SIZE = 0
-
 
 @cache
 def supported_google_voices() -> Dict[str, Sequence[str]]:
@@ -1063,7 +1061,7 @@ async def _synthesize_text(
             )
         )
 
-    global CACHE_SIZE
+    CACHE_SIZE = 0
     CACHE_SIZE = await obj.rotate_cache(
         cache_dir,
         CACHE_SIZE + await obj.get_size(voice_path) + await obj.get_size(voice_path),
