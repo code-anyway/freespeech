@@ -1084,7 +1084,9 @@ async def synthesize_text(
 ) -> Tuple[Path, Voice]:
     for retry in range(API_RETRIES):
         try:
-            return await _synthesize_text(text, duration_ms, voice, lang, output_dir, cache_dir)
+            return await _synthesize_text(
+                text, duration_ms, voice, lang, output_dir, cache_dir
+            )
         except (
             ConnectionAbortedError,
             aiohttp.ServerDisconnectedError,
