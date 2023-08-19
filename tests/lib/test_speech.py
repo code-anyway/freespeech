@@ -843,7 +843,7 @@ async def test_dub_cache(tmp_path) -> None:  # noqa E501
         os.remove(f"{cache_dir}/{hsh}.wav")  # noqa E500
         os.remove(f"{cache_dir}/{hsh}-voice.json")  # noqa E500
 
-    cache_dir = os.path.join(os.path.dirname(__file__), "../../cache")
+    cache_dir = f"{str(tmp_path)}/.cache/freespeech"
     text = """
     Elephant banana clock waterfall zebra spaceship rainbow apple mountain guitar
     moon cheese pizza starfish unicorn sunflower jellyfish spaceship popcorn monkey
@@ -854,12 +854,13 @@ async def test_dub_cache(tmp_path) -> None:  # noqa E501
     strawberry pencil rainbow turtle volcano dragon telescope spaceship popcorn mushroom
     spaceship butterfly moon rainbow guitar unicorn spaceship tomato spaceship dragon
     octopus rainbow elephant starfish penguin spaceship pineapple cheese cupcake rainbow
-    spaceship robot book rainbow spaceship spaceship spaceship."""
+    spaceship robot book rainbow spaceship spaceship spaceship.
+    """
     hsh = hash.obj(
         (text, None, Voice(character="Alan", pitch=0.0, speech_rate=1.0), "en-US")
     )
     non_cached_function_time = 0.0
-    for i in range(10):
+    for i in range(5):
         start_time = time.time()
         output, voice = await speech.synthesize_text(
             text=text,
@@ -867,13 +868,15 @@ async def test_dub_cache(tmp_path) -> None:  # noqa E501
             voice=Voice(character="Alan"),
             lang="en-US",
             output_dir=tmp_path,
+            cache_dir=cache_dir,
         )
         end_time = time.time()
         non_cached_function_time += end_time - start_time
         assert_and_remove()
+    non_cached_function_time /= 5
 
     cached_function_time = 0.0
-    for i in range(10):
+    for i in range(5):
         start_time = time.time()
         output_cahed, voice_cached = await speech.synthesize_text(
             text=text,
@@ -881,10 +884,11 @@ async def test_dub_cache(tmp_path) -> None:  # noqa E501
             voice=Voice(character="Alan"),
             lang="en-US",
             output_dir=tmp_path,
+            cache_dir=cache_dir,
         )
         end_time = time.time()
         cached_function_time = end_time - start_time
-    cached_function_time /= 10
+    cached_function_time /= 5
 
     # assert caching is faster
     assert cached_function_time < non_cached_function_time
