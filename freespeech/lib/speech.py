@@ -411,6 +411,8 @@ SSML_EMOTIONS = {
     "😠": "angry",
 }
 
+CACHE_SIZE = 0
+
 
 @cache
 def supported_google_voices() -> Dict[str, Sequence[str]]:
@@ -863,6 +865,7 @@ async def _synthesize_text(
     voice: Voice,
     lang: Language,
     output_dir: Path | str,
+    cache_dir: str = os.path.join(os.path.dirname(__file__), "../../.cache/freespeech"),
 ) -> Tuple[Path, Voice]:
     character = voice.character
     if character not in VOICES:
@@ -912,7 +915,6 @@ async def _synthesize_text(
             )
         )
 
-    cache_dir = os.path.join(os.path.dirname(__file__), "../../cache")
     synthesized_hash = hash.obj((text, duration_ms, voice, lang))
     synthesized_path = f"{cache_dir}/{synthesized_hash}.wav"
     voice_path = f"{cache_dir}/{synthesized_hash}-voice.json"
@@ -1061,18 +1063,11 @@ async def _synthesize_text(
             )
         )
 
-    async with aiofiles.open(f"{cache_dir}/cache-size.txt", "w+") as size:
-        size_value = await size.read()
-        await size.write(
-            str(
-                int(size_value)
-                if size_value
-                else 0
-                + await obj.get_size(voice_path)
-                + await obj.get_size(synthesized_path)
-            )
-        )
-    await obj.rotate_cache(cache_dir)
+    global CACHE_SIZE
+    CACHE_SIZE = await obj.rotate_cache(
+        cache_dir,
+        CACHE_SIZE + await obj.get_size(voice_path) + await obj.get_size(voice_path),
+    )
 
     return output_file, Voice(
         speech_rate=speech_rate, character=voice.character, pitch=voice.pitch
@@ -1085,10 +1080,13 @@ async def synthesize_text(
     voice: Voice,
     lang: Language,
     output_dir: Path | str,
+    cache_dir: str = os.path.join(os.path.dirname(__file__), "../../.cache/freespeech"),
 ) -> Tuple[Path, Voice]:
     for retry in range(API_RETRIES):
         try:
-            return await _synthesize_text(text, duration_ms, voice, lang, output_dir)
+            return await _synthesize_text(
+                text, duration_ms, voice, lang, output_dir, cache_dir
+            )
         except (
             ConnectionAbortedError,
             aiohttp.ServerDisconnectedError,

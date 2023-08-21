@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import BinaryIO, Generator
 from urllib.parse import urlparse
 
-import aiofiles
 from azure.storage.blob import BlobServiceClient
 from google.api_core import exceptions as google_api_exceptions
 from google.cloud import storage  # type: ignore
@@ -26,37 +25,31 @@ logger = logging.getLogger(__name__)
 BLOCK_SIZE = 16 * 4096
 
 
-async def get_size(file_path: str):
+async def get_size(file_path: str) -> int:
     command = ["du", "--apparent-size", file_path]
     result = subprocess.run(command, capture_output=True, text=True, check=True)
     apparent_size_bytes = int(result.stdout.strip().split()[0])
     return apparent_size_bytes
 
 
-async def rotate_cache(cache_dir: str):
-    async with aiofiles.open(f"{cache_dir}/cache-size.txt", "r") as new_cache_size:
-        new_cache_size_value = int(await new_cache_size.read())
-    if new_cache_size_value >= 1_073_741_824:  # 1gb
+async def rotate_cache(cache_dir: str, cache_size: int) -> int:
+    if cache_size >= 1_073_741_824:  # 1gb
         file_paths = [
             f"{cache_dir}/{x}"
             for x in os.listdir(cache_dir)
             if x != "cache-size.txt" and x.endswith(".wav")
         ]
-        while new_cache_size_value > 858_993_459:  # 80%gb
+        while cache_size > 858_993_459:  # 80%gb
             oldest_wav_file = min(file_paths, key=os.path.getctime)
             oldest_voice_file = (
                 f"{cache_dir}/{oldest_wav_file.split('/')[-1][:-4]}-voice.json"
             )
-            new_cache_size_value -= await get_size(oldest_wav_file)
-            new_cache_size_value -= await get_size(oldest_voice_file)
+            cache_size -= await get_size(oldest_wav_file)
+            cache_size -= await get_size(oldest_voice_file)
             file_paths.remove(oldest_wav_file)
             os.remove(oldest_voice_file)
             os.remove(oldest_wav_file)
-            async with aiofiles.open(
-                f"{cache_dir}/cache-size.txt", "w"
-            ) as old_cache_size:
-                await old_cache_size.write(str(new_cache_size_value))
-    return
+    return cache_size
 
 
 @dataclass(frozen=False)
@@ -127,25 +120,6 @@ def stream(src: url, mode: str) -> Generator[BinaryIO, None, None]:
             yield blob.open(mode)
         finally:
             storage._http.close()
-
-
-async def has(src: url) -> bool:
-    # Really slow
-
-    # Customize retry with a deadline of 500 seconds (default=120 seconds).
-    retry = DEFAULT_RETRY.with_deadline(600.0)
-    # Customize retry with an initial wait time of 1.5 (default=1.0).
-    # Customize retry with a wait time multiplier per iteration of 1.2 (default=2.0).
-    # Customize retry with a maximum wait time of 45.0 (default=60.0).
-    retry = retry.with_delay(initial=1.5, multiplier=1.2, maximum=60.0)
-
-    src_url = urlparse(src)
-    with google_storage_client() as storage:
-        bucket = storage.get_bucket(src_url.netloc, retry=retry)
-        blob = bucket.get_blob(src_url.path[1:])
-        if not blob:
-            return False
-        return blob.exists(retry=retry)
 
 
 async def get(src: url, dst_dir: str | PathLike) -> str:
