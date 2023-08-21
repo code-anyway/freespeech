@@ -105,7 +105,7 @@ setup(
             "isort",
             "coverage",
             "flake8",
-            "mypy",
+            "mypy==1.4",
         ],
     },
     python_requires=">=3.10",
