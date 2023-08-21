@@ -31,42 +31,25 @@ running_cache_size = [0]
 running_cache_size_semaphore = asyncio.Semaphore(1)
 
 
-async def get_size(file_path: str) -> int:
-    command = ["du", "--apparent-size", file_path]
-    result = subprocess.run(command, capture_output=True, text=True, check=True)
-    apparent_size_bytes = int(result.stdout.strip().split()[0])
-    return apparent_size_bytes
+async def get_dir_size(dir_path: str) -> int:
+    size = 0
+    for path, _dirs, files in os.walk(dir_path):
+        for f in files:
+            fp = os.path.join(path, f)
+            size += os.stat(fp).st_size
+    return size
 
 
-async def get_cache_size() -> int:
-    async with running_cache_size_semaphore:
-        return running_cache_size[0]
-
-
-async def add_to_cache_size(added_size: int) -> int:
-    async with running_cache_size_semaphore:
-        running_cache_size[0] += added_size
-        return running_cache_size[0]
-
-
-async def rotate_cache(cache_dir: str, cache_size: int) -> int:
+async def rotate_cache(cache_dir: str) -> None:
+    cache_size = await get_dir_size(cache_dir)
     if cache_size >= FULL_CACHE_SIZE:
-        file_paths = [
-            f"{cache_dir}/{x}"
-            for x in os.listdir(cache_dir)
-            if x != "cache-size.txt" and x.endswith(".wav")
-        ]
+        # we can delete .json and keep .wav or vice versa
+        # because the retrieval only occurs when both files are present
+        file_paths = sorted(os.listdir(cache_dir), key=os.path.getctime, reverse=True)
         while cache_size > ROTATED_CACHE_SIZE:
-            oldest_wav_file = min(file_paths, key=os.path.getctime)
-            oldest_voice_file = (
-                f"{cache_dir}/{oldest_wav_file.split('/')[-1][:-4]}-voice.json"
-            )
-            cache_size -= await get_size(oldest_wav_file)
-            cache_size -= await get_size(oldest_voice_file)
-            file_paths.remove(oldest_wav_file)
-            os.remove(oldest_voice_file)
-            os.remove(oldest_wav_file)
-    return cache_size
+            oldest_file = file_paths.pop()
+            cache_size -= os.stat(oldest_file).st_size
+            os.remove(oldest_file)
 
 
 @dataclass(frozen=False)
