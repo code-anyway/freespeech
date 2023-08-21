@@ -23,32 +23,30 @@ from freespeech.types import url
 logger = logging.getLogger(__name__)
 
 
-BLOCK_SIZE = 16 * 4096
 FULL_CACHE_SIZE = 1_073_741_824 * 3  # 3gb
 ROTATED_CACHE_SIZE = int(FULL_CACHE_SIZE * 0.75)  # 80%gb
 
-running_cache_size = [0]
-running_cache_size_semaphore = asyncio.Semaphore(1)
+
+def get_size(file_path: str) -> int:
+    command = ["du", "--apparent-size", file_path]
+    result = subprocess.run(command, capture_output=True, text=True, check=True)
+    all_sizes = [int(v.strip().split()[0]) for v in result.stdout.strip().split("\n")]
+    return sum(all_sizes)
 
 
-async def get_dir_size(dir_path: str) -> int:
-    size = 0
-    for path, _dirs, files in os.walk(dir_path):
-        for f in files:
-            fp = os.path.join(path, f)
-            size += os.stat(fp).st_size
-    return size
-
-
-async def rotate_cache(cache_dir: str) -> None:
-    cache_size = await get_dir_size(cache_dir)
+def rotate_cache(cache_dir: str) -> None:
+    cache_size = get_size(cache_dir)
     if cache_size >= FULL_CACHE_SIZE:
         # we can delete .json and keep .wav or vice versa
         # because the retrieval only occurs when both files are present
-        file_paths = sorted(os.listdir(cache_dir), key=os.path.getctime, reverse=True)
+        file_paths = sorted(
+            map(lambda p: f"{cache_dir}/{p}", os.listdir(cache_dir)),
+            key=os.path.getctime,
+            reverse=True,
+        )
         while cache_size > ROTATED_CACHE_SIZE:
             oldest_file = file_paths.pop()
-            cache_size -= os.stat(oldest_file).st_size
+            cache_size -= get_size(oldest_file)
             os.remove(oldest_file)
 
 

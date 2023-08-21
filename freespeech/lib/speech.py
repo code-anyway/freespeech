@@ -1063,7 +1063,7 @@ async def _synthesize_text(
             )
         )
 
-    await obj.rotate_cache(cache_dir)
+    obj.rotate_cache(cache_dir)
 
     return output_file, Voice(
         speech_rate=speech_rate, character=voice.character, pitch=voice.pitch
