@@ -1063,10 +1063,12 @@ async def _synthesize_text(
             )
         )
 
-    global CACHE_SIZE
-    CACHE_SIZE = await obj.rotate_cache(
+    await obj.add_to_cache_size(
+        await obj.get_size(voice_path) + await obj.get_size(str(output_file))
+    )
+    await obj.rotate_cache(
         cache_dir,
-        CACHE_SIZE + await obj.get_size(voice_path) + await obj.get_size(voice_path),
+        await obj.get_cache_size(),
     )
 
     return output_file, Voice(

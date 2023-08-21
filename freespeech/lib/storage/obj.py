@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import mimetypes
 import os as os
@@ -23,6 +24,11 @@ logger = logging.getLogger(__name__)
 
 
 BLOCK_SIZE = 16 * 4096
+FULL_CACHE_SIZE = 1_073_741_824 * 3  # 3gb
+ROTATED_CACHE_SIZE = int(FULL_CACHE_SIZE * 0.75)  # 80%gb
+
+running_cache_size = [0]
+running_cache_size_semaphore = asyncio.Semaphore(1)
 
 
 async def get_size(file_path: str) -> int:
@@ -32,14 +38,25 @@ async def get_size(file_path: str) -> int:
     return apparent_size_bytes
 
 
+async def get_cache_size() -> int:
+    async with running_cache_size_semaphore:
+        return running_cache_size[0]
+
+
+async def add_to_cache_size(added_size: int) -> int:
+    async with running_cache_size_semaphore:
+        running_cache_size[0] += added_size
+        return running_cache_size[0]
+
+
 async def rotate_cache(cache_dir: str, cache_size: int) -> int:
-    if cache_size >= 1_073_741_824:  # 1gb
+    if cache_size >= FULL_CACHE_SIZE:
         file_paths = [
             f"{cache_dir}/{x}"
             for x in os.listdir(cache_dir)
             if x != "cache-size.txt" and x.endswith(".wav")
         ]
-        while cache_size > 858_993_459:  # 80%gb
+        while cache_size > ROTATED_CACHE_SIZE:
             oldest_wav_file = min(file_paths, key=os.path.getctime)
             oldest_voice_file = (
                 f"{cache_dir}/{oldest_wav_file.split('/')[-1][:-4]}-voice.json"
