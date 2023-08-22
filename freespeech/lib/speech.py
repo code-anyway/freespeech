@@ -1063,8 +1063,6 @@ async def _synthesize_text(
             )
         )
 
-    obj.rotate_cache(cache_dir)
-
     return output_file, Voice(
         speech_rate=speech_rate, character=voice.character, pitch=voice.pitch
     )
@@ -1080,6 +1078,7 @@ async def synthesize_text(
 ) -> Tuple[Path, Voice]:
     for retry in range(API_RETRIES):
         try:
+            obj.rotate_cache(cache_dir)
             return await _synthesize_text(
                 text, duration_ms, voice, lang, output_dir, cache_dir
             )
