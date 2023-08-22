@@ -44,9 +44,10 @@ def rotate_cache(cache_dir: str) -> None:
             reverse=True,
         )
         while cache_size > ROTATED_CACHE_SIZE:
-            oldest_file = file_paths.pop()
-            cache_size -= get_size(oldest_file)
-            os.remove(oldest_file)
+            for _ in range(2):
+                oldest_file = file_paths.pop()
+                cache_size -= get_size(oldest_file)
+                os.remove(oldest_file)
 
 
 @dataclass(frozen=False)
