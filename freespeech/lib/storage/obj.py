@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import mimetypes
 import os as os
@@ -22,7 +21,7 @@ from freespeech.types import url
 
 logger = logging.getLogger(__name__)
 
-
+BLOCK_SIZE = 16 * 4096
 FULL_CACHE_SIZE = 1_073_741_824 * 3  # 3gb
 ROTATED_CACHE_SIZE = int(FULL_CACHE_SIZE * 0.75)  # 80%gb
 
