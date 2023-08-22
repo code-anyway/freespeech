@@ -865,7 +865,7 @@ async def _synthesize_text(
     voice: Voice,
     lang: Language,
     output_dir: Path | str,
-    cache_dir: str = os.path.join(os.path.expanduser('~'), ".cache/freespeech"),
+    cache_dir: str = os.path.join(os.path.expanduser("~"), ".cache/freespeech"),
 ) -> Tuple[Path, Voice]:
     character = voice.character
     if character not in VOICES:
@@ -1076,7 +1076,7 @@ async def synthesize_text(
     voice: Voice,
     lang: Language,
     output_dir: Path | str,
-    cache_dir: str = os.path.join(os.path.expanduser('~'), ".cache/freespeech")
+    cache_dir: str = os.path.join(os.path.expanduser("~"), ".cache/freespeech"),
 ) -> Tuple[Path, Voice]:
     for retry in range(API_RETRIES):
         try:
