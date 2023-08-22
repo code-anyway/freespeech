@@ -29,8 +29,8 @@ ROTATED_CACHE_SIZE = int(FULL_CACHE_SIZE * 0.75)  # 80%gb
 def get_size(file_path: str) -> int:
     command = ["du", "--apparent-size", file_path]
     result = subprocess.run(command, capture_output=True, text=True, check=True)
-    all_sizes = [int(v.strip().split()[0]) for v in result.stdout.strip().split("\n")]
-    return sum(all_sizes)
+    apparent_size = int(result.stdout.strip().split("\n")[-1].strip().split()[0])
+    return apparent_size
 
 
 def rotate_cache(cache_dir: str) -> None:
