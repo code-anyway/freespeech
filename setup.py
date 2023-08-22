@@ -96,7 +96,7 @@ setup(
         ],
         "test": [
             "coverage",
-            "pytest",
+            "pytest==7.4.0",
             "pytest-aiohttp",
             "pytest-asyncio",
             "pytest-xdist",
