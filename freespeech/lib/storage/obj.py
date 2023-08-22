@@ -35,9 +35,7 @@ def get_size(file_path: str) -> int:
 
 def rotate_cache(cache_dir: str) -> None:
     cache_size = get_size(cache_dir)
-    if cache_size >= FULL_CACHE_SIZE:
-        # we can delete .json and keep .wav or vice versa
-        # because the retrieval only occurs when both files are present
+    if cache_size >= ROTATED_CACHE_SIZE:
         file_paths = sorted(
             map(lambda p: f"{cache_dir}/{p}", os.listdir(cache_dir)),
             key=os.path.getctime,
