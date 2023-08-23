@@ -14,7 +14,6 @@ from tempfile import TemporaryDirectory
 from typing import Dict, Sequence, Tuple
 from uuid import uuid4
 
-import aiofiles
 import aiohttp
 import pydub
 from deepgram import Deepgram
@@ -867,6 +866,33 @@ async def _synthesize_text(
     output_dir: Path | str,
     cache_dir: str = os.path.join(os.path.expanduser("~"), ".cache/freespeech"),
 ) -> Tuple[Path, Voice]:
+    def cache_result(
+        output_file: str, synthesized_path: str, voice_path: str, voice: Voice
+    ) -> None:
+        shutil.copyfile(output_file, synthesized_path)
+        with open(voice_path, "w") as voice_cache:
+            voice_cache.write(
+                json.dumps(
+                    {
+                        "speech_rate": voice.speech_rate,
+                        "character": voice.character,
+                        "pitch": voice.pitch,
+                    }
+                )
+            )
+
+    synthesized_hash = hash.obj((text, duration_ms, voice, lang))
+    synthesized_path = f"{cache_dir}/{synthesized_hash}.wav"
+    voice_path = f"{cache_dir}/{synthesized_hash}-voice.json"
+
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir)
+
+    if os.path.exists(voice_path) and os.path.exists(synthesized_path):
+        with open(voice_path, "r") as cached_voice:
+            voice = Voice(**json.loads(cached_voice.read()))
+        return Path(synthesized_path), voice
+
     character = voice.character
     if character not in VOICES:
         raise ValueError(
@@ -891,6 +917,7 @@ async def _synthesize_text(
             speech = await elevenlabs.synthesize(
                 text, voice.character, voice.speech_rate, Path(output_dir)
             )
+            cache_result(speech.as_posix(), synthesized_path, voice_path, voice)
             return speech, voice
         case "Deepgram":
             raise ValueError("Deepgram can not be used as TTS provider")
@@ -914,18 +941,6 @@ async def _synthesize_text(
                 f"Supported values: {all_voices}"
             )
         )
-
-    synthesized_hash = hash.obj((text, duration_ms, voice, lang))
-    synthesized_path = f"{cache_dir}/{synthesized_hash}.wav"
-    voice_path = f"{cache_dir}/{synthesized_hash}-voice.json"
-
-    if not os.path.exists(cache_dir):
-        os.makedirs(cache_dir)
-
-    if os.path.exists(voice_path) and os.path.exists(synthesized_path):
-        async with aiofiles.open(voice_path, "r") as cached_voice:
-            voice = Voice(**json.loads(await cached_voice.read()))
-        return Path(synthesized_path), voice
 
     async def _synthesize_step(rate: float, retries: int | None) -> Tuple[Path, float]:
         if retries is not None and retries < 0:
@@ -1051,23 +1066,13 @@ async def _synthesize_text(
         rate=voice.speech_rate, retries=SYNTHESIS_RETRIES
     )
 
-    shutil.copyfile(output_file, synthesized_path)
-    async with aiofiles.open(voice_path, "w") as voice_cache:
-        await voice_cache.write(
-            json.dumps(
-                {
-                    "speech_rate": speech_rate,
-                    "character": voice.character,
-                    "pitch": voice.pitch,
-                }
-            )
-        )
-
-    obj.rotate_cache(cache_dir)
-
-    return output_file, Voice(
+    new_voice = Voice(
         speech_rate=speech_rate, character=voice.character, pitch=voice.pitch
     )
+
+    cache_result(output_file.as_posix(), synthesized_path, voice_path, new_voice)
+
+    return output_file, new_voice
 
 
 async def synthesize_text(

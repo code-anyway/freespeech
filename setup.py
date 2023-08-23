@@ -39,7 +39,6 @@ setup(
     """,
     install_requires=[
         "aiohttp",
-        "aiofiles",
         "deepl",
         "azure-storage-blob",
         "click",
