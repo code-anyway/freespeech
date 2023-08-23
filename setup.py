@@ -95,7 +95,7 @@ setup(
         ],
         "test": [
             "coverage",
-            "pytest",
+            "pytest==7.4.0",
             "pytest-aiohttp",
             "pytest-asyncio",
             "pytest-xdist",
@@ -104,7 +104,7 @@ setup(
             "isort",
             "coverage",
             "flake8",
-            "mypy",
+            "mypy==1.4",
         ],
     },
     python_requires=">=3.10",

@@ -1,6 +1,8 @@
 import logging
 import mimetypes
+import os as os
 import shutil
+import subprocess
 from contextlib import contextmanager
 from dataclasses import dataclass
 from os import PathLike
@@ -19,8 +21,31 @@ from freespeech.types import url
 
 logger = logging.getLogger(__name__)
 
-
 BLOCK_SIZE = 16 * 4096
+FULL_CACHE_SIZE = 1_073_741_824 * 3  # 3gb
+ROTATED_CACHE_SIZE = int(FULL_CACHE_SIZE * 0.75)  # 80%gb
+
+
+def get_size(file_path: str) -> int:
+    command = ["du", "--apparent-size", file_path]
+    result = subprocess.run(command, capture_output=True, text=True, check=True)
+    apparent_size = int(result.stdout.strip().split("\n")[-1].strip().split()[0])
+    return apparent_size
+
+
+def rotate_cache(cache_dir: str) -> None:
+    cache_size = get_size(cache_dir)
+    if cache_size >= ROTATED_CACHE_SIZE:
+        file_paths = sorted(
+            map(lambda p: f"{cache_dir}/{p}", os.listdir(cache_dir)),
+            key=os.path.getctime,
+            reverse=True,
+        )
+        while cache_size > ROTATED_CACHE_SIZE:
+            for _ in range(2):
+                oldest_file = file_paths.pop()
+                cache_size -= get_size(oldest_file)
+                os.remove(oldest_file)
 
 
 @dataclass(frozen=False)

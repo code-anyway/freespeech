@@ -39,7 +39,9 @@ def test_translate_with_empty_chunks():
 def test_translate_deep_l():
     source_text = "Привет. Я хочу быть переведенным с помощью DeepL. Сможем?"
     result = translate_deep_l(source_text, "ru-RU", "en-GB")
-    assert result == "Hi. I want to be translated using DeepL. Can we do that?"
+    assert (
+        result == "Hi. I want to be translated with the help of DeepL. Can we do that?"
+    )
 
 
 def test_translate_deep_l_pauses():
@@ -62,8 +64,8 @@ def test_translate_with_speech_pause_numbers():
     )
     result = translate_deep_l(source_text, "en-GB", "ru-RU")
     assert (
-        result == "Королева Елизавета Вторая имела беспрецедентное правление, "
-        "влияние которого ощущалось во всем мире. #0.98# За рекордные "
+        result == "Королева Елизавета Вторая пережила беспрецедентное правление, "
+        "последствия которого ощущаются во всем мире. #0.98# За рекордные "
         "семь десятилетий своего пребывания на троне она стала свидетелем"
         " конца Британской империи и приветствовала радикальные "
         "изменения в обществе."

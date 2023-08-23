@@ -347,7 +347,6 @@ async def keep_events(
     with TemporaryDirectory() as temp:
         bundle = []
         for _, start_ms, end_ms in event_spans:
-            # i haven't slept in 24 hrs
             match mode:
                 case "video":
                     trimmed = trim_video(file, start_ms, end_ms).setpts(pts)
@@ -372,7 +371,9 @@ async def keep_events(
         with open(clip_list, "w", encoding="utf-8") as f:
             f.writelines(bundle)
         output_file = str(new_file(output_dir)) + extension
-        system(f"ffmpeg -f concat -safe 0 -i {clip_list} {output_file}")
+        system(
+            f"ffmpeg -f concat -safe 0 -i {clip_list} {output_file} > /dev/null 2>&1"
+        )  # noqa E501
 
     return Path(output_file)
 
