@@ -880,6 +880,7 @@ async def _synthesize_text(
                     }
                 )
             )
+        obj.rotate_cache(cache_dir)
 
     synthesized_hash = hash.obj((text, duration_ms, voice, lang))
     synthesized_path = f"{cache_dir}/{synthesized_hash}.wav"
