@@ -865,6 +865,7 @@ async def _synthesize_text(
     lang: Language,
     output_dir: Path | str,
     cache_dir: str = os.path.join(os.path.expanduser("~"), ".cache/freespeech"),
+    use_cache: bool = True,
 ) -> Tuple[Path, Voice]:
     def cache_result(
         output_file: str, synthesized_path: str, voice_path: str, voice: Voice
@@ -889,10 +890,11 @@ async def _synthesize_text(
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir)
 
-    if os.path.exists(voice_path) and os.path.exists(synthesized_path):
-        with open(voice_path, "r") as cached_voice:
-            voice = Voice(**json.loads(cached_voice.read()))
-        return Path(synthesized_path), voice
+    if use_cache:
+        if os.path.exists(voice_path) and os.path.exists(synthesized_path):
+            with open(voice_path, "r") as cached_voice:
+                voice = Voice(**json.loads(cached_voice.read()))
+            return Path(synthesized_path), voice
 
     character = voice.character
     if character not in VOICES:
@@ -1083,11 +1085,18 @@ async def synthesize_text(
     lang: Language,
     output_dir: Path | str,
     cache_dir: str = os.path.join(os.path.expanduser("~"), ".cache/freespeech"),
+    use_cache: bool = True,
 ) -> Tuple[Path, Voice]:
     for retry in range(API_RETRIES):
         try:
             return await _synthesize_text(
-                text, duration_ms, voice, lang, output_dir, cache_dir
+                text,
+                duration_ms,
+                voice,
+                lang,
+                output_dir,
+                cache_dir,
+                use_cache,
             )
         except (
             ConnectionAbortedError,
@@ -1107,12 +1116,20 @@ async def synthesize_events(
     events: Sequence[Event],
     lang: Language,
     output_dir: Path | str,
+    cache_dir: str = os.path.join(os.path.expanduser("~"), ".cache/freespeech"),
 ) -> Tuple[Path, Sequence[Voice], list[media.Span]]:
     output_dir = Path(output_dir)
     current_time_ms = 0
     clips = []
     voices = []
     spans = []
+
+    recache_hash = hash.obj((events))
+    recache_path = f"{cache_dir}/{recache_hash}"
+    if os.path.exists(recache_path):
+        use_cache = True
+    else:
+        use_cache = False
 
     for event in events:
         padding_ms = event.time_ms - current_time_ms
@@ -1124,6 +1141,7 @@ async def synthesize_events(
             voice=event.voice,
             lang=lang,
             output_dir=output_dir,
+            use_cache=use_cache,
         )
         (audio, *_), _ = media.probe(clip)
         assert isinstance(audio, Audio)
@@ -1136,6 +1154,10 @@ async def synthesize_events(
         spans += [("event", event.time_ms, current_time_ms)]
 
         voices += [voice]
+
+    if not use_cache:
+        with open(recache_path, "w") as f:
+            f.write("")
 
     output_file = await media.concat_and_pad(clips, output_dir)
 
