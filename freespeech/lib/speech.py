@@ -1127,9 +1127,9 @@ async def synthesize_events(
     recache_hash = hash.obj((events))
     recache_path = f"{cache_dir}/{recache_hash}"
     if os.path.exists(recache_path):
-        use_cache = True
-    else:
         use_cache = False
+    else:
+        use_cache = True
 
     for event in events:
         padding_ms = event.time_ms - current_time_ms
