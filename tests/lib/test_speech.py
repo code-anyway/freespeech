@@ -897,6 +897,7 @@ async def test_dub_cache(tmp_path) -> None:  # noqa E501
     assert cached_function_time < non_cached_function_time
     assert_and_remove()
 
+
 @pytest.mark.asyncio
 async def test_recaching(tmp_path) -> None:
     cache_dir = f"{str(tmp_path)}/.cache/freespeech"
