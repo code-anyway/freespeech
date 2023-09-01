@@ -99,7 +99,6 @@ async def test_synthesize_blank(monkeypatch) -> None:
         downmixed_audio = await media.multi_channel_audio_to_mono(
             transcript_str, tmp_dir
         )
-        print(hash.file(downmixed_audio))
         assert hash.file(downmixed_audio) in (
             hash.file(AUDIO_BLANK),
             "0f6a230be7c186a7e4b404c060a1b93da5a1b61f65c8fef40f884bdbe416f671",
@@ -134,7 +133,6 @@ async def test_synthesize_fill(monkeypatch) -> None:
         downmixed_audio = await media.multi_channel_audio_to_mono(
             transcript_str, tmp_dir
         )
-        print(hash.file(downmixed_audio))
         assert hash.file(downmixed_audio) in (
             hash.file(AUDIO_FILL),
             "510883eb349a3609b2ef5198dc6367d780a331f8121e504d1e55c0a9ec856ba0",
