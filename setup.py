@@ -78,7 +78,7 @@ setup(
             for lang in ("es", "uk", "pt", "ru", "de", "fr", "sv", "it", "fi", "ja", "pl")  # noqa E501
         ],
         "streamlit",
-        "telethon",
+        "telethon==1.28.5",
         "types-requests",
         "spacy",
         "yt-dlp",
