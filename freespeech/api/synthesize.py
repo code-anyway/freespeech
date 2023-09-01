@@ -66,7 +66,7 @@ async def _synthesize(source, is_smooth: bool, tmp_dir):
         duration_ms = len(pydub.AudioSegment.from_file(synth_file))
         spans = [("event", first.time_ms, duration_ms)]
     else:
-        synth_file, _, spans = await speech.synthesize_events(
+        synth_file, _, spans, _ = await speech.synthesize_events(
             events=source.events,
             lang=source.lang,
             output_dir=tmp_dir,
