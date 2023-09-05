@@ -67,7 +67,7 @@ async def test_transcribe(tmp_path) -> None:
 
 @pytest.mark.asyncio
 async def test_synthesize_text(tmp_path) -> None:
-    output, voice, _ = await speech.synthesize_text(
+    output, voice = await speech.synthesize_text(
         text="One. Two. #2# Three.",
         duration_ms=4_000,
         voice=Voice(character="Grace"),
@@ -93,7 +93,7 @@ async def test_synthesize_text(tmp_path) -> None:
     assert first.chunks == ["1 2."]
     assert second.chunks == [" 3."]
 
-    fast_output, voice, _ = await speech.synthesize_text(
+    fast_output, voice = await speech.synthesize_text(
         text="One. Two. #2# Three.",
         duration_ms=None,
         voice=Voice(character="Grace", speech_rate=20),
@@ -101,7 +101,7 @@ async def test_synthesize_text(tmp_path) -> None:
         output_dir=tmp_path,
     )
     assert voice.speech_rate == 20  # making sure that this ignores maximum
-    slow_output, voice, _ = await speech.synthesize_text(
+    slow_output, voice = await speech.synthesize_text(
         text="One. Two. #2# Three.",
         duration_ms=None,
         voice=Voice(character="Grace", speech_rate=0.3),
@@ -117,7 +117,7 @@ async def test_synthesize_text(tmp_path) -> None:
 
 @pytest.mark.asyncio
 async def test_synthesize_azure_transcribe_google(tmp_path) -> None:
-    output, voice, _ = await speech.synthesize_text(
+    output, voice = await speech.synthesize_text(
         text="Testing quite a long sentence. #2# Hello.",
         duration_ms=5_000,
         voice=Voice(character="Bill"),
@@ -138,7 +138,7 @@ async def test_synthesize_azure_transcribe_google(tmp_path) -> None:
 
 @pytest.mark.asyncio
 async def test_synthesize_google_transcribe_azure(tmp_path) -> None:
-    output, _, _ = await speech.synthesize_text(
+    output, _ = await speech.synthesize_text(
         text="Testing quite a long sentence. #2# Hello.",
         duration_ms=5_000,
         voice=Voice(character="Alonzo"),
@@ -162,7 +162,7 @@ async def test_synthesize_google_transcribe_azure(tmp_path) -> None:
     reason="Azure's default transcription model is granular for some reason"
 )  # noqa: E501
 async def test_synthesize_google_transcribe_azure_granular(tmp_path) -> None:
-    output, _, _ = await speech.synthesize_text(
+    output, _ = await speech.synthesize_text(
         text="Testing quite a long sentence. Hello.",
         duration_ms=3_000,
         voice=Voice(character="Alonzo"),
@@ -865,7 +865,7 @@ async def test_dub_cache(tmp_path) -> None:  # noqa E501
     non_cached_function_time = 0.0
     for i in range(5):
         start_time = time.time()
-        output, voice, _ = await speech.synthesize_text(
+        output, voice = await speech.synthesize_text(
             text=text,
             duration_ms=None,
             voice=Voice(character="Alan"),
@@ -881,7 +881,7 @@ async def test_dub_cache(tmp_path) -> None:  # noqa E501
     cached_function_time = 0.0
     for i in range(5):
         start_time = time.time()
-        output_cahed, voice_cached, _ = await speech.synthesize_text(
+        output_cahed, voice_cached = await speech.synthesize_text(
             text=text,
             duration_ms=None,
             voice=Voice(character="Alan"),

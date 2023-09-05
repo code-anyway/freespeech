@@ -15,7 +15,7 @@ FRAME_RATE = 44100
 async def synthesize_phrase(
     phrase: str, voice: Voice, lang: Language, output_dir: Path
 ) -> AudioSegment:
-    clip, _, _ = await speech.synthesize_text(
+    clip, _ = await speech.synthesize_text(
         text=phrase,
         duration_ms=None,
         voice=voice,

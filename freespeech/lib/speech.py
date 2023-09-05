@@ -865,8 +865,7 @@ async def _synthesize_text(
     lang: Language,
     output_dir: Path | str,
     cache_dir: str = os.path.join(os.path.expanduser("~"), ".cache/freespeech"),
-    use_cache: bool = True,
-) -> Tuple[Path, Voice, bool]:
+) -> Tuple[Path, Voice]:
     def cache_result(
         output_file: str, synthesized_path: str, voice_path: str, voice: Voice
     ) -> None:
@@ -890,11 +889,10 @@ async def _synthesize_text(
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir)
 
-    if use_cache:
-        if os.path.exists(voice_path) and os.path.exists(synthesized_path):
-            with open(voice_path, "r") as cached_voice:
-                voice = Voice(**json.loads(cached_voice.read()))
-            return Path(synthesized_path), voice, True
+    if os.path.exists(voice_path) and os.path.exists(synthesized_path):
+        with open(voice_path, "r") as cached_voice:
+            voice = Voice(**json.loads(cached_voice.read()))
+        return Path(synthesized_path), voice
 
     character = voice.character
     if character not in VOICES:
@@ -921,7 +919,7 @@ async def _synthesize_text(
                 text, voice.character, voice.speech_rate, Path(output_dir)
             )
             cache_result(speech.as_posix(), synthesized_path, voice_path, voice)
-            return speech, voice, False
+            return speech, voice
         case "Deepgram":
             raise ValueError("Deepgram can not be used as TTS provider")
         case never:
@@ -1075,7 +1073,7 @@ async def _synthesize_text(
 
     cache_result(output_file.as_posix(), synthesized_path, voice_path, new_voice)
 
-    return output_file, new_voice, False
+    return output_file, new_voice
 
 
 async def synthesize_text(
@@ -1085,8 +1083,7 @@ async def synthesize_text(
     lang: Language,
     output_dir: Path | str,
     cache_dir: str = os.path.join(os.path.expanduser("~"), ".cache/freespeech"),
-    use_cache: bool = True,
-) -> Tuple[Path, Voice, bool]:
+) -> Tuple[Path, Voice]:
     for retry in range(API_RETRIES):
         try:
             return await _synthesize_text(
@@ -1096,7 +1093,6 @@ async def synthesize_text(
                 lang,
                 output_dir,
                 cache_dir,
-                use_cache,
             )
         except (
             ConnectionAbortedError,
@@ -1127,22 +1123,27 @@ async def synthesize_events(
     recache_hash = hash.obj((events))
     recache_path = f"{cache_dir}/{recache_hash}"
     if os.path.exists(recache_path):
-        use_cache = False
+        recaching = True
     else:
-        use_cache = True
+        recaching = False
 
     for event in events:
         padding_ms = event.time_ms - current_time_ms
         spans += [("blank", current_time_ms, event.time_ms)]
         text = " ".join(event.chunks)
-        clip, voice, cache_used = await synthesize_text(
+        if recaching:
+            hash_path = (
+                f"{cache_dir}/{hash.obj((text, event.duration_ms, event.voice))}"
+            )
+            os.remove(f"{hash_path}.wav")
+            os.remove(f"{hash_path}-voice.json")
+        clip, voice = await synthesize_text(
             text=text,
             duration_ms=event.duration_ms,
             voice=event.voice,
             lang=lang,
             output_dir=output_dir,
             cache_dir=cache_dir,
-            use_cache=use_cache,
         )
         (audio, *_), _ = media.probe(clip)
         assert isinstance(audio, Audio)
@@ -1161,7 +1162,7 @@ async def synthesize_events(
 
     output_file = await media.concat_and_pad(clips, output_dir)
 
-    return output_file, voices, spans, cache_used
+    return output_file, voices, spans, recaching
 
 
 def concat_events(e1: Event, e2: Event, break_sentence: bool) -> Event:
