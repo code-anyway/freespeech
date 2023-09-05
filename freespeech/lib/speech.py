@@ -1117,7 +1117,7 @@ async def synthesize_events(
     lang: Language,
     output_dir: Path | str,
     cache_dir: str = os.path.join(os.path.expanduser("~"), ".cache/freespeech"),
-    use_cache: bool = True
+    use_cache: bool = True,
 ) -> Tuple[Path, Sequence[Voice], list[media.Span], bool]:
     output_dir = Path(output_dir)
     current_time_ms = 0
