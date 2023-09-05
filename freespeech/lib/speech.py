@@ -1133,7 +1133,7 @@ async def synthesize_events(
         text = " ".join(event.chunks)
         if recaching:
             hash_path = (
-                f"{cache_dir}/{hash.obj((text, event.duration_ms, event.voice))}"
+                f"{cache_dir}/{hash.obj((text, event.duration_ms, event.voice, lang))}"
             )
             os.remove(f"{hash_path}.wav")
             os.remove(f"{hash_path}-voice.json")

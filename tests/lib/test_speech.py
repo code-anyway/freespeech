@@ -920,7 +920,7 @@ async def test_recaching(tmp_path) -> None:
         events=events, lang="en-US", output_dir=tmp_path, cache_dir=cache_dir
     )
 
-    _, _, _, used_cache = await speech.synthesize_events(
+    _, _, _, recached = await speech.synthesize_events(
         events=events, lang="en-US", output_dir=tmp_path, cache_dir=cache_dir
     )
-    assert not used_cache
+    assert recached
