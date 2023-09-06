@@ -1125,6 +1125,7 @@ async def synthesize_events(
     voices = []
     spans = []
 
+    resynth = True
     for event in events:
         padding_ms = event.time_ms - current_time_ms
         spans += [("blank", current_time_ms, event.time_ms)]
@@ -1138,7 +1139,7 @@ async def synthesize_events(
             cache_dir=cache_dir,
             use_cache=use_cache,
         )
-        use_cache = use_cache and cache_used
+        resynth = resynth and cache_used
         (audio, *_), _ = media.probe(clip)
         assert isinstance(audio, Audio)
 
@@ -1151,7 +1152,7 @@ async def synthesize_events(
 
         voices += [voice]
 
-    if use_cache:
+    if resynth:
         return await synthesize_events(
             events=events,
             lang=lang,
