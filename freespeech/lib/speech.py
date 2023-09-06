@@ -1136,6 +1136,7 @@ async def synthesize_events(
             lang=lang,
             output_dir=output_dir,
             cache_dir=cache_dir,
+            use_cache=use_cache,
         )
         use_cache = use_cache and cache_used
         (audio, *_), _ = media.probe(clip)
@@ -1150,7 +1151,7 @@ async def synthesize_events(
 
         voices += [voice]
 
-    if not True:
+    if not use_cache:
         return await synthesize_events(
             events=events,
             lang=lang,
