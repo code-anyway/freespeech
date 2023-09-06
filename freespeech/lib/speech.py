@@ -921,7 +921,7 @@ async def _synthesize_text(
                 text, voice.character, voice.speech_rate, Path(output_dir)
             )
             cache_result(speech.as_posix(), synthesized_path, voice_path, voice)
-            return speech, voice, True
+            return speech, voice, False
         case "Deepgram":
             raise ValueError("Deepgram can not be used as TTS provider")
         case never:
@@ -1075,7 +1075,7 @@ async def _synthesize_text(
 
     cache_result(output_file.as_posix(), synthesized_path, voice_path, new_voice)
 
-    return output_file, new_voice, True
+    return output_file, new_voice, False
 
 
 async def synthesize_text(
@@ -1118,14 +1118,19 @@ async def synthesize_events(
     output_dir: Path | str,
     cache_dir: str = os.path.join(os.path.expanduser("~"), ".cache/freespeech"),
     use_cache: bool = True,
-) -> Tuple[Path, Sequence[Voice], list[media.Span], bool]:
+) -> Tuple[Path, Sequence[Voice], list[media.Span], list[bool]]:
+    """
+    +    Returns:
+    +        Tuple[Path, Voice, bool]: path to the synthesized audio file, voice used for
+    +            synthesis, and a boolean indicating whether or not each event was retrieved cached.
+    +"""
     output_dir = Path(output_dir)
     current_time_ms = 0
     clips = []
     voices = []
     spans = []
 
-    resynth = True
+    cache_hits = []
     for event in events:
         padding_ms = event.time_ms - current_time_ms
         spans += [("blank", current_time_ms, event.time_ms)]
@@ -1139,7 +1144,7 @@ async def synthesize_events(
             cache_dir=cache_dir,
             use_cache=use_cache,
         )
-        resynth = resynth and cache_used
+        cache_hits += [cache_used]
         (audio, *_), _ = media.probe(clip)
         assert isinstance(audio, Audio)
 
@@ -1152,7 +1157,7 @@ async def synthesize_events(
 
         voices += [voice]
 
-    if resynth:
+    if all(cache_hits):
         return await synthesize_events(
             events=events,
             lang=lang,
@@ -1162,7 +1167,7 @@ async def synthesize_events(
 
     output_file = await media.concat_and_pad(clips, output_dir)
 
-    return output_file, voices, spans, use_cache
+    return output_file, voices, spans, cache_hits
 
 
 def concat_events(e1: Event, e2: Event, break_sentence: bool) -> Event:

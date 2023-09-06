@@ -920,7 +920,8 @@ async def test_recaching(tmp_path) -> None:
         events=events, lang="en-US", output_dir=tmp_path, cache_dir=cache_dir
     )
 
-    _, _, _, recached = await speech.synthesize_events(
+    _, _, _, cache_hits = await speech.synthesize_events(
         events=events, lang="en-US", output_dir=tmp_path, cache_dir=cache_dir
     )
-    assert recached
+
+    assert all([not hit for hit in cache_hits])
