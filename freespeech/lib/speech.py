@@ -1151,7 +1151,7 @@ async def synthesize_events(
 
         voices += [voice]
 
-    if not use_cache:
+    if use_cache:
         return await synthesize_events(
             events=events,
             lang=lang,
