@@ -87,6 +87,7 @@ async def test_synthesize_blank(monkeypatch) -> None:
                 ("blank", 6329, 15000),
                 ("event", 15000, 20116),
             ],
+            True,
         ]
 
     monkeypatch.setattr(speech, "synthesize_events", synthesize_events)
@@ -119,6 +120,7 @@ async def test_synthesize_fill(monkeypatch) -> None:
                 ("blank", 9239, 15000),
                 ("event", 15000, 21245),
             ],
+            True,
         ]
 
     monkeypatch.setattr(speech, "synthesize_events", synthesize_events)
