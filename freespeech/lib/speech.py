@@ -865,7 +865,7 @@ async def _synthesize_text(
     lang: Language,
     output_dir: Path | str,
     cache_dir: str = os.path.join(os.path.expanduser("~"), ".cache/freespeech"),
-    use_cache: bool = False,
+    allow_pulling_cache: bool = False,
 ) -> Tuple[Path, Voice, bool]:
     def cache_result(
         output_file: str, synthesized_path: str, voice_path: str, voice: Voice
@@ -890,7 +890,7 @@ async def _synthesize_text(
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir)
 
-    if use_cache:
+    if allow_pulling_cache:
         if os.path.exists(voice_path) and os.path.exists(synthesized_path):
             with open(voice_path, "r") as cached_voice:
                 voice = Voice(**json.loads(cached_voice.read()))
@@ -1085,7 +1085,7 @@ async def synthesize_text(
     lang: Language,
     output_dir: Path | str,
     cache_dir: str = os.path.join(os.path.expanduser("~"), ".cache/freespeech"),
-    use_cache: bool = True,
+    allow_pulling_cache: bool = True,
 ) -> Tuple[Path, Voice, bool]:
     for retry in range(API_RETRIES):
         try:
@@ -1096,7 +1096,7 @@ async def synthesize_text(
                 lang,
                 output_dir,
                 cache_dir,
-                use_cache,
+                allow_pulling_cache,
             )
         except (
             ConnectionAbortedError,
@@ -1117,13 +1117,15 @@ async def synthesize_events(
     lang: Language,
     output_dir: Path | str,
     cache_dir: str = os.path.join(os.path.expanduser("~"), ".cache/freespeech"),
-    use_cache: bool = True,
+    allow_pulling_cache: bool = True,
 ) -> Tuple[Path, Sequence[Voice], list[media.Span], list[bool]]:
     """
-    +    Returns:
-    +        Tuple[Path, Voice, bool]: path to the synthesized audio file, voice used for
-    +            synthesis, and a boolean indicating whether or not each event was retrieved cached.
-    +"""
+        +    Returns:
+    +           Tuple[Path, Voice, bool]:
+                path to the synthesized audio file,
+                voice used for synthesis,
+                boolean indicating whether each event was retrieved from cached
+        +"""
     output_dir = Path(output_dir)
     current_time_ms = 0
     clips = []
@@ -1142,7 +1144,7 @@ async def synthesize_events(
             lang=lang,
             output_dir=output_dir,
             cache_dir=cache_dir,
-            use_cache=use_cache,
+            allow_pulling_cache=allow_pulling_cache,
         )
         cache_hits += [cache_used]
         (audio, *_), _ = media.probe(clip)
@@ -1162,7 +1164,7 @@ async def synthesize_events(
             events=events,
             lang=lang,
             output_dir=output_dir,
-            use_cache=False,
+            allow_pulling_cache=False,
         )
 
     output_file = await media.concat_and_pad(clips, output_dir)

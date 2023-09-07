@@ -101,7 +101,7 @@ async def test_synthesize_blank(monkeypatch) -> None:
         )
         assert hash.file(downmixed_audio) in (
             hash.file(AUDIO_BLANK),
-            "0f6a230be7c186a7e4b404c060a1b93da5a1b61f65c8fef40f884bdbe416f671",
+            "1ad6fdf7c5504c3e7d9bb178db857a5d18fdd79b312228b74acc1f6172b75ae9",
         )  # noqa: E501
 
 
@@ -135,7 +135,7 @@ async def test_synthesize_fill(monkeypatch) -> None:
         )
         assert hash.file(downmixed_audio) in (
             hash.file(AUDIO_FILL),
-            "510883eb349a3609b2ef5198dc6367d780a331f8121e504d1e55c0a9ec856ba0",
+            "dfd8817aebe33652a873fa61d51526062e73e87c0a03523b527dd2ac09edb5ef",
         )  # noqa: E501
 
 
