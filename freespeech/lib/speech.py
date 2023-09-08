@@ -865,7 +865,7 @@ async def _synthesize_text(
     lang: Language,
     output_dir: Path | str,
     cache_dir: str = os.path.join(os.path.expanduser("~"), ".cache/freespeech"),
-    allow_pulling_cache: bool = False,
+    allow_pulling_cache: bool = True,
 ) -> Tuple[Path, Voice, bool]:
     def cache_result(
         output_file: str, synthesized_path: str, voice_path: str, voice: Voice
@@ -891,10 +891,12 @@ async def _synthesize_text(
         os.makedirs(cache_dir)
 
     if allow_pulling_cache:
+        print("pulling from cache")
         if os.path.exists(voice_path) and os.path.exists(synthesized_path):
             with open(voice_path, "r") as cached_voice:
                 voice = Voice(**json.loads(cached_voice.read()))
             return Path(synthesized_path), voice, True
+    print("not pulling from cache")
 
     character = voice.character
     if character not in VOICES:
@@ -1159,7 +1161,7 @@ async def synthesize_events(
 
         voices += [voice]
 
-    if all(cache_hits):
+    if all([not hit for hit in cache_hits]):
         return await synthesize_events(
             events=events,
             lang=lang,

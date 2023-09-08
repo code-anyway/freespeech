@@ -3,6 +3,8 @@ import os
 import time
 from pathlib import Path
 from typing import Sequence, get_args
+from numpy import array_equiv
+from scipy.io import wavfile
 
 import pytest
 
@@ -920,8 +922,16 @@ async def test_recaching(tmp_path) -> None:
         events=events, lang="en-US", output_dir=tmp_path, cache_dir=cache_dir
     )
 
+    events_hsh = [hash.obj(((" ").join(event.chunks), event.duration_ms, event.voice, "en-US")) for event in events]
+
+    _, audio = wavfile.read(f"{cache_dir}/{events_hsh[0]}.wav")
+    _, audio2 = wavfile.read(f"{cache_dir}/{events_hsh[1]}.wav")
+
     _, _, _, cache_hits = await speech.synthesize_events(
         events=events, lang="en-US", output_dir=tmp_path, cache_dir=cache_dir
     )
+
+    assert not (audio == wavfile.read(f"{cache_dir}/{events_hsh[0]}.wav")[1]).all()
+    assert not (audio2 == wavfile.read(f"{cache_dir}/{events_hsh[1]}.wav")[1]).all()
 
     assert all([not hit for hit in cache_hits])
