@@ -5,8 +5,6 @@ from pathlib import Path
 from typing import Sequence, get_args
 
 import pytest
-from numpy import array_equiv
-from scipy.io import wavfile
 
 from freespeech.lib import elevenlabs, hash, media, speech
 from freespeech.types import Character, Event, Language, Voice, assert_never
