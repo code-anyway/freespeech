@@ -865,7 +865,7 @@ async def _synthesize_text(
     lang: Language,
     output_dir: Path | str,
     cache_dir: str = os.path.join(os.path.expanduser("~"), ".cache/freespeech"),
-    allow_pulling_cache: bool = True,
+    use_cache: bool = True,
 ) -> Tuple[Path, Voice, bool]:
     def cache_result(
         output_file: str, synthesized_path: str, voice_path: str, voice: Voice
@@ -890,7 +890,7 @@ async def _synthesize_text(
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir)
 
-    if allow_pulling_cache:
+    if use_cache:
         if os.path.exists(voice_path) and os.path.exists(synthesized_path):
             with open(voice_path, "r") as cached_voice:
                 voice = Voice(**json.loads(cached_voice.read()))
