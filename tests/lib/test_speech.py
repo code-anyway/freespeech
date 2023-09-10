@@ -920,8 +920,24 @@ async def test_recaching(tmp_path) -> None:
         events=events, lang="en-US", output_dir=tmp_path, cache_dir=cache_dir
     )
 
-    _, _, _, cache_hits = await speech.synthesize_events(
+    dummy_voice = f"{cache_dir}/{os.listdir(cache_dir)[0]}"  # will always be voice
+    dummy_contents = json.dumps(
+        {
+            "speech_rate": 1.1,
+            "character": "Alan",
+            "pitch": 1,
+        }
+    )
+
+    with open(dummy_voice, "w") as fd:
+        fd.write(dummy_contents)
+
+    with open(dummy_voice, "r") as fd:
+        assert fd.read() == dummy_contents
+
+    _, _, _, _ = await speech.synthesize_events(
         events=events, lang="en-US", output_dir=tmp_path, cache_dir=cache_dir
     )
 
-    assert all([not hit for hit in cache_hits])
+    with open(dummy_voice, "r") as fd:
+        assert fd.read() != dummy_contents
