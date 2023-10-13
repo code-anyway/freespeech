@@ -136,6 +136,10 @@ async def synthesize(
         return await synthesize(events, lang, output_dir, False)
 
     output_file = str(Path(output_dir) / f"{uuid4()}.wav")
+    # If the function call below this gets a cryptic error message involving
+    # struct.pack('<L4s4sLHHLLHH4s', ...), it's probably because a timestamp
+    # of an event is at a spot greater then 10hrs. This is a limitation of pydub,
+    # and also shouldn't happen in the first place.
     fd = res.export(output_file, format="wav")
     fd.close()  # type: ignore
 
