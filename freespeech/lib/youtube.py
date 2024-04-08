@@ -17,6 +17,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
+from yt_dlp import YoutubeDL
 
 from freespeech.lib import transcript
 from freespeech.types import Event, Language, Meta, platform
@@ -242,7 +243,7 @@ def parse_captions(srt: str) -> Sequence[Event]:
 async def get_captions(url: str, lang: Language) -> Sequence[Event]:
     try:
         captions = await _get_captions(url, lang)
-    except ValueError:
+    except (ValueError, FileNotFoundError):
         # try short language code
         short_lang = str(lang)[:2]
         try:
@@ -250,7 +251,7 @@ async def get_captions(url: str, lang: Language) -> Sequence[Event]:
                 f"{url} doesn't have captions for {lang}, trying {short_lang}"
             )  # noqa: E501
             captions = await _get_captions(url, short_lang)
-        except ValueError:
+        except (ValueError, FileNotFoundError):
             raise RuntimeError(
                 f"Could not find captions for {lang} or {short_lang} in {url}"
             )
@@ -259,21 +260,17 @@ async def get_captions(url: str, lang: Language) -> Sequence[Event]:
 
 async def _get_captions(url: str, lang: str):
     with TemporaryDirectory() as tmpdir:
-        command = f"""yt-dlp --skip-download --write-sub --sub-lang {lang} --skip-download --output {Path(tmpdir) / "captions"} {url}"""  # noqa: E501
-        stdout = await run(command)
-
-        if "no subtitles for the requested languages" in stdout:
-            raise ValueError(f"No captions found for {lang} in {url}")
-
-        # extract captions path from the result
-        match = re.search(r"Destination: (.*)", stdout, flags=re.M)
-        if match is None:
-            raise RuntimeError(f"Could find output file in stdout: {stdout}")
-
-        output = Path(match.group(1))
-
-        logger.debug(f"yt-dlp output: {stdout!r}")
-
-        with open(output) as fd:
-            captions = list(parse_captions(fd.read()))
-    return captions
+        output = f"{tmpdir}/subtitles"
+        with YoutubeDL(
+            {
+                "writesubtitles": True,
+                "writeautomaticsub": True,
+                "subtitleslangs": [lang],
+                "subtitlesformat": "vtt",
+                "outtmpl": output,
+                "skip_download": True,
+            }
+        ) as ydl:
+            ydl.download([url])
+            with open(f"{output}.{lang}.vtt") as fd:
+                return list(parse_captions(fd.read()))
