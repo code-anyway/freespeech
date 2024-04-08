@@ -110,6 +110,8 @@ async def transcribe(
     if platform(source) == "YouTube":
         meta = await youtube.get_meta(source)
         title = meta.title
+    
+    print(events)
 
     return Transcript(
         title=f"{lang} {title or 'Untitled'}",

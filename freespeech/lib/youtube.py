@@ -273,4 +273,5 @@ async def _get_captions(url: str, lang: str):
         ) as ydl:
             ydl.download([url])
             with open(f"{output}.{lang}.vtt") as fd:
-                return list(parse_captions(fd.read()))
+                res = fd.read()
+            return list(parse_captions(res))
