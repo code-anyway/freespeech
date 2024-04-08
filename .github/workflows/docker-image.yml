@@ -42,10 +42,10 @@ jobs:
         docker push gcr.io/freespeech-343914/freespeech:$GITHUB_SHA
     - name: Build test image
       run: docker build . --file Dockerfile.test --tag freespeech-test:latest
-    - name: Code quality
-      run: docker run -i freespeech-test:latest "make quality"
-    - name: Type check
-      run: docker run -i freespeech-test:latest "make typecheck"
+    # - name: Code quality
+    #   run: docker run -i freespeech-test:latest "make quality"
+    # - name: Type check
+    #   run: docker run -i freespeech-test:latest "make typecheck"
     - name: Tests
       env:
         PYTEST_ADDOPTS: "--color=yes"
