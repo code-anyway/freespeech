@@ -15,7 +15,7 @@ from freespeech.types import (
 @pytest.mark.asyncio
 async def test_load_subtitles() -> None:
     result = await transcribe.transcribe(
-        source="https://youtu.be/bhRaND9jiOA",
+        source="https://youtu.be/WrwDQpifOhA?si=QM5gvBJxz-32FPER",
         backend="Subtitles",
         lang="en-US",
     )

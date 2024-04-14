@@ -347,7 +347,7 @@ def vtt_to_events(text: str) -> Sequence[Event]:
         Event(
             time_ms=(start_ms := to_milliseconds(start)),
             duration_ms=None
-            if finish == "99:59:59.999"  # This magic value means "until the end"
+            if finish.startswith("99:59:59")  # This magic value means "until the end"
             else (to_milliseconds(finish) - start_ms),
             chunks=[
                 " ".join(
@@ -356,6 +356,7 @@ def vtt_to_events(text: str) -> Sequence[Event]:
             ],
         )
         for start, finish, text, _ in match
+        if not start.startswith("99:59:59")  # We encountered something: like 99:59:59.999 --> 100:00:00.999
     ]
 
     return result

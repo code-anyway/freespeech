@@ -3,7 +3,7 @@ from typing import Generic, List, Literal, NoReturn, Sequence, TypeGuard, TypeVa
 from pydantic.dataclasses import dataclass
 
 url = str
-AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "AAC", "MP3"]
+AudioEncoding = Literal["WEBM_OPUS", "LINEAR16", "LINEAR24", "AAC", "MP3"]
 VideoEncoding = Literal["H264", "HEVC", "AV1", "VP9"]
 ServiceProvider = Literal["Google", "Deepgram", "Azure", "ElevenLabs"]
 TranscriptionModel = Literal[

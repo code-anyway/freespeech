@@ -56,7 +56,7 @@ async def test_synthesize_basic() -> None:
 
 @pytest.mark.asyncio
 async def test_synthesize() -> None:
-    test_doc = "https://docs.google.com/document/d/1Oexfd27oToEWyxj9g7YCp3IYHqjYO8US0RtnoP32fXU/edit#"  # noqa: E501
+    test_doc = "https://docs.google.com/document/d/1kiSbMxcs2PUAeurKYZFXnT20AS77uvKfBi0j1w8eRzw/edit#"  # noqa: E501
     url = await synthesize.dub(test_doc, is_smooth=False)
     assert url
 
