@@ -75,15 +75,7 @@ async def test_telegram():
     await telegram.dispatch(0, "Subtitles")
     text, buttons, file = await message.read()
     assert text == "Please select *source* language. Or send it as a message."
-    assert [button.text for button in buttons] == [
-        "EN",
-        "UA",
-        "ES",
-        "FR",
-        "DE",
-        "PT",
-        "TR",
-    ]
+    assert [button.text for button in buttons] == telegram.LANG_BUTTONS
     assert file is None
 
     await telegram.dispatch(0, "EN")
@@ -128,15 +120,7 @@ async def test_telegram():
     await telegram.dispatch(0, "Translate")
     text, buttons, file = await message.read()
     assert text == "Please select *target* language. Or send it as a message."
-    assert [button.text for button in buttons] == [
-        "EN",
-        "UA",
-        "ES",
-        "FR",
-        "DE",
-        "PT",
-        "TR",
-    ]
+    assert [button.text for button in buttons] == telegram.LANG_BUTTONS
     assert file is None
 
     await telegram.dispatch(0, "Russian")  # try full language name
@@ -179,15 +163,7 @@ async def test_telegram_direct_upload_audio():
     await telegram.dispatch(0, "Yes")
     text, buttons, file = await message.read()
     assert text == "Please select *source* language. Or send it as a message."
-    assert [button.text for button in buttons] == [
-        "EN",
-        "UA",
-        "ES",
-        "FR",
-        "DE",
-        "PT",
-        "TR",
-    ]
+    assert [button.text for button in buttons] == telegram.LANG_BUTTONS
     assert file is None
 
     await telegram.dispatch(0, "EN")
@@ -222,15 +198,7 @@ async def test_telegram_direct_upload_video():
     await telegram.dispatch(0, "Yes")
     text, buttons, file = await message.read()
     assert text == "Please select *source* language. Or send it as a message."
-    assert [button.text for button in buttons] == [
-        "EN",
-        "UA",
-        "ES",
-        "FR",
-        "DE",
-        "PT",
-        "TR",
-    ]
+    assert [button.text for button in buttons] == telegram.LANG_BUTTONS
     assert file is None
 
     await telegram.dispatch(0, "EN")

@@ -68,13 +68,13 @@ setup(
         "pydub",
         "requests",
         "soundfile",
-        "spacy",
+        "spacy==3.7.0",
         *[
-            f"{lang}_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/{lang}_core_web_sm-3.4.0/{lang}_core_web_sm-3.4.0.tar.gz"  # noqa E501
+            f"{lang}_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/{lang}_core_web_sm-3.7.0/{lang}_core_web_sm-3.7.0.tar.gz"  # noqa E501
             for lang in ("en", "zh")
         ],
         *[
-            f"{lang}_core_news_sm @ https://github.com/explosion/spacy-models/releases/download/{lang}_core_news_sm-3.4.0/{lang}_core_news_sm-3.4.0.tar.gz"  # noqa E501
+            f"{lang}_core_news_sm @ https://github.com/explosion/spacy-models/releases/download/{lang}_core_news_sm-3.7.0/{lang}_core_news_sm-3.7.0.tar.gz"  # noqa E501
             for lang in ("es", "uk", "pt", "ru", "de", "fr", "sv", "it", "fi", "ja", "pl")  # noqa E501
         ],
         "streamlit",

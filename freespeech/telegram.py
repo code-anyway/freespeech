@@ -57,6 +57,7 @@ logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
 
 
+LANG_BUTTONS = ["EN", "UA", "ES", "FR", "DE", "PT", "TR", "ZH"]
 URL_SOLUTION_TEXT = "Please send me a link to a YouTube video or Google Docs transcript or upload a video/audio here directly."  # noqa: E501
 
 
@@ -399,7 +400,7 @@ async def media_operation(
     if ctx.from_lang is None:
         return ctx, Reply(
             "Please select *source* language. Or send it as a message.",
-            buttons=["EN", "UA", "ES", "FR", "DE", "PT", "TR"],
+            buttons=LANG_BUTTONS,
         )
 
     if ctx.size is None:
@@ -432,7 +433,7 @@ async def transcript_operation(
         if ctx.to_lang is None:
             return ctx, Reply(
                 "Please select *target* language. Or send it as a message.",
-                buttons=["EN", "UA", "ES", "FR", "DE", "PT", "TR"],
+                buttons=LANG_BUTTONS,
             )
 
     if (lang := to_language(text)) is not None:
