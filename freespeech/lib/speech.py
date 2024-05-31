@@ -263,7 +263,7 @@ VOICES: Dict[Character, Dict[Language, Tuple[ServiceProvider, str] | None]] = {
         "et-EE": None,
         "fi-FI": None,
         "ja-JP": None,
-        "zh-CN": None,
+        "zh-CN": ("ElevenLabs", "Volodymyr"),
         "pl-PL": ("ElevenLabs", "Volodymyr"),
     },
     "Artyom": {
