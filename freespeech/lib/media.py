@@ -23,6 +23,8 @@ def ffprobe_to_audio_encoding(encoding: str) -> AudioEncoding:
             return "WEBM_OPUS"
         case "pcm_s16le":
             return "LINEAR16"
+        case "pcm_s24le":
+            return "LINEAR24"
         case "aac":
             return "AAC"
         case "mp3":
