@@ -6,7 +6,7 @@ from fastapi import APIRouter
 from freespeech import env
 from freespeech.lib import media, speech, tts
 from freespeech.lib.storage import obj
-from freespeech.types import Transcript
+from freespeech.typing import Transcript
 
 from . import transcript
 

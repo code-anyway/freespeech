@@ -7,7 +7,7 @@ from uuid import uuid4
 from pydub import AudioSegment
 
 from freespeech.lib import audio, speech
-from freespeech.types import Event, Language, Voice
+from freespeech.typing import Event, Language, Voice
 
 PAUSE_INCREMENT_MS = 100.0
 FRAME_RATE = 44100

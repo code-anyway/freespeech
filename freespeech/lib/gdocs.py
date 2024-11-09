@@ -15,7 +15,7 @@ from freespeech.lib.transcript import (
     render_events,
     render_properties,
 )
-from freespeech.types import Transcript, TranscriptFormat
+from freespeech.typing import Transcript, TranscriptFormat
 
 logger = logging.getLogger(__name__)
 

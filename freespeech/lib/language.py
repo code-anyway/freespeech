@@ -7,7 +7,7 @@ import deepl
 from google.cloud import translate as translate_api
 
 from freespeech import env
-from freespeech.types import Event
+from freespeech.typing import Event
 
 logger = logging.getLogger(__name__)
 

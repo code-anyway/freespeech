@@ -5,7 +5,7 @@ from functools import reduce
 from typing import Sequence
 
 from freespeech.lib import transcript
-from freespeech.types import Event, Voice, is_character
+from freespeech.typing import Event, Voice, is_character
 
 TIMECODE_PATTERN = r"(\d{2}:)?\d{2}:\d{2}(\.\d{1,3})?(#(\d+(\.\d+)))?"
 

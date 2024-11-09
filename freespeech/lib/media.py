@@ -8,7 +8,7 @@ from typing import Dict, Literal, Sequence, Tuple
 import ffmpeg
 
 from freespeech.lib import concurrency
-from freespeech.types import Audio, AudioEncoding, Video, VideoEncoding, assert_never
+from freespeech.typing import Audio, AudioEncoding, Video, VideoEncoding, assert_never
 
 logger = logging.getLogger(__name__)
 

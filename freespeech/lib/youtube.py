@@ -20,7 +20,7 @@ from googleapiclient.http import MediaFileUpload
 from yt_dlp import YoutubeDL
 
 from freespeech.lib import transcript
-from freespeech.types import Event, Language, Meta, platform
+from freespeech.typing import Event, Language, Meta, platform
 
 logger = logging.getLogger(__name__)
 

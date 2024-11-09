@@ -1,6 +1,5 @@
 # FROM gcr.io/freespeech-343914/base:latest
-# BEGIN Dockerfile.base
-FROM python:3.10-buster
+FROM python:3.11-buster
 
 # Install service-specific packages
 RUN apt-get update -qqy && apt-get install -qqy \
@@ -10,22 +9,30 @@ RUN apt-get update -qqy && apt-get install -qqy \
 COPY cert/lets-encrypt-r3.pem /usr/local/share/ca-certificates/lets-encrypt-r3.crt
 RUN update-ca-certificates
 
-# Python virtualenv: https://pythonspeed.com/articles/activate-virtualenv-dockerfile/
-ENV VIRTUAL_ENV=/opt/venv
-RUN python3 -m venv $VIRTUAL_ENV
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-RUN pip install --upgrade \
-    pip \
-    wheel
-# END Dockerfile.base
+RUN pip install uv
+
 
 # Create folder structure, copy, and install package files
 RUN mkdir /root/freespeech && \
     mkdir /root/freespeech/freespeech
-COPY freespeech /root/freespeech/freespeech/
-COPY setup.py /root/freespeech/
+
+WORKDIR "/root/freespeech"
+ENV PYTHONPATH="/root/freespeech/"
+
+
+RUN uv venv --python 3.11
+
+
+COPY pyproject.toml /root/freespeech/
+
+RUN uv sync
+
+
+COPY LICENSE /root/freespeech/
 COPY README.md /root/freespeech/
-RUN cd /root/freespeech && pip install .
+COPY setup.py /root/freespeech/
+COPY freespeech /root/freespeech/freespeech/
+
 
 COPY run.sh /root/freespeech/
 COPY run_discord.sh /root/freespeech/

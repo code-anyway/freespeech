@@ -1,25 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import asyncio
+import io
 import logging
 import logging.config
-import os
 import re
-import tempfile
-import uuid
 from dataclasses import dataclass, replace
 from typing import Awaitable, Callable, Literal
 
-from telethon import Button, TelegramClient, events
-from telethon.tl.custom.message import Message
-from telethon.utils import get_display_name
+import discord
+from discord import Message
 
 from freespeech import env
 from freespeech.api import synthesize, transcribe, transcript, translate
 from freespeech.lib import youtube
-from freespeech.lib.storage import obj
 from freespeech.lib.transcript import events_to_srt
-from freespeech.types import (
+from freespeech.typing import (
     Language,
     Operation,
     SpeechToTextBackend,
@@ -27,7 +23,9 @@ from freespeech.types import (
     platform,
 )
 
-logging_handler = ["google" if env.is_in_cloud_run() else "console"]
+# logging_handler = ["google" if env.is_in_cloud_run() else "console"]
+logging_handler = ["google"]
+
 
 LOGGING_CONFIG = {
     "version": 1,
@@ -44,20 +42,22 @@ LOGGING_CONFIG = {
             "formatter": "default",
             "stream": "ext://sys.stdout",
         },
-        "google": {"class": "google.cloud.logging.handlers.StructuredLogHandler"},
+        "google": {
+            "class": "google.cloud.logging.handlers.StructuredLogHandler",
+        },
     },
     "loggers": {
+        "discord": {"level": logging.INFO, "handlers": logging_handler},
         "freespeech": {"level": logging.INFO, "handlers": logging_handler},
         "aiohttp": {"level": logging.INFO, "handlers": logging_handler},
         "__main__": {"level": logging.INFO, "handlers": logging_handler},
     },
 }
-logging.config.dictConfig(LOGGING_CONFIG)
 
+logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
 
 
-LANG_BUTTONS = ["EN", "UA", "ES", "FR", "DE", "PT", "TR", "ZH"]
 URL_SOLUTION_TEXT = "Please send me a link to a YouTube video or Google Docs transcript or upload a video/audio here directly."  # noqa: E501
 
 
@@ -82,21 +82,30 @@ class Reply:
     buttons: list[str] | None = None
 
 
+class Button(discord.ui.Button):
+    def __init__(self, label: str):
+        super().__init__(label=label)
+
+    async def callback(self, interaction: discord.Interaction):
+        assert self.label is not None, "Button label is None"
+        await interaction.response.defer()
+        await dispatch(interaction.user.id, self.label)
+
+
 context: dict[int, Context] = {}
 
 
 def log_user_action(ctx: Context, action: str, **kwargs):
-    sender_id = ctx.message.sender_id if ctx.message else "Unknown"
-    sender = ctx.message.sender if ctx.message else None
+    sender = ctx.message.author if ctx.message else None
 
     logger.info(
         f"user_event: {sender} {action} {ctx.from_lang} {ctx.to_lang} {ctx.method} {ctx.url}",  # noqa: E501
         extra={
             "json_fields": {
                 "labels": ["usage"],
-                "surface": "telegram",
-                "sender_id": sender_id,
-                "user": get_display_name(sender) if sender else "Unknown",
+                "surface": "discord",
+                "sender_id": sender.name if sender else "Unknown",
+                "user": sender.name if sender else "Unknown",
                 "action": action,
                 "from_lang": ctx.from_lang,
                 "to_lang": ctx.to_lang,
@@ -143,7 +152,13 @@ def to_language(lang: str) -> Language | None:
         return "ar-SA"
     elif lang in ("ee", "et", "estonian", "эстонский", "eesti", "et-ee"):
         return "et-EE"
-    elif lang in ("fi", "finnish", "финский", "suomi", "fi-fi"):
+    elif lang in (
+        "fi",
+        "finnish",
+        "финский",
+        "suomi",
+        "fi-fi",
+    ):
         return "fi-FI"
     elif lang in ("ja", "japanese", "японский", "日本語", "ja-jp"):
         return "ja-JP"
@@ -225,17 +240,39 @@ def seconds_to_human_readable(seconds: int | None) -> str:
 
 async def send_message(message: Message | None, reply: Reply):
     assert message is not None
-    _buttons = [
-        Button.inline(button, data=button.encode("ASCII"))
-        for button in reply.buttons or []
-    ]
-    await message.reply(
-        message=reply.message,
-        buttons=_buttons or None,
-        file=reply.data,
-        force_document=False,
-        link_preview=False,
-    )
+    buttons = [Button(label=button) for button in reply.buttons or []]
+    if buttons:
+        view = discord.ui.View()
+        for button in buttons:
+            view.add_item(button)
+    else:
+        view = None
+
+    # create in-memory file out of reply.data
+    if reply.data and ((extension := reply.message.lower()) in ("srt", "txt")):
+        file = discord.File(
+            fp=io.BytesIO(reply.data), filename=f"subtitles.{extension}"
+        )
+        if view:
+            await message.reply(
+                content=reply.message,
+                view=view,
+                file=file,
+            )
+        else:
+            await message.reply(
+                content=reply.message,
+            )
+    else:
+        if view:
+            await message.reply(
+                content=reply.message,
+                view=view,
+            )
+        else:
+            await message.reply(
+                content=reply.message,
+            )
 
 
 async def schedule(ctx: Context, task: Awaitable, operation: Operation) -> str:
@@ -309,36 +346,10 @@ async def _transcribe(
 
 async def start(ctx: Context, message: Message | str) -> tuple[Context, Reply | None]:
     if not isinstance(message, str):
-        text = str(message.raw_text)
+        text = str(message.content)
     else:
         text = message
     urls = [url for url in text.split(" ") if url.strip().startswith("https://")]
-
-    def _is_video_or_audio(message: Message | str) -> bool:
-        return (
-            hasattr(message, "media")
-            and hasattr(message.media, "document")
-            and hasattr(message.media.document, "mime_type")
-            and (
-                message.media.document.mime_type.startswith("video/")
-                or message.media.document.mime_type.startswith("audio/")
-            )
-        )
-
-    # Case when a video or an audio file is uploaded directly to the bot
-    if not urls and _is_video_or_audio(message):
-        media: bytes = await message.message.download_media(bytes)
-        extension = message.media.document.mime_type.split("/")[-1]
-
-        with tempfile.NamedTemporaryFile(
-            delete=True, prefix=str(uuid.uuid4()), suffix=f".{extension}"
-        ) as temp:
-            temp.write(media)
-            gs_url = await obj.put(
-                temp.name,
-                f"{env.get_storage_url()}/media/{os.path.basename(temp.name)}",
-            )
-            urls = [gs_url]
 
     if not urls:
         return ctx, Reply(f"{URL_SOLUTION_TEXT}")
@@ -351,7 +362,6 @@ async def start(ctx: Context, message: Message | str) -> tuple[Context, Reply | 
         logger.exception(e)
         return ctx, Reply(str(e))
 
-    # assert isinstance(message, Message)
     ctx = replace(ctx, url=url, message=message)
     match _platform:
         case "YouTube":
@@ -377,7 +387,7 @@ async def media_operation(
     ctx: Context, message: Message | str
 ) -> tuple[Context, Reply | None]:
     if not isinstance(message, str):
-        text = str(message.raw_text)
+        text = str(message.content)
     else:
         text = message
 
@@ -400,7 +410,7 @@ async def media_operation(
     if ctx.from_lang is None:
         return ctx, Reply(
             "Please select *source* language. Or send it as a message.",
-            buttons=LANG_BUTTONS,
+            buttons=["EN", "UA", "ES", "FR", "DE", "PT", "TR", "IT"],
         )
 
     if ctx.size is None:
@@ -424,7 +434,7 @@ async def transcript_operation(
     ctx: Context, message: Message | str
 ) -> tuple[Context, Reply | None]:
     if not isinstance(message, str):
-        text = str(message.raw_text)
+        text = str(message.content)
     else:
         text = message
     text = text.strip().lower()
@@ -433,7 +443,7 @@ async def transcript_operation(
         if ctx.to_lang is None:
             return ctx, Reply(
                 "Please select *target* language. Or send it as a message.",
-                buttons=LANG_BUTTONS,
+                buttons=["EN", "UA", "ES", "FR", "DE", "PT", "TR", "IT"],
             )
 
     if (lang := to_language(text)) is not None:
@@ -465,7 +475,7 @@ async def transcript_operation(
                 if (text := " ".join(chunk for chunk in event.chunks))
             )
         ).encode("utf-8")
-        return Context(state=start), Reply("Plain text", data=data)
+        return Context(state=start), Reply("txt", data=data)
 
     if ctx.url and ctx.to_lang:
         duration = await schedule(ctx, _translate(ctx.url, ctx.to_lang), "Translate")
@@ -500,33 +510,51 @@ async def dispatch(sender_id: int, message: Message | str):
 
 
 if __name__ == "__main__":
-    logger.info("Starting Telegram client")
-    api_id = env.get_telegram_api_id()
-    api_hash = env.get_telegram_api_hash()
+    logger.info(
+        "Starting Discord client",
+        extra={
+            "json_fields": {
+                "labels": ["system"],
+            }
+        },
+    )
+    bot_token = env.get_discord_bot_token()
 
-    with TelegramClient("/tmp/freespeechbot", api_id, api_hash).start(
-        bot_token=env.get_telegram_bot_token()
-    ) as client:
+    intents = discord.Intents.default()
+    intents.message_content = True
 
-        @client.on(events.NewMessage(pattern=r".*"))
-        async def event_handler(event):
-            if event.raw_text == "/start":
-                context[event.sender_id] = Context(state=start)
-                await event.reply(
-                    f"Welcome to Freespeech! I am here to help you with video transcription, translation and dubbing.\n{URL_SOLUTION_TEXT}"  # noqa: E501
-                )
-                return
+    client = discord.Client(intents=intents)
 
-            if event.raw_text == "/reset":
-                context[event.sender_id] = Context(state=start)
-                await event.reply("Alright! Let's start over again.")
-                return
+    @client.event
+    async def on_ready():
+        logging.info(f"logged in as {client.user}")
 
-            await dispatch(event.sender_id, event)
+    @client.event
+    async def on_message(message: Message):
+        if message.author == client.user:
+            return
 
-        @client.on(events.CallbackQuery())
-        async def handle_callback(event):
-            await dispatch(event.sender_id, event.data.decode("ASCII"))
+        if not client.user:
+            return
 
-        client.start()
-        client.run_until_disconnected()
+        mention_ids = [user.id for user in message.mentions]
+        # ignore messages that don't mention the bot or are not DMs
+        if (client.user.id not in mention_ids) and not isinstance(
+            message.channel, discord.DMChannel
+        ):
+            return
+
+        if message.content == "/start":
+            await message.reply(
+                f"Welcome to Freespeech! I am here to help you with video transcription, translation and dubbing.\n{URL_SOLUTION_TEXT}"  # noqa: E501
+            )
+            return
+
+        if message.content == "/reset":
+            context[message.author.id] = Context(state=start)
+            await message.reply("Alright! Let's start over again.")
+            return
+
+        await dispatch(message.author.id, message)
+
+    client.run(bot_token, log_handler=None)

@@ -7,7 +7,7 @@ from typing import Dict, Sequence, Tuple
 import pytz
 
 from freespeech.lib import ssmd
-from freespeech.types import (
+from freespeech.typing import (
     BLANK_FILL_METHODS,
     LANGUAGES,
     METHODS,

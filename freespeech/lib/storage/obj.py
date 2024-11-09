@@ -17,7 +17,7 @@ from google.cloud.storage.retry import DEFAULT_RETRY
 
 from freespeech import env
 from freespeech.lib import concurrency
-from freespeech.types import url
+from freespeech.typing import url
 
 logger = logging.getLogger(__name__)
 

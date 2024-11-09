@@ -8,7 +8,7 @@ import streamlit as st
 
 from freespeech import env
 from freespeech.api import synthesize, transcribe, transcript, translate
-from freespeech.types import (
+from freespeech.typing import (
     LANGUAGES,
     assert_never,
     is_media_platform,

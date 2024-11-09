@@ -3,7 +3,7 @@ from dataclasses import replace
 from fastapi import APIRouter
 
 from freespeech.lib import concurrency, language
-from freespeech.types import (
+from freespeech.typing import (
     Language,
     Transcript,
     TranscriptFormat,

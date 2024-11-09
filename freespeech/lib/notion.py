@@ -6,9 +6,9 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from freespeech import env, types
+from freespeech import env, typing
 from freespeech.lib import text, transcript
-from freespeech.types import (
+from freespeech.typing import (
     Event,
     Settings,
     Source,
@@ -285,7 +285,7 @@ def parse_transcript(properties: Dict[str, Any], blocks: List[Dict]) -> Transcri
         raise ValueError(f"Invalid transcription method: {method}")
 
     lang = properties[PROPERTY_NAME_LANG]
-    if not types.is_language(lang):
+    if not typing.is_language(lang):
         raise ValueError(f"Invalid language: {lang}")
 
     settings = Settings()

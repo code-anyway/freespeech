@@ -6,7 +6,7 @@ from fastapi import APIRouter
 from freespeech import env
 from freespeech.lib import media, speech, youtube
 from freespeech.lib.storage import obj
-from freespeech.types import (
+from freespeech.typing import (
     Language,
     ServiceProvider,
     Source,

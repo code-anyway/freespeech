@@ -4,7 +4,7 @@ from fastapi import APIRouter
 
 from freespeech.lib import gdocs, notion
 from freespeech.lib.transcript import srt_to_events
-from freespeech.types import (
+from freespeech.typing import (
     Event,
     Language,
     Source,

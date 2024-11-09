@@ -5,7 +5,7 @@ from typing import Iterator, Sequence
 
 import spacy
 
-from freespeech.types import Language, assert_never
+from freespeech.typing import Language, assert_never
 
 # Apply simple heuristics to determine if a string is a sentence
 # end don't do anything fancy like parsing.

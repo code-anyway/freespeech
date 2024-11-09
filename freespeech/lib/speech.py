@@ -37,7 +37,7 @@ from freespeech.lib.text import (
     sentences,
     split_sentences,
 )
-from freespeech.types import (
+from freespeech.typing import (
     CHARACTERS,
     Audio,
     Character,

@@ -1,7 +1,7 @@
 import openai
 
 from freespeech import env
-from freespeech.types import Language
+from freespeech.typing import Language
 
 
 async def get_response(prompt) -> str:
