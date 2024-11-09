@@ -30,7 +30,11 @@ async def synthesize(text: str, voice: str, rate: float, output: Path) -> Path:
     voices = await get_voices()
     if voice not in voices:
         raise ValueError(f"Voice {voice} not available.")
+
     voice_id = voices[voice]
+
+    if voice == "Volodymyr":
+        voice_id = "372NsdHr6qutUh2JE8DJ"
 
     output_file = output / Path(f'{hash.string(f"{voice_id} {text}")}.mp3')
     if not output_file.exists():
