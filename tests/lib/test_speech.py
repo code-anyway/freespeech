@@ -7,7 +7,7 @@ from typing import Sequence, get_args
 import pytest
 
 from freespeech.lib import elevenlabs, hash, media, speech
-from freespeech.types import Character, Event, Language, Voice, assert_never
+from freespeech.typing import Character, Event, Language, Voice, assert_never
 
 AUDIO_EN_LOCAL = Path("tests/lib/data/media/en-US-mono.wav")
 AUDIO_EN_GS = "gs://freespeech-tests/test_speech/en-US-mono.wav"

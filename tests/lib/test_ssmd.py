@@ -1,5 +1,5 @@
 from freespeech.lib import gdocs, speech, ssmd
-from freespeech.types import Event, Transcript, Voice
+from freespeech.typing import Event, Transcript, Voice
 
 
 def test_wrap_ssml():

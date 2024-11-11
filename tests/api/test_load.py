@@ -1,7 +1,7 @@
 import pytest
 
 from freespeech.api import transcript
-from freespeech.types import Event, Voice
+from freespeech.typing import Event, Voice
 
 
 @pytest.mark.asyncio

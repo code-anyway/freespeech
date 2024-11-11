@@ -69,7 +69,8 @@ async def transcribe(
                 case "Machine A":
                     provider = "Google"
                     model = "latest_long"
-                case "Machine B":
+                # case "Machine B":
+                case "Machine B" | "Machine C" | "Machine D":
                     provider = "Deepgram"
                     model = "default"
                 case "Machine C":

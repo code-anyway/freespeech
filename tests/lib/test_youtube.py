@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from freespeech.lib import hash, youtube
-from freespeech.types import Event
+from freespeech.typing import Event
 
 VIDEO_DESCRIPTION = (
     "One hen\n\n"

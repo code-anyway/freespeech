@@ -3,7 +3,7 @@ import asyncio
 import pytest
 
 from freespeech.api import transcribe
-from freespeech.types import (
+from freespeech.typing import (
     SPEECH_BACKENDS,
     Event,
     Transcript,
@@ -38,6 +38,8 @@ async def test_load_subtitles() -> None:
 
 @pytest.mark.asyncio
 async def test_transcribe() -> None:
+    SKIP = ["Machine C", "Machine D"]
+    SKIP = []
     responses = [
         transcribe.transcribe(
             source="https://www.youtube.com/watch?v=bhRaND9jiOA",
@@ -45,12 +47,14 @@ async def test_transcribe() -> None:
             lang="en-US",
         )
         for backend in SPEECH_BACKENDS
-        if is_speech_to_text_backend(backend)
+        if backend not in SKIP and is_speech_to_text_backend(backend)
     ]
 
     results: list[Transcript] = await asyncio.gather(*responses)
 
     for backend, result in zip(SPEECH_BACKENDS, results):
+        if backend in SKIP:
+            continue
         assert result.source is not None, f"Backend {backend} failed"
         assert result.source.method == backend, f"Backend {backend} failed"
         assert result.audio is not None, f"Backend {backend} failed"

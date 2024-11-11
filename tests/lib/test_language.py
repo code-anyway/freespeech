@@ -1,6 +1,6 @@
 from freespeech.lib import language
 from freespeech.lib.language import deep_l_supported, translate_deep_l
-from freespeech.types import Event
+from freespeech.typing import Event
 
 
 def test_translate_text():

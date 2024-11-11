@@ -24,14 +24,13 @@ RUN uv venv --python 3.11
 
 
 COPY pyproject.toml /root/freespeech/
+COPY LICENSE /root/freespeech/
+COPY README.md /root/freespeech/
 
 RUN uv sync
 
-
-COPY LICENSE /root/freespeech/
-COPY README.md /root/freespeech/
-COPY setup.py /root/freespeech/
 COPY freespeech /root/freespeech/freespeech/
+RUN uv pip install -e .
 
 
 COPY run.sh /root/freespeech/

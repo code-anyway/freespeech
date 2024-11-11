@@ -2,7 +2,7 @@ import os
 import time
 
 from freespeech.lib import transcript
-from freespeech.types import Event, Settings, Source, Transcript, Voice
+from freespeech.typing import Event, Settings, Source, Transcript, Voice
 
 EXPECTED_EVENTS = [
     Event(

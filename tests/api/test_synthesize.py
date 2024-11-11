@@ -6,7 +6,7 @@ import pytest
 from freespeech.api import synthesize
 from freespeech.lib import hash, media, speech
 from freespeech.lib.storage import obj
-from freespeech.types import Event, Settings, Transcript, Voice
+from freespeech.typing import Event, Settings, Transcript, Voice
 
 AUDIO_BLANK = Path("tests/lib/data/ask/audio-blank-blanked.wav")
 AUDIO_BLANK_SYNTHESIZED = Path("tests/lib/data/ask/audio-blank-synthesized.wav")

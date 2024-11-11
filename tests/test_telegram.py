@@ -3,7 +3,7 @@ from typing import List, Tuple
 
 import pytest
 
-from freespeech import telegram
+from freespeech.run import telegram
 
 
 class Media:
